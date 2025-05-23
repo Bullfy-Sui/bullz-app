@@ -1,0 +1,142 @@
+module bullfy::oracle_interface {
+    use sui::tx_context::TxContext;
+    use sui::clock::Clock;
+    use pyth::price_info;
+    use pyth::price_identifier;
+    use pyth::price;
+    use pyth::pyth;
+    use pyth::price_info::PriceInfoObject;
+    use std::vector;
+    use std::string::{Self, String};
+    use std::option::{Self, Option};
+
+    // Error codes with descriptive messages
+    #[error]
+    const E_INVALID_ID: vector<u8> = b"Invalid price feed ID, expected a different price feed";
+    #[error]
+    const E_STALE_PRICE: vector<u8> = b"Price data is too old and exceeds the maximum allowed age";
+    #[error]
+    const E_PRICE_NEGATIVE: vector<u8> = b"Price value cannot be negative";
+
+    // ETH/USD price feed ID from Pyth Network (Sui format)
+    const ETH_USD_PRICE_FEED_ID: vector<u8> = x"ff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace";
+    
+    // BTC/USD price feed ID from Pyth Network (Sui format)
+    const BTC_USD_PRICE_FEED_ID: vector<u8> = x"e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43";
+    
+    // Maximum age of price data in seconds
+    const DEFAULT_MAX_PRICE_AGE: u64 = 60;
+
+    /// Gets the ETH/USD price from Pyth oracle
+    /// Returns the price in USD with 8 decimal places (e.g., 180000000000 = $1,800.00)
+    public fun get_eth_usd_price(clock: &Clock, price_info_object: &PriceInfoObject): u64 {
+        let max_age = DEFAULT_MAX_PRICE_AGE;
+        
+        // Get price info and verify ID matches ETH/USD feed
+        let price_info = price_info::get_price_info_from_price_info_object(price_info_object);
+        let price_id = price_identifier::get_bytes(&price_info::get_price_identifier(&price_info));
+        
+        // Verify we're using the correct price feed
+        assert!(vector::equal(&price_id, &ETH_USD_PRICE_FEED_ID), E_INVALID_ID);
+        
+        // Get price no older than max_age
+        let price_struct = pyth::get_price_no_older_than(price_info_object, clock, max_age);
+        
+        // Get the price value and ensure it's positive
+        let price_value = price::get_price(&price_struct);
+        assert!(price_value >= 0, E_PRICE_NEGATIVE);
+        
+        // Convert to u64 and return
+        price_value as u64
+    }
+    
+    /// Gets the BTC/USD price from Pyth oracle
+    /// Returns the price in USD with 8 decimal places (e.g., 4500000000000 = $45,000.00)
+    public fun get_btc_usd_price(clock: &Clock, price_info_object: &PriceInfoObject): u64 {
+        let max_age = DEFAULT_MAX_PRICE_AGE;
+        
+        // Get price info and verify ID matches BTC/USD feed
+        let price_info = price_info::get_price_info_from_price_info_object(price_info_object);
+        let price_id = price_identifier::get_bytes(&price_info::get_price_identifier(&price_info));
+        
+        // Verify we're using the correct price feed
+        assert!(vector::equal(&price_id, &BTC_USD_PRICE_FEED_ID), E_INVALID_ID);
+        
+        // Get price no older than max_age
+        let price_struct = pyth::get_price_no_older_than(price_info_object, clock, max_age);
+        
+        // Get the price value and ensure it's positive
+        let price_value = price::get_price(&price_struct);
+        assert!(price_value >= 0, E_PRICE_NEGATIVE);
+        
+        // Convert to u64 and return
+        price_value as u64
+    }
+    
+    /// Gets a price from any Pyth price feed with custom max age
+    /// Returns the price with feed's native decimal places
+    public fun get_price(
+        clock: &Clock, 
+        price_info_object: &PriceInfoObject, 
+        expected_feed_id: vector<u8>,
+        custom_max_age: u64
+    ): u64 {
+        // Get price info and verify ID matches expected feed
+        let price_info = price_info::get_price_info_from_price_info_object(price_info_object);
+        let price_id = price_identifier::get_bytes(&price_info::get_price_identifier(&price_info));
+        
+        // Verify we're using the correct price feed
+        assert!(vector::equal(&price_id, &expected_feed_id), E_INVALID_ID);
+        
+        // Get price no older than max_age
+        let max_age = if (custom_max_age == 0) { DEFAULT_MAX_PRICE_AGE } else { custom_max_age };
+        let price_struct = pyth::get_price_no_older_than(price_info_object, clock, max_age);
+        
+        // Get the price value and ensure it's positive
+        let price_value = price::get_price(&price_struct);
+        assert!(price_value >= 0, E_PRICE_NEGATIVE);
+        
+        // Get confidence and expo for additional metadata if needed
+        // let confidence = price::get_conf(&price_struct);
+        // let expo = price::get_expo(&price_struct);
+        
+        // Convert to u64 and return
+        price_value as u64
+    }
+    
+    /// Gets the price and additional metadata for any feed
+    /// Returns price, confidence, and exponent as a tuple
+    public fun get_price_with_metadata(
+        clock: &Clock,
+        price_info_object: &PriceInfoObject,
+        expected_feed_id: vector<u8>
+    ): (u64, u64, u64) {
+        // Get price info and verify ID matches expected feed
+        let price_info = price_info::get_price_info_from_price_info_object(price_info_object);
+        let price_id = price_identifier::get_bytes(&price_info::get_price_identifier(&price_info));
+        
+        // Verify we're using the correct price feed
+        assert!(vector::equal(&price_id, &expected_feed_id), E_INVALID_ID);
+        
+        // Get price no older than default max age
+        let price_struct = pyth::get_price_no_older_than(price_info_object, clock, DEFAULT_MAX_PRICE_AGE);
+        
+        // Get the price value and ensure it's positive
+        let price_value = price::get_price(&price_struct);
+        assert!(price_value >= 0, E_PRICE_NEGATIVE);
+        
+        // Get confidence and expo for additional metadata
+        let confidence = price::get_conf(&price_struct);
+        let expo = price::get_expo(&price_struct) as u64;
+        
+        // Return the tuple of price, confidence, and exponent
+        (price_value as u64, confidence as u64, expo)
+    }
+    
+    /// Verifies if a price feed ID matches an expected ID
+    public fun verify_price_feed_id(price_info_object: &PriceInfoObject, expected_id: vector<u8>): bool {
+        let price_info = price_info::get_price_info_from_price_info_object(price_info_object);
+        let price_id = price_identifier::get_bytes(&price_info::get_price_identifier(&price_info));
+        vector::equal(&price_id, &expected_id)
+    }
+}
