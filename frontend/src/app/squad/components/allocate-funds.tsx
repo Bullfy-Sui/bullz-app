@@ -37,8 +37,6 @@ const AllocateFunds = (props: AllocateFundsProps) => {
   //   TOTAL_BUDGET - playerArrayWatch?.reduce((a, b) => a + b.allocated_value, 0)
   // );
 
-  console.log(playerArray.fields, playerArrayWatch);
-
   const total_squad_value = playerArrayWatch?.reduce(
     (a, b) => a + b.allocated_value,
     0
@@ -73,6 +71,7 @@ const AllocateFunds = (props: AllocateFundsProps) => {
               <AllocationItem
                 key={player.name}
                 value={player.allocated_value}
+                name={player.name}
                 onSlide={(value) => {
                   playerArray.update(index, {
                     ...playerArrayWatch[index],

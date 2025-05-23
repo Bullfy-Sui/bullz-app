@@ -6,6 +6,7 @@ import { TOTAL_BUDGET } from "../constants";
 interface AllocationItemProps {
   onSlide: (value: number) => void;
   value: number;
+  name: string;
 }
 
 const AllocationItem = (props: AllocationItemProps) => {
@@ -17,7 +18,7 @@ const AllocationItem = (props: AllocationItemProps) => {
             <SolanaLogo />
             <div>
               <p className="text-[1rem] leading-[1.375rem] font-[600] flex items-center gap-[0.25rem]">
-                Solana <CheckBadge />
+                {props?.name} <CheckBadge />
               </p>
               <span className="text-sm leading-[1.125rem] text-[#9DA4AE] ">
                 ${props.value.toLocaleString()}

@@ -53,14 +53,6 @@ export default function LoginPage() {
     // );
   };
 
-  // if (registering || connectingWallet) {
-  //   return (
-  //     <div className="flex h-screen items-center justify-center">
-  //       <p className="text-muted">Authenticating...</p>
-  //     </div>
-  //   );
-  // }
-
   const modalContent = useMemo(() => {
     if (registrationSuccess || connectionSuccess) {
       return {

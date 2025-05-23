@@ -13,8 +13,9 @@ const SquadPage = () => {
   return (
     <>
       <Header />
-
-      <PriceList />
+      <div className="h-[60dvh] overflow-y-scroll">
+        <PriceList />
+      </div>
 
       <div className="bg-[#1E1E28] p-[1.5rem] border-t-[0.4px] border-white mt-1">
         <div className="flex items-center">
