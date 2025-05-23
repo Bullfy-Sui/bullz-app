@@ -10,7 +10,7 @@ export const useCreateSquad = () => {
     mutationKey: ["create-squad"],
     mutationFn: (data: SquadForm) =>
       HttpClient.post(BASE_AXIOS, {
-        url: "http://localhost:8082/api/v1/squads",
+        url: "/squads",
         data: { ...data, wallet_address: address },
       }),
   });

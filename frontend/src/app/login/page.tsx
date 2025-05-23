@@ -45,7 +45,7 @@ export default function LoginPage() {
     console.log(res);
     console.log("connected");
     setAddress(res.accounts[0].address);
-    // router.push("/squad");
+    router.push("/squad");
     // registerUser(
     //   {
     //     address: res.accounts[0].address,
