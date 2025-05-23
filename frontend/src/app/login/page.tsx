@@ -2,7 +2,11 @@
 
 import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/lib/store/app-store";
-import { useConnectWallet, useWallets } from "@mysten/dapp-kit";
+import {
+  useConnectWallet,
+  useWallets,
+  useDisconnectWallet,
+} from "@mysten/dapp-kit";
 
 import { useRouter } from "next/navigation";
 import { useRegister } from "./api-services";
@@ -34,12 +38,14 @@ export default function LoginPage() {
     isError: registrationError,
   } = useRegister();
   const { onOpen, onClose, isOpen } = useDisclosure();
+  const { mutate: disconnectWallet, isPending: disconnecting } =
+    useDisconnectWallet();
 
   const onConnect = (res) => {
     console.log(res);
     console.log("connected");
     setAddress(res.accounts[0].address);
-    router.push("/squad");
+    // router.push("/squad");
     // registerUser(
     //   {
     //     address: res.accounts[0].address,
@@ -113,6 +119,17 @@ export default function LoginPage() {
             Connect to {wallet.name}
           </Button>
         ))}
+        {/* see this for example */}
+        {/* <Button
+          className="w-full text-center"
+          onClick={() => {
+            disconnectWallet(undefined, {
+              onSuccess: (res) => console.log("Disconnected", res),
+            });
+          }}
+        >
+          {disconnecting ? "Loading..." : "Disconnect wallet"}
+        </Button> */}
       </div>
       <NotificationModal
         isOpen={isOpen}
