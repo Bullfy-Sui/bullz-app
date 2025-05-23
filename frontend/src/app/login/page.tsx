@@ -38,17 +38,19 @@ export default function LoginPage() {
   const onConnect = (res) => {
     console.log(res);
     console.log("connected");
-    registerUser(
-      {
-        address: res.accounts[0].address,
-      },
-      {
-        onSuccess: (data) => {
-          setAddress(data.data.address);
-          router.push("/"); // redirect to home page after connecting to wallet
-        },
-      }
-    );
+    setAddress(res.accounts[0].address);
+    router.push("/squad");
+    // registerUser(
+    //   {
+    //     address: res.accounts[0].address,
+    //   },
+    //   {
+    //     onSuccess: (data) => {
+    //       setAddress(data.data.address);
+    //       router.push("/squad");
+    //     },
+    //   }
+    // );
   };
 
   // if (registering || connectingWallet) {

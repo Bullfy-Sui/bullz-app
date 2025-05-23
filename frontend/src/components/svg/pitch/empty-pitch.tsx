@@ -8,8 +8,8 @@ const EmptyPitch = () => {
       xmlns="http://www.w3.org/2000/svg"
       xmlnsXlink="http://www.w3.org/1999/xlink"
     >
-      <g clip-path="url(#clip0_7917_82129)">
-        <g clip-path="url(#clip1_7917_82129)">
+      <g clipPath="url(#clip0_7917_82129)">
+        <g clipPath="url(#clip1_7917_82129)">
           <path
             fillRule="evenodd"
             clipRule="evenodd"
@@ -123,7 +123,7 @@ const EmptyPitch = () => {
           d="M49.1361 20.4484L18.2031 112.225L26.6063 134.942L57.5392 43.1658L49.1361 20.4484Z"
           fill="url(#paint6_radial_7917_82129)"
         />
-        <g clip-path="url(#clip2_7917_82129)">
+        <g clipPath="url(#clip2_7917_82129)">
           <mask
             id="mask0_7917_82129"
             style={{ maskType: "alpha" }}
@@ -219,8 +219,8 @@ const EmptyPitch = () => {
           gradientUnits="userSpaceOnUse"
           gradientTransform="translate(214.381 19.2407) rotate(160.302) scale(81.7862 130.248)"
         >
-          <stop stop-color="#2383CD" />
-          <stop offset="1" stop-color="#140205" />
+          <stop stopColor="#2383CD" />
+          <stop offset="1" stopColor="#140205" />
         </radialGradient>
         <radialGradient
           id="paint1_radial_7917_82129"
@@ -230,8 +230,8 @@ const EmptyPitch = () => {
           gradientUnits="userSpaceOnUse"
           gradientTransform="translate(295.975 19.2407) rotate(160.302) scale(81.7862 130.248)"
         >
-          <stop stop-color="#2383CD" />
-          <stop offset="1" stop-color="#140205" />
+          <stop stopColor="#2383CD" />
+          <stop offset="1" stopColor="#140205" />
         </radialGradient>
         <radialGradient
           id="paint2_radial_7917_82129"
@@ -241,8 +241,8 @@ const EmptyPitch = () => {
           gradientUnits="userSpaceOnUse"
           gradientTransform="translate(129.569 19.2407) rotate(160.302) scale(81.7862 130.248)"
         >
-          <stop stop-color="#2383CD" />
-          <stop offset="1" stop-color="#140205" />
+          <stop stopColor="#2383CD" />
+          <stop offset="1" stopColor="#140205" />
         </radialGradient>
         <radialGradient
           id="paint3_radial_7917_82129"
@@ -252,8 +252,8 @@ const EmptyPitch = () => {
           gradientUnits="userSpaceOnUse"
           gradientTransform="translate(378.569 19.2407) rotate(160.302) scale(81.7862 130.248)"
         >
-          <stop stop-color="#2383CD" />
-          <stop offset="1" stop-color="#140205" />
+          <stop stopColor="#2383CD" />
+          <stop offset="1" stopColor="#140205" />
         </radialGradient>
         <radialGradient
           id="paint4_radial_7917_82129"
@@ -263,8 +263,8 @@ const EmptyPitch = () => {
           gradientUnits="userSpaceOnUse"
           gradientTransform="translate(422.803 114.961) rotate(-120.954) scale(82.8721 112.907)"
         >
-          <stop stop-color="#2383CD" />
-          <stop offset="1" stop-color="#140205" />
+          <stop stopColor="#2383CD" />
+          <stop offset="1" stopColor="#140205" />
         </radialGradient>
         <radialGradient
           id="paint5_radial_7917_82129"
@@ -274,8 +274,8 @@ const EmptyPitch = () => {
           gradientUnits="userSpaceOnUse"
           gradientTransform="translate(452.804 209.292) rotate(-120.954) scale(82.8721 112.907)"
         >
-          <stop stop-color="#2383CD" />
-          <stop offset="1" stop-color="#140205" />
+          <stop stopColor="#2383CD" />
+          <stop offset="1" stopColor="#140205" />
         </radialGradient>
         <radialGradient
           id="paint6_radial_7917_82129"
@@ -285,8 +285,8 @@ const EmptyPitch = () => {
           gradientUnits="userSpaceOnUse"
           gradientTransform="translate(48.0815 23.5772) rotate(100.75) scale(121.478 68.5745)"
         >
-          <stop stop-color="#2383CD" />
-          <stop offset="1" stop-color="#140205" />
+          <stop stopColor="#2383CD" />
+          <stop offset="1" stopColor="#140205" />
         </radialGradient>
         <radialGradient
           id="paint7_radial_7917_82129"
@@ -296,8 +296,8 @@ const EmptyPitch = () => {
           gradientUnits="userSpaceOnUse"
           gradientTransform="translate(17.5182 118.75) rotate(100.53) scale(121.638 67.3505)"
         >
-          <stop stop-color="#2383CD" />
-          <stop offset="1" stop-color="#140205" />
+          <stop stopColor="#2383CD" />
+          <stop offset="1" stopColor="#140205" />
         </radialGradient>
         <clipPath id="clip0_7917_82129">
           <rect

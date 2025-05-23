@@ -2,10 +2,10 @@ import { cn } from "@/lib/utils";
 import TokenCard from "./card";
 
 interface PriceListProps {
-  onSelect: () => void;
+  onSelect?: () => void;
 }
 
-const PriceList = (props: PriceListProps) => {
+const PriceList = (props?: PriceListProps) => {
   return (
     <>
       <div className="flex items-center justify-between mt-[1.25rem] mb-[1.5rem]">
@@ -37,7 +37,7 @@ const PriceList = (props: PriceListProps) => {
           </div>
         </div>
       </div>
-      <TokenCard onClick={props.onSelect} />
+      <TokenCard onClick={props?.onSelect} />
       {/* <TokenCard />
       <TokenCard />
       <TokenCard />
