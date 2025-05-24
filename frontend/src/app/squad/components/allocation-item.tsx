@@ -16,7 +16,7 @@ const AllocationItem = (props: AllocationItemProps) => {
         <div className="flex items-center  justify-between mb-[1rem]">
           <div className="flex gap-[0.75rem]">
             {/* <SolanaLogo /> */}
-            <SuiLogo className="size-[2.75rem]" />
+            <SuiLogo className="size-[2.75rem] rounded-full" />
             <div>
               <p className="text-[1rem] leading-[1.375rem] font-[600] flex items-center gap-[0.25rem]">
                 {props?.name} <CheckBadge />
