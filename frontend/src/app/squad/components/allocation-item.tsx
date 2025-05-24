@@ -1,5 +1,5 @@
 import CheckBadge from "@/components/icons/check-badge";
-import SolanaLogo from "@/components/svg/sol.logo";
+import SuiLogo from "@/components/svg/sui.logo";
 import { Slider } from "@/components/ui/slider";
 import { TOTAL_BUDGET } from "../constants";
 
@@ -15,7 +15,8 @@ const AllocationItem = (props: AllocationItemProps) => {
       <div className="bg-modal-bg border border-white/10 rounded-[0.625rem]  px-[1rem] py-[1rem] cursor-pointer">
         <div className="flex items-center  justify-between mb-[1rem]">
           <div className="flex gap-[0.75rem]">
-            <SolanaLogo />
+            {/* <SolanaLogo /> */}
+            <SuiLogo className="size-[2.75rem]" />
             <div>
               <p className="text-[1rem] leading-[1.375rem] font-[600] flex items-center gap-[0.25rem]">
                 {props?.name} <CheckBadge />
