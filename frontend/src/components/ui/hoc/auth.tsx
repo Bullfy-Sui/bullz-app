@@ -65,7 +65,7 @@ const AuthWrapper = ({ children }: { children: React.ReactNode }) => {
         { address },
         {
           onSuccess: () => {
-            router.push("/");
+            router.push("/squad");
           },
           onError: () => {
             // setGoogleId(null);
