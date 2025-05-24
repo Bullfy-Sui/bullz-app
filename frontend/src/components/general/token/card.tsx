@@ -1,9 +1,7 @@
 import { TokenResponse } from "@/common-api-services/token-price.ts/types";
 import CheckBadge from "@/components/icons/check-badge";
-import SolanaLogo from "@/components/svg/sol.logo";
 import SuiLogo from "@/components/svg/sui.logo";
 import { cn } from "@/lib/utils";
-import React from "react";
 
 interface TokenCardProps extends TokenResponse {
   onClick?: () => void;
