@@ -61,7 +61,9 @@ const NewSquadPage = () => {
     onClose: closeAllocationDrawer,
     onOpen: openAllocationDrawer,
   } = useDisclosure();
-  const form = useForm<SquadForm>();
+  const form = useForm<SquadForm>({
+    defaultValues: { formation: "OneThreeOneTwo" },
+  });
   const playerArray = useFieldArray({ control: form.control, name: "players" });
 
   const handlePlayerSelect = (token: TokenResponse) => {
@@ -176,6 +178,7 @@ const NewSquadPage = () => {
               <EmptyPitch />
               <div className="px-[1.5rem] w-full">
                 <Button
+                  type="button"
                   onClick={() => openAllocationDrawer()}
                   className=" w-full  z-10 cursor-pointer hover:bg-button-bg"
                 >
