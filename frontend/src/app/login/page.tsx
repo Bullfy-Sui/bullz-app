@@ -28,7 +28,7 @@ export default function LoginPage() {
   const { setAddress } = useAppStore();
   const router = useRouter();
   const {
-    // mutate: registerUser,
+    mutate: registerUser,
     isPending: registering,
     isSuccess: registrationSuccess,
     isError: registrationError,
@@ -42,19 +42,19 @@ export default function LoginPage() {
   const onConnect = (res) => {
     console.log(res);
     console.log("connected");
-    setAddress(res.accounts[0].address);
-    router.push("/squad");
-    // registerUser(
-    //   {
-    //     address: res.accounts[0].address,
-    //   },
-    //   {
-    //     onSuccess: (data) => {
-    //       setAddress(data.data.address);
-    //       router.push("/squad");
-    //     },
-    //   }
-    // );
+    // setAddress(res.accounts[0].address);
+    // router.push("/squad");
+    registerUser(
+      {
+        address: res.accounts[0].address,
+      },
+      {
+        onSuccess: (data) => {
+          setAddress(data.data.address);
+          router.push("/squad");
+        },
+      }
+    );
   };
 
   const modalContent = useMemo(() => {
