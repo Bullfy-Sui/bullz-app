@@ -5,7 +5,7 @@ import NotificationModal from "@/components/general/modals/notify";
 import TitleBar from "@/components/general/title-bar";
 import PriceList from "@/components/general/token/price-list";
 import EmptyPitch from "@/components/svg/pitch/empty-pitch";
-import SolanaLogo from "@/components/svg/sol.logo";
+import SuiLogo from "@/components/svg/sui.logo";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useDisclosure } from "@/lib/hooks/use-diclosure";
@@ -27,8 +27,9 @@ const Player = ({
 }) => {
   return (
     <div className="w-[4.375rem] h-[4.375rem]" onClick={onClick}>
-      <div className="bg-background w-full h-full flex items-center justify-center">
-        <SolanaLogo />
+      <div className="bg-sui-blue w-full h-full flex items-center justify-center">
+        {/* <SolanaLogo /> */}
+        <SuiLogo className="size-[2.75rem]" />
       </div>
       <div className="w-full bg-white flex items-center justify-center">
         <span className=" text-black w-full text-sm text-center">
