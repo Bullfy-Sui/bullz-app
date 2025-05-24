@@ -8,7 +8,7 @@ export const useRegister = () => {
     mutationFn: async (data: AuthRequest) => {
       console.log(data);
       return await HttpClient.post<RegistrationResponse>(BASE_AXIOS, {
-        url: "http://localhost:8082/api/v1/register",
+        url: "/register",
         data,
       });
     },
