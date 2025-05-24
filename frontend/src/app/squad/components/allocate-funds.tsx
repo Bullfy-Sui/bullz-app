@@ -1,21 +1,18 @@
 import TitleBar from "@/components/general/title-bar";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { useState } from "react";
-import AllocationItem from "./allocation-item";
-import { TOTAL_BUDGET } from "../constants";
-import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
-import { SquadForm } from "../types";
+import { Button } from "@/components/ui/button";
 import {
-  Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
+import { TOTAL_BUDGET } from "../constants";
+import { SquadForm } from "../types";
+import AllocationItem from "./allocation-item";
 
 interface AllocateFundsProps {
   isOpen: boolean;
@@ -23,7 +20,6 @@ interface AllocateFundsProps {
 }
 
 const AllocateFunds = (props: AllocateFundsProps) => {
-  const [allocated, setAllocated] = useState(7);
   const formContext = useFormContext<SquadForm>();
   const playerArray = useFieldArray({
     control: formContext.control,

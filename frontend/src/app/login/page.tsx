@@ -2,11 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/lib/store/app-store";
-import {
-  useConnectWallet,
-  useWallets,
-  useDisconnectWallet,
-} from "@mysten/dapp-kit";
+import { useConnectWallet, useWallets } from "@mysten/dapp-kit";
 
 import { useRouter } from "next/navigation";
 import { useRegister } from "./api-services";
@@ -38,25 +34,27 @@ export default function LoginPage() {
     isError: registrationError,
   } = useRegister();
   const { onOpen, onClose, isOpen } = useDisclosure();
-  const { mutate: disconnectWallet, isPending: disconnecting } =
-    useDisconnectWallet();
 
+  // const { mutate: disconnectWallet, isPending: disconnecting } =
+  //   useDisconnectWallet();
+
+  // @ts-expect-error - -
   const onConnect = (res) => {
     console.log(res);
     console.log("connected");
-    setAddress(res.accounts[0].address);
-    router.push("/squad");
-    // registerUser(
-    //   {
-    //     address: res.accounts[0].address,
-    //   },
-    //   {
-    //     onSuccess: (data) => {
-    //       setAddress(data.data.address);
-    //       router.push("/squad");
-    //     },
-    //   }
-    // );
+    // setAddress(res.accounts[0].address);
+    // router.push("/squad");
+    registerUser(
+      {
+        address: res.accounts[0].address,
+      },
+      {
+        onSuccess: (data) => {
+          setAddress(data.data.address);
+          router.push("/squad");
+        },
+      }
+    );
   };
 
   const modalContent = useMemo(() => {
@@ -81,8 +79,8 @@ export default function LoginPage() {
     connectionSuccess,
     registrationError,
     connectionError,
-    registering,
-    connectingWallet,
+    // registering,
+    // connectingWallet,
   ]);
 
   return (
@@ -136,9 +134,11 @@ export default function LoginPage() {
         onClose={onClose}
         onButtonClick={onClose}
         buttonLabel={modalContent?.buttonLabel}
+        // @ts-expect-error - -
         type={modalContent?.type}
         isLoading={registering || connectingWallet}
         title={modalContent?.title}
+        // @ts-expect-error - -
         description={modalContent?.description}
       />
     </>

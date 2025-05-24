@@ -17,14 +17,13 @@ import { RegistrationResponse } from "@/app/login/api-services/types";
 import { useGetMutationState } from "@/lib/hooks/use-get-mutation-state";
 import { useAppStore } from "@/lib/store/app-store";
 import { jwtToAddress } from "@mysten/sui/zklogin";
-import { jwtDecode } from "jwt-decode";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-interface DecodedJwt {
-  sub: string;
-  [key: string]: string;
-}
+// interface DecodedJwt {
+//   sub: string;
+//   [key: string]: string;
+// }
 
 const stringToBigInt = (str: string) => {
   try {
@@ -36,7 +35,7 @@ const stringToBigInt = (str: string) => {
 
 const AuthWrapper = ({ children }: { children: React.ReactNode }) => {
   const { mutate: register, isPending: registering } = useRegister();
-  const { setGoogleId, setAddress, address, google_id } = useAppStore();
+  const { setAddress, address } = useAppStore();
   const [idToken, setIdToken] = useState<string | null>(null);
   const router = useRouter();
   const { data: registerResponse } = useGetMutationState<RegistrationResponse>([
@@ -52,31 +51,30 @@ const AuthWrapper = ({ children }: { children: React.ReactNode }) => {
     if (!token) return;
     setIdToken(token);
 
-    const decodedJwt = jwtDecode<DecodedJwt>(token);
+    // const decodedJwt = jwtDecode<DecodedJwt>(token);
     const salt = stringToBigInt("12345");
     const zkLoginUserAddress = jwtToAddress(token, salt.toString());
 
-    setGoogleId(decodedJwt.sub);
     setAddress(zkLoginUserAddress);
-  }, [setGoogleId, setAddress]);
+  }, [setAddress]);
 
   // Step 2: Trigger registration
   useEffect(() => {
-    if (address && google_id && idToken) {
+    if (address && idToken) {
       register(
-        { address, google_id },
+        { address },
         {
           onSuccess: () => {
             router.push("/");
           },
           onError: () => {
-            setGoogleId(null);
+            // setGoogleId(null);
             setAddress(null);
           },
         }
       );
     }
-  }, [address, google_id, idToken, register]);
+  }, [address, idToken, register, setAddress]);
 
   console.log(registerResponse?.data?.address);
 

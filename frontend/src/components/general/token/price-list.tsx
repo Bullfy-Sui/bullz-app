@@ -10,8 +10,7 @@ interface PriceListProps {
 }
 
 const PriceList = (props?: PriceListProps) => {
-  const { data: priceListResponse, isLoading: gettingPriceList } =
-    useGetPriceList();
+  const { data: priceListResponse } = useGetPriceList();
   return (
     <>
       <div className="flex items-center justify-between mt-[1.25rem] mb-[1.5rem]">
@@ -50,6 +49,7 @@ const PriceList = (props?: PriceListProps) => {
         <TokenCard
           {...token}
           key={token.token_id}
+          // @ts-expect-error - -
           onClick={() => props?.onSelect(token)}
         />
       ))}

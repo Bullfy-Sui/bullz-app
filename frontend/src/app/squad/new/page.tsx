@@ -205,11 +205,16 @@ const NewSquadPage = () => {
       <NotificationModal
         isOpen={notificationIsOpen}
         onClose={closeNotification}
+        // @ts-expect-error - -
         onButtonClick={modalContent?.onButtonClick}
+        // @ts-expect-error - -
         buttonLabel={modalContent?.buttonLabel}
+        // @ts-expect-error - -
         type={modalContent?.type}
         isLoading={creating}
+        // @ts-expect-error - -
         title={modalContent?.title}
+        // @ts-expect-error - -
         description={modalContent?.description}
       />
     </>
