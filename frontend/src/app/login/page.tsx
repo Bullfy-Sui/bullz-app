@@ -35,9 +35,15 @@ export default function LoginPage() {
   } = useRegister();
   const { onOpen, onClose, isOpen } = useDisclosure();
 
+  // const { mutate: disconnectWallet, isPending: disconnecting } =
+  //   useDisconnectWallet();
+
+  // @ts-expect-error - -
   const onConnect = (res) => {
     console.log(res);
     console.log("connected");
+    // setAddress(res.accounts[0].address);
+    // router.push("/squad");
     registerUser(
       {
         address: res.accounts[0].address,
@@ -45,19 +51,11 @@ export default function LoginPage() {
       {
         onSuccess: (data) => {
           setAddress(data.data.address);
-          router.push("/"); // redirect to home page after connecting to wallet
+          router.push("/squad");
         },
       }
     );
   };
-
-  // if (registering || connectingWallet) {
-  //   return (
-  //     <div className="flex h-screen items-center justify-center">
-  //       <p className="text-muted">Authenticating...</p>
-  //     </div>
-  //   );
-  // }
 
   const modalContent = useMemo(() => {
     if (registrationSuccess || connectionSuccess) {
@@ -81,8 +79,8 @@ export default function LoginPage() {
     connectionSuccess,
     registrationError,
     connectionError,
-    registering,
-    connectingWallet,
+    // registering,
+    // connectingWallet,
   ]);
 
   return (
@@ -119,15 +117,28 @@ export default function LoginPage() {
             Connect to {wallet.name}
           </Button>
         ))}
+        {/* see this for example */}
+        {/* <Button
+          className="w-full text-center"
+          onClick={() => {
+            disconnectWallet(undefined, {
+              onSuccess: (res) => console.log("Disconnected", res),
+            });
+          }}
+        >
+          {disconnecting ? "Loading..." : "Disconnect wallet"}
+        </Button> */}
       </div>
       <NotificationModal
         isOpen={isOpen}
         onClose={onClose}
         onButtonClick={onClose}
         buttonLabel={modalContent?.buttonLabel}
+        // @ts-expect-error - -
         type={modalContent?.type}
         isLoading={registering || connectingWallet}
         title={modalContent?.title}
+        // @ts-expect-error - -
         description={modalContent?.description}
       />
     </>

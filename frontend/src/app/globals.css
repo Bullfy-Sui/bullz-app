@@ -12,12 +12,14 @@
   --color-modal-bg: #1e1e28;
   --color-gray-100: #dadae6;
   --color-gray-700: #32324d;
+  --color-gray-800: #1f1f33;
   --color-success-foreground: #24c98d;
   --color-success-opacity1: #24c98d14;
   --color-profit-foreground: #36ff91;
   --color-loss-foreground: #ff5252;
   --color-slider-bg: #31333a;
   --color-slider-border: #e1e2e7;
+  --color-sui-blue: #4da2ff;
 }
 
 @layer base {

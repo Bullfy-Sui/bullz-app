@@ -9,11 +9,11 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 interface NotificationModalProps {
   type: "success" | "error" | "warning";
-  title: string;
+  title?: string;
   description: string;
   onClose: () => void;
-  buttonLabel: string;
-  onButtonClick: () => void;
+  buttonLabel?: string;
+  onButtonClick?: () => void;
   isOpen: boolean;
   isLoading: boolean;
 }
@@ -30,7 +30,8 @@ const NotificationModal = (props: NotificationModalProps) => {
         {props.isLoading ? (
           <div className="flex h-full items-center justify-center">
             <p className="text-[#949193] text-[1rem] leading-[1.5rem]">
-              Authenticating...
+              {props.description}
+              {/* Authenticating... */}
             </p>
           </div>
         ) : (
