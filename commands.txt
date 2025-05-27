@@ -1,0 +1,12 @@
+
+sui client call \
+  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --module squad_manager \
+  --function create_squad \
+  --args 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 "goalkeeper" "[defenders1, defender2]" "[midfielder1, midfielder2]" "[forward1, forward2]" 3 \
+  --gas-budget 100000000
+
+
+sui client ptb \
+  --move-call 0x226bc26a396add43dbd8f0b9ffaca41de1ad076ce797164a95431ec221f4c0ae::dashboard::create_proposal \
+  '" Proosal 2 "' '" proposal description 2 "' 1774518152

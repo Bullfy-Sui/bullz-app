@@ -1,10 +1,7 @@
 #[allow(duplicate_alias,unused_const,lint(self_transfer))]
 module bullfy::fee_collector {
-    use sui::object::{Self, UID};
-    use sui::tx_context::{Self, TxContext};
     use sui::coin::{Self, Coin};
     use sui::balance::{Self};
-    use sui::transfer;
     use sui::sui::SUI;
     use sui::event;
     use sui::balance::Balance;

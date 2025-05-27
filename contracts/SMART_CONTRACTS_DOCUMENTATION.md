@@ -20,6 +20,7 @@ Manages football squads and players, including creation, updating, retrieval, an
   - Fields:
     - `id: UID` — Unique identifier.
     - `owner: address` — Owner of the squad.
+    - `squad_id: u64` — Unique ID for the squad.
     - `goalkeeper: Option<String>` — Goalkeeper name.
     - `defenders: vector<String>` — List of defenders.
     - `midfielders: vector<String>` — List of midfielders.
@@ -40,7 +41,9 @@ Manages football squads and players, including creation, updating, retrieval, an
 - **SquadRegistry**
   - Fields:
     - `id: UID`
-    - `squads: Table<address, Squad>` — Mapping of owner address to Squad.
+    - `squads: Table<u64, Squad>` — Mapping of squad ID to Squad.
+    - `owner_squads: Table<address, vector<u64>>` — Mapping of owner address to their squad IDs.
+    - `next_squad_id: u64` — Counter for next squad ID.
   - Traits: `key`
 
 - **PlayerRegistry**
@@ -58,16 +61,18 @@ Manages football squads and players, including creation, updating, retrieval, an
 
 - Error codes for validation (e.g., `ENotEnoughDefenders`, `EOwnerAlreadyHasSquad`).
 - Formation constants (e.g., `FORMATION_4_3_2_1`).
+- `SQUAD_CREATION_FEE: u64 = 1_000_000_000` — Fee required to create a squad (1 SUI).
 
 ### Key Functions
 
-- `create_squad` — Creates a new squad with validation on player counts.
+- `create_squad` — Creates a new squad with validation on player counts. Requires a payment of 1 SUI token that is sent to the fee collector.
 - `update_squad` — Updates an existing squad.
 - `create_player` — Creates a new player linked to a squad.
 - `update_player` — Updates player details with ownership checks.
 - `delete_squad` — Deletes a squad and its resources.
 - `get_squad`, `get_player` — Retrieve squad or player by ID.
-- `has_squad`, `has_player` — Check existence.
+- `get_owner_squads` — Retrieves all squad IDs owned by an address.
+- `has_squads`, `has_player` — Check existence.
 - `formation_to_string` — Utility to convert formation type to string.
 
 ---
