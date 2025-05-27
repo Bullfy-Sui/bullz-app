@@ -1,50 +1,34 @@
-import React from "react";
+import React, { SVGProps } from "react";
 
-const DefaultDp = () => {
+const DefaultDp = (props: SVGProps<SVGSVGElement>) => {
   return (
     <svg
-      width="23"
-      height="23"
-      viewBox="0 0 23 23"
+      width="50"
+      height="50"
+      viewBox="0 0 50 50"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       xmlnsXlink="http://www.w3.org/1999/xlink"
+      {...props}
     >
-      <g clip-path="url(#clip0_7917_81662)">
-        <rect
-          y="0.341309"
-          width="22.2609"
-          height="22.2609"
-          rx="11.1304"
-          fill="white"
-        />
-        <rect
-          y="0.341309"
-          width="22.2609"
-          height="22.2609"
-          fill="url(#pattern0_7917_81662)"
-        />
-      </g>
+      <rect
+        x="-9.91113"
+        y="-6.22021"
+        width="69.822"
+        height="69.822"
+        fill="url(#pattern0_7949_73306)"
+      />
       <defs>
         <pattern
-          id="pattern0_7917_81662"
+          id="pattern0_7949_73306"
           patternContentUnits="objectBoundingBox"
           width="1"
           height="1"
         >
-          <use xlinkHref="#image0_7917_81662" transform="scale(0.002)" />
+          <use xlinkHref="#image0_7949_73306" transform="scale(0.002)" />
         </pattern>
-        <clipPath id="clip0_7917_81662">
-          <rect
-            y="0.341309"
-            width="22.2609"
-            height="22.2609"
-            rx="11.1304"
-            fill="white"
-          />
-        </clipPath>
         <image
-          id="image0_7917_81662"
+          id="image0_7949_73306"
           width="500"
           height="500"
           preserveAspectRatio="none"

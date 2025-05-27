@@ -4,46 +4,29 @@ import { TokenResponse } from "@/common-api-services/token-price.ts/types";
 import NotificationModal from "@/components/general/modals/notify";
 import TitleBar from "@/components/general/title-bar";
 import PriceList from "@/components/general/token/price-list";
-import EmptyPitch from "@/components/svg/pitch/empty-pitch";
-import SuiLogo from "@/components/svg/sui.logo";
-import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useDisclosure } from "@/lib/hooks/use-diclosure";
 import { useNotificationsModal } from "@/lib/hooks/use-notifications-modal";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { FormProvider, useFieldArray, useForm } from "react-hook-form";
+import {
+  FormProvider,
+  useFieldArray,
+  useForm,
+  useWatch,
+} from "react-hook-form";
 import { useCreateSquad } from "../api-services";
 import AllocateFunds from "../components/allocate-funds";
+import Pitch from "../components/pitch";
 import { formationLayouts, SquadFormation, TOTAL_BUDGET } from "../constants";
-import { FormationLayoutKey, IPlayer, SquadForm } from "../types";
-
-const Player = ({
-  player,
-  onClick,
-}: {
-  player: IPlayer;
-  onClick: () => void;
-}) => {
-  return (
-    <div className="w-[4.375rem] h-[4.375rem]" onClick={onClick}>
-      <div className="bg-sui-blue w-full h-full flex items-center justify-center">
-        {/* <SolanaLogo /> */}
-        <SuiLogo className="size-[2.75rem]" />
-      </div>
-      <div className="w-full bg-white flex items-center justify-center">
-        <span className=" text-black w-full text-sm text-center">
-          {player.name}
-        </span>
-      </div>
-    </div>
-  );
-};
+import { FormationLayoutKey, SquadForm } from "../types";
 
 const NewSquadPage = () => {
   const [layout, setLayout] = useState(formationLayouts.OneThreeOneTwo);
   const [formation, setFormation] = useState(SquadFormation.OneThreeOneTwo);
   const { onClose, onOpen, isOpen } = useDisclosure();
+  const router = useRouter();
   const {
     onClose: closeNotification,
     onOpen: openNotification,
@@ -65,9 +48,28 @@ const NewSquadPage = () => {
     defaultValues: { formation: "OneThreeOneTwo" },
   });
   const playerArray = useFieldArray({ control: form.control, name: "players" });
+  const playerArrayWatch = useWatch({ control: form.control, name: "players" });
 
   const handlePlayerSelect = (token: TokenResponse) => {
-    if (playerArray.fields.length < 7) {
+    const foundPlayer = playerArrayWatch?.find(
+      (player) => player.position === focusedIndex
+    );
+    console.log(
+      foundPlayer,
+      focusedIndex,
+      token,
+      playerArray.fields,
+      playerArray.fields.length
+    );
+
+    if (foundPlayer)
+      playerArray.update(playerArrayWatch.indexOf(foundPlayer), {
+        ...foundPlayer,
+        name: token.token_symbol,
+        token_price_id: token.token_id,
+      });
+
+    if (playerArray.fields.length < 7 && !foundPlayer) {
       playerArray.append({
         position: focusedIndex as number,
         name: token.token_symbol,
@@ -94,7 +96,10 @@ const NewSquadPage = () => {
       description: "You just created a team.",
       buttonLabel: "Go Back Home",
       type: "success",
-      onButtonClick: closeNotification,
+      onButtonClick: () => {
+        router.push("/");
+        closeNotification();
+      },
     },
     errorContent: {
       title: "Error",
@@ -138,54 +143,20 @@ const NewSquadPage = () => {
                 </span>
               ))}
             </div>
-            <main className="relative flex flex-col items-center">
-              <div className="absolute h-[33.5625rem] w-[23.375rem] flex flex-col justify-between pt-[4rem] mx-auto">
-                {layout.map((row, rowIndex) => (
-                  <div
-                    key={rowIndex}
-                    className="flex justify-center gap-[3.125rem]"
-                  >
-                    {row.map((pos) => {
-                      const player = playerArray.fields.find(
-                        (p) => p.position === pos
-                      );
-                      return player ? (
-                        <Player
-                          key={player.position}
-                          player={player}
-                          onClick={() => {
-                            setFocusedIndex(pos);
-                            onOpen();
-                          }}
-                        />
-                      ) : (
-                        <div
-                          key={pos}
-                          className="w-[4.375rem] h-[4.375rem] bg-[#E9E4E4] cursor-pointer"
-                          onClick={() => {
-                            setFocusedIndex(pos);
-                            onOpen();
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
-                ))}
-                {/* {players.length === 7 && ( */}
-                {/* )} */}
-              </div>
-
-              <EmptyPitch />
-              <div className="px-[1.5rem] w-full">
-                <Button
-                  type="button"
-                  onClick={() => openAllocationDrawer()}
-                  className=" w-full  z-10 cursor-pointer hover:bg-button-bg"
-                >
-                  Proceed
-                </Button>
-              </div>
-            </main>
+            <Pitch
+              layout={layout}
+              players={playerArray.fields}
+              onPlayerClick={(player) => {
+                setFocusedIndex(player.position);
+                onOpen();
+              }}
+              onEmptyPlayerClick={(pos) => {
+                setFocusedIndex(pos);
+                onOpen();
+              }}
+              ctaLabel="Proceed"
+              ctaOnClick={() => openAllocationDrawer()}
+            />
           </div>
 
           <Sheet open={isOpen}>
