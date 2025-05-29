@@ -49,6 +49,7 @@
         id: UID,
         owner: address,
         squad_id: u64,
+        name: String,
         goalkeeper: Option<String>,
         defenders: vector<String>,
         midfielders: vector<String>,
@@ -126,6 +127,7 @@
         registry: &mut SquadRegistry,
         fees: &mut fee_collector::Fees,
         payment: Coin<SUI>,
+        name:String,
         goalkeeper: String,
         defenders: vector<String>,
         midfielders: vector<String>,
@@ -134,8 +136,14 @@
         ctx: &mut TxContext
     ) {
         // Verify payment amount
+        //let payment_amount = coin::value(&payment);
         let payment_amount = coin::value(&payment);
+        //the logic is that a user cannot send a value less than 1 SUI
+
+        
         assert!(payment_amount >= SQUAD_CREATION_FEE, EInsufficientFee);
+        //wants to ensure that the fee charge is not more than 1 sui 
+
 
         assert!(vector::length(&defenders) >= 1, ENotEnoughDefenders);
         assert!(vector::length(&midfielders) >= 1, ENotEnoughMidfielders);
@@ -149,6 +157,7 @@
         let squad = Squad {
             id: object::new(ctx),
             owner,
+            name,
             squad_id,
             goalkeeper: option::some(goalkeeper),
             defenders,
@@ -200,6 +209,7 @@
     public entry fun update_squad(
         registry: &mut SquadRegistry,
         squad_id: u64,
+        name: String,
         goalkeeper: String,
         defenders: vector<String>,
         midfielders: vector<String>,
@@ -208,6 +218,7 @@
         ctx: &mut TxContext
     ) {
         assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
+        
 
         assert!(vector::length(&defenders) >= 1, ENotEnoughDefenders);
         assert!(vector::length(&midfielders) >= 1, ENotEnoughMidfielders);
@@ -224,6 +235,7 @@
         squad.midfielders = midfielders;
         squad.forwards = forwards;
         squad.formation = create_formation(formation_type);
+        squad.name = name;
     }
 
     // Creates a new player.
@@ -322,7 +334,7 @@
         };
         
         // Delete the squad object
-        let Squad { id, owner: _, squad_id: _, goalkeeper: _, defenders: _, midfielders: _, forwards: _, formation: _ } = squad;
+        let Squad { id, owner: _, squad_id: _, goalkeeper: _, defenders: _, midfielders: _, forwards: _, formation: _,name: _ } = squad;
         object::delete(id);
     }
 
