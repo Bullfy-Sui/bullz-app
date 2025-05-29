@@ -1,4 +1,4 @@
- #[allow(duplicate_alias,unused_use,unused_const)]
+#[allow(duplicate_alias,unused_use,unused_const)]
  module bullfy::squad_manager {
     use sui::object::{Self, UID};
     use sui::tx_context::{Self, TxContext};
@@ -54,6 +54,7 @@
         midfielders: vector<String>,
         forwards: vector<String>,
         formation: SquadFormation,
+        name: String,
     }
 
     // Represents a player in a squad.
@@ -125,12 +126,13 @@
     public entry fun create_squad(
         registry: &mut SquadRegistry,
         fees: &mut fee_collector::Fees,
-        payment: Coin<SUI>,
+        mut payment: Coin<SUI>,
         goalkeeper: String,
         defenders: vector<String>,
         midfielders: vector<String>,
         forwards: vector<String>,
         formation_type: u8,
+        name: String,
         ctx: &mut TxContext
     ) {
         // Verify payment amount
@@ -155,6 +157,7 @@
             midfielders,
             forwards,
             formation,
+            name,
         };
 
         // Add the squad to the registry
@@ -168,8 +171,16 @@
         let owner_squads = table::borrow_mut(&mut registry.owner_squads, owner);
         vector::push_back(owner_squads, squad_id);
 
-        // Collect the fee
-        fee_collector::collect(fees, payment, ctx);
+        // Handle payment: take only the required fee, return the rest
+        if (payment_amount == SQUAD_CREATION_FEE) {
+            // Exact payment, use the whole coin
+            fee_collector::collect(fees, payment, ctx);
+        } else {
+            // More than required, split and return change
+            let fee_coin = coin::split(&mut payment, SQUAD_CREATION_FEE, ctx);
+            fee_collector::collect(fees, fee_coin, ctx);
+            transfer::public_transfer(payment, owner);
+        };
 
         event::emit(SquadCreated { 
             owner,
@@ -322,7 +333,7 @@
         };
         
         // Delete the squad object
-        let Squad { id, owner: _, squad_id: _, goalkeeper: _, defenders: _, midfielders: _, forwards: _, formation: _ } = squad;
+        let Squad { id, owner: _, squad_id: _, goalkeeper: _, defenders: _, midfielders: _, forwards: _, formation: _, name:_ } = squad;
         object::delete(id);
     }
 

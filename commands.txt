@@ -1,12 +1,19 @@
 
 sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --package 0x59e23c057477b50d784e90f90421b422f2b08c73c05050cbec9fc03c63c353fa \
   --module squad_manager \
   --function create_squad \
-  --args 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 "goalkeeper" "[defenders1, defender2]" "[midfielder1, midfielder2]" "[forward1, forward2]" 3 \
+  --args 0xbd1504d319f8896d63c4490890740497d8d879a59aa26a7ec307bc7af8e50d3a 0xef248c109858dc8e8f0110a2292dc6c90038f38d285d0646b0a89e3364bb0e2a 0xc6917a99353acc5f7436d6d39942ba571f67c292ddf3779850482d68d63191e3 "goalkeeper1" "[defenders12, defender22]" "[midfielder12, midfielder22]" "[forward12, forward22]" 4  "tiger"\
   --gas-budget 100000000
 
 
 sui client ptb \
   --move-call 0x226bc26a396add43dbd8f0b9ffaca41de1ad076ce797164a95431ec221f4c0ae::dashboard::create_proposal \
   '" Proosal 2 "' '" proposal description 2 "' 1774518152
+
+sui client call \
+  --package 0x59e23c057477b50d784e90f90421b422f2b08c73c05050cbec9fc03c63c353fa \
+  --module fee_collector \
+  --function withdraw_all \
+  --args 0x23975a91fc23236ba29e48fb93e9e14cd6a73dee9a07fe4209e5d048ca55128e 0xef248c109858dc8e8f0110a2292dc6c90038f38d285d0646b0a89e3364bb0e2a\
+  --gas-budget 100000000
