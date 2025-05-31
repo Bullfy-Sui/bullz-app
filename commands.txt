@@ -17,3 +17,12 @@ sui client call \
   --function withdraw_all \
   --args 0x23975a91fc23236ba29e48fb93e9e14cd6a73dee9a07fe4209e5d048ca55128e 0xef248c109858dc8e8f0110a2292dc6c90038f38d285d0646b0a89e3364bb0e2a\
   --gas-budget 100000000
+
+
+  sui client call \
+  --package 0x2640633e9d6913abb691b067b1511704a8b7bcd1434e112c634ecabb0e6a3539 \
+  --module auction_house \
+  --function create_auction \
+  --type-args 0xc2919a769e41c8d09da4f63890ce5e59c48be7a7f8d5c4857743f922bde69d40::suiGhana_nft::SuiGhana_nft \
+  --args 0xe7dcfbc8e3deb99f5f7303f2a359c4a1d14a9f7ffebf11e1fb79a194a28844ca 0xafe312738f18ebd1840210e483a82430494b87422dc9eb53560b7b006417a84a "Asta" "auctioning asta" 200000 1748638440000 0x6 \
+  --gas-budget 100000000
