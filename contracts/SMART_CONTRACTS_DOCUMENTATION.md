@@ -11,191 +11,226 @@ Manages football squads, including creation, updating, retrieval, and deletion o
 
 ### Structs
 
-- **SquadFormation**
-  - Fields:
-    - `formation_type: u8` — Represents the formation type (e.g., 4-3-2-1).
-  - Traits: `copy, drop, store`
-
 - **Squad**
   - Fields:
     - `id: UID` — Unique identifier.
     - `owner: address` — Owner of the squad.
     - `squad_id: u64` — Unique ID for the squad.
-    - `goalkeeper: Option<String>` — Goalkeeper name.
-    - `defenders: vector<String>` — List of defenders.
-    - `midfielders: vector<String>` — List of midfielders.
-    - `forwards: vector<String>` — List of forwards.
-    - `formation: SquadFormation` — Squad formation.
-    - `name: String` — Squad name.
+    - `name: String` — Name of the squad.
+    - `players: vector<String>` — List of players in the squad.
   - Traits: `key, store`
 
 - **SquadRegistry**
   - Fields:
-    - `id: UID`
-    - `squads: Table<u64, Squad>` — Mapping of squad ID to Squad.
-    - `owner_squads: Table<address, vector<u64>>` — Mapping of owner address to their squad IDs.
-    - `next_squad_id: u64` — Counter for next squad ID.
+    - `id: UID` — Unique identifier.
+    - `squads: Table<u64, Squad>` — Mapping of squad IDs to squads.
+    - `owner_squads: Table<address, vector<u64>>` — Mapping of owner addresses to their squad IDs.
+    - `next_squad_id: u64` — Counter for generating unique squad IDs.
   - Traits: `key`
 
-- **Events**
-  - `SquadCreated` — Emitted when a squad is created.
+### Events
+
+- **SquadCreated**
+  - Fields:
+    - `owner: address` — Owner of the squad.
+    - `squad_id: u64` — Unique ID of the created squad.
+    - `name: String` — Name of the squad.
+  - Traits: `copy, drop`
 
 ### Constants
 
-- Error codes for validation (e.g., `ENotEnoughDefenders`, `EOwnerAlreadyHasSquad`).
-- Formation constants (e.g., `FORMATION_4_3_2_1`).
-- `SQUAD_CREATION_FEE: u64 = 1_000_000_000` — Fee required to create a squad (1 SUI).
+- **SQUAD_CREATION_FEE**: `u64 = 1_000_000_000` — Fee required to create a squad (1 SUI in MIST).
 
-### Key Functions
+### Error Constants
 
-- `create_squad` — Creates a new squad with validation on player counts. Requires a payment of 1 SUI token that is sent to the fee collector.
-- `update_squad` — Updates an existing squad.
-- `delete_squad` — Deletes a squad and its resources.
-- `get_squad` — Retrieve squad by ID.
-- `get_owner_squads` — Retrieves all squad IDs owned by an address.
-- `has_squads` — Check if owner has squads.
-- `formation_to_string` — Utility to convert formation type to string.
+- **EInsufficientFee**: "Insufficient fee provided"
+- **EOwnerAlreadyHasSquad**: "Owner already has a squad"
+- **EOwnerDoesNotHaveSquad**: "Owner does not have a squad"
+- **EInvalidPlayerCount**: "Squad must have at least one player"
+
+### Functions
+
+#### Public Entry Functions
+
+- **create_squad**
+  - Parameters:
+    - `registry: &mut SquadRegistry` — Mutable reference to the squad registry.
+    - `fees: &mut fee_collector::Fees` — Mutable reference to fee collector.
+    - `payment: Coin<SUI>` — Payment for squad creation.
+    - `name: String` — Name of the squad.
+    - `players: vector<String>` — List of players in the squad.
+    - `ctx: &mut TxContext` — Transaction context.
+  - Description: Creates a new squad with the given name and players. Requires payment of 1 SUI.
+
+- **update_squad**
+  - Parameters:
+    - `registry: &mut SquadRegistry` — Mutable reference to the squad registry.
+    - `squad_id: u64` — ID of the squad to update.
+    - `name: String` — New name for the squad.
+    - `players: vector<String>` — New list of players.
+    - `ctx: &mut TxContext` — Transaction context.
+  - Description: Updates an existing squad's name and players. Only the squad owner can update.
+
+- **delete_squad**
+  - Parameters:
+    - `registry: &mut SquadRegistry` — Mutable reference to the squad registry.
+    - `squad_id: u64` — ID of the squad to delete.
+    - `ctx: &mut TxContext` — Transaction context.
+  - Description: Deletes a squad. Only the squad owner can delete.
+
+#### Public View Functions
+
+- **get_squad**
+  - Parameters:
+    - `registry: &SquadRegistry` — Reference to the squad registry.
+    - `squad_id: u64` — ID of the squad.
+  - Returns: `&Squad` — Reference to the squad.
+  - Description: Retrieves a squad by its ID.
+
+- **get_owner_squads**
+  - Parameters:
+    - `registry: &SquadRegistry` — Reference to the squad registry.
+    - `owner: address` — Address of the owner.
+  - Returns: `&vector<u64>` — Reference to the list of squad IDs owned by the address.
+  - Description: Retrieves all squad IDs for a given owner.
+
+- **has_squads**
+  - Parameters:
+    - `registry: &SquadRegistry` — Reference to the squad registry.
+    - `owner: address` — Address of the owner.
+  - Returns: `bool` — True if the owner has squads.
+  - Description: Checks if an owner has any squads.
+
+- **get_squad_name**
+  - Parameters:
+    - `squad: &Squad` — Reference to the squad.
+  - Returns: `&String` — Reference to the squad name.
+  - Description: Gets the name of a squad.
+
+- **get_squad_players**
+  - Parameters:
+    - `squad: &Squad` — Reference to the squad.
+  - Returns: `&vector<String>` — Reference to the list of players.
+  - Description: Gets the players of a squad.
+
+- **get_squad_owner**
+  - Parameters:
+    - `squad: &Squad` — Reference to the squad.
+  - Returns: `address` — The owner address.
+  - Description: Gets the owner of a squad.
+
+- **get_squad_id**
+  - Parameters:
+    - `squad: &Squad` — Reference to the squad.
+  - Returns: `u64` — The squad ID.
+  - Description: Gets the ID of a squad.
+
+### Usage Example
+
+1. **Creating a Squad**: Call `create_squad` with payment, name, and players list.
+2. **Updating a Squad**: Call `update_squad` with squad ID, new name, and new players list.
+3. **Retrieving Squads**: Use `get_squad` or `get_owner_squads` to access squad data.
+4. **Deleting a Squad**: Call `delete_squad` with the squad ID.
 
 ---
 
-## 2. Module: bullfy::admin
+## 2. Module: bullfy::match_escrow
 
 ### Purpose
-Manages admin and owner capabilities for access control.
+Handles escrow functionality for matches, managing deposits, match results, and payouts.
 
 ### Structs
 
-- **AdminCap**
-  - Capability for admin functions.
-- **OwnerCap**
-  - Capability for owner functions.
+- **MatchEscrow**
+  - Fields:
+    - `id: UID` — Unique identifier.
+    - `player1: address` — Address of player 1.
+    - `player2: address` — Address of player 2.
+    - `amount: Balance<SUI>` — Escrowed amount.
+    - `match_id: u64` — ID of the match.
+    - `is_active: bool` — Whether the escrow is active.
+  - Traits: `key`
+
+- **EscrowRegistry**
+  - Fields:
+    - `id: UID` — Unique identifier.
+    - `escrows: Table<u64, MatchEscrow>` — Mapping of match IDs to escrows.
+    - `next_match_id: u64` — Counter for generating unique match IDs.
+  - Traits: `key`
 
 ### Events
 
-- `AdminCapCreated` — Emitted when an admin capability is created.
-- `AdminCapRevoked` — Emitted when an admin capability is revoked.
+- **MatchEscrowCreated**
+  - Fields:
+    - `match_id: u64` — ID of the match.
+    - `player1: address` — Address of player 1.
+    - `player2: address` — Address of player 2.
+    - `amount: u64` — Escrowed amount.
+  - Traits: `copy, drop`
 
-### Constants
+- **MatchResultSubmitted**
+  - Fields:
+    - `match_id: u64` — ID of the match.
+    - `winner: address` — Address of the winner.
+    - `amount: u64` — Payout amount.
+  - Traits: `copy, drop`
 
-- Error code `ENotOwner` for unauthorized access.
+### Functions
 
-### Key Functions
+#### Public Entry Functions
 
-- `init` — Initializes OwnerCap and first AdminCap.
-- `create_admin_cap` — Creates and transfers AdminCap to an address.
-- `revoke_admin_cap` — Revokes an admin capability.
-- `transfer_owner_cap` — Transfers ownership capability.
+- **create_escrow**: Creates a new match escrow with deposits from both players.
+- **submit_result**: Submits match result and releases funds to the winner.
+- **cancel_match**: Cancels a match and refunds both players.
+
+#### Public View Functions
+
+- **get_escrow**: Retrieves escrow details by match ID.
+- **is_match_active**: Checks if a match is currently active.
 
 ---
 
-## 3. Module: bullfy::fee_collector
+## 3. Module: bullfy::squad_player_challenge
 
 ### Purpose
-Handles fee collection and withdrawal.
+Manages challenges between squad players, including challenge creation, acceptance, and resolution.
 
-### Structs
+### Key Features
 
-- **Fees**
-  - Holds total collected fees as a `Balance<SUI>`.
-
-### Events
-
-- `FeeCollected` — Emitted when fees are collected.
-- `FeeWithdrawn` — Emitted when fees are withdrawn.
-
-### Constants
-
-- Error codes for admin-only actions and insufficient balance.
-
-### Key Functions
-
-- `init` — Initializes the Fees object.
-- `collect` — Adds incoming coins to fees.
-- `withdraw` — Admin-only withdrawal of specified amount.
-- `withdraw_all` — Admin-only withdrawal of all fees.
-- `get_total` — Returns total fees collected.
+- **Challenge Creation**: Players can create challenges with specific terms.
+- **Challenge Acceptance**: Other players can accept open challenges.
+- **Result Submission**: Winners can submit results and claim rewards.
+- **Fee Collection**: Platform fees are collected on successful matches.
 
 ---
 
-## 4. Module: bullfy::match_escrow
+## 4. Module: bullfy::admin
 
 ### Purpose
-Manages escrow for match bids and match lifecycle.
+Provides administrative functions for managing the platform.
 
-### Structs
+### Functions
 
-- **Escrow**
-  - Holds squad bid details, amount, timestamp, and status.
-- **MatchQueue**
-  - Holds waiting matches in a table.
-- **Status** (enum)
-  - Match states: Waiting, Matched, Completed, Cancelled.
-
-### Events
-
-- `MatchEntered`, `MatchCompleted`, `BidRetrieved`.
-
-### Constants
-
-- Minimum bid amount and error codes.
-
-### Key Functions
-
-- `enter_match` — Squad enters a match with a bid.
-- `retrieve_bid_player` / `retrieve_bid_admin` — Retrieve bid funds.
-- `complete_match` — Completes a match and transfers funds to winner.
-- `get_match_info`, `get_waiting_count` — View functions.
+- **AdminCap**: Capability object for administrative operations.
+- **set_fees**: Updates platform fee rates.
+- **withdraw_fees**: Withdraws collected fees.
+- **pause_system**: Emergency pause functionality.
 
 ---
 
-## 5. Module: bullfy::squad_player_challenge
+## 5. Module: bullfy::fee_collector
 
 ### Purpose
-Manages squads and challenges between squads.
+Handles collection and management of platform fees.
 
-### Structs
+### Functions
 
-- **SquadFormation** and **ChallengeStatus** — Represent formation and challenge status.
-- **Squad** — Squad details including name, owner, value, formation.
-- **Challenge** — Challenge details including participants, wager, status, winner.
-
-### Events
-
-- `SquadCreated`, `ChallengeCreated`, `ChallengeCompleted`.
-
-### Constants
-
-- Formation types, status codes, error codes.
-
-### Key Functions
-
-- `create_squad`, `create_challenge`.
-- `start_challenge`, `complete_challenge`, `cancel_challenge`.
-- Getter functions and utility functions for string conversion.
+- **collect**: Collects fees from transactions.
+- **withdraw**: Withdraws collected fees (admin only).
+- **get_balance**: Returns current fee balance.
 
 ---
 
-## 6. Module: bullfy::oracle_interface
+## Summary
 
-### Purpose
-Interfaces with Pyth oracle price feeds for price data.
-
-### Constants
-
-- Price feed IDs for ETH/USD and BTC/USD.
-- Maximum price age.
-
-### Error Codes
-
-- Invalid ID, stale price, negative price.
-
-### Key Functions
-
-- `get_eth_usd_price`, `get_btc_usd_price`.
-- `get_price` (generic).
-- `get_price_with_metadata`.
-- `verify_price_feed_id`.
-
----
-
-This documentation provides a detailed understanding of the Bullfy smart contracts, their data structures, logic, and events for developers and auditors. 
+The Bullfy smart contracts provide a comprehensive system for managing fantasy football squads and matches on the Sui blockchain. The simplified squad system now focuses on just player names and a list of players, making it more flexible while maintaining all core functionality for escrow, challenges, and fee collection. 
