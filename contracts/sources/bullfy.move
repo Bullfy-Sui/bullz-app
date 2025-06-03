@@ -26,8 +26,6 @@
     const EOwnerAlreadyHasSquad: vector<u8> = b"Owner already has a squad";
     #[error]
     const EOwnerDoesNotHaveSquad: vector<u8> = b"Owner does not have a squad";
-    #[error]
-    const EPlayerDoesNotExist: vector<u8> = b"Player does not exist";
 
     // Fee amount in MIST (1 SUI = 10^9 MIST)
     const SQUAD_CREATION_FEE: u64 = 1_000_000_000;
@@ -57,16 +55,6 @@
         name: String,
     }
 
-    // Represents a player in a squad.
-    public struct Player has key, store {
-        id: UID,
-        name: String,
-        squad_owner: address, // Changed from squad_id to squad_owner for easier lookup
-        token_price_id: String,
-        allocated_value: u64,
-        position: u8,
-    }
-
     // Registry for all squads.
     public struct SquadRegistry has key {
         id: UID,
@@ -75,24 +63,10 @@
         next_squad_id: u64,
     }
 
-    // Registry for all players.
-    public struct PlayerRegistry has key {
-        id: UID,
-        players: Table<u64, Player>,
-        next_player_id: u64,
-    }
-
     // Event emitted when a new squad is created.
     public struct SquadCreated has copy, drop {
         owner: address,
         squad_id: u64,
-    }
-
-    // Event emitted when a new player is created.
-    public struct PlayerCreated has copy, drop {
-        player_id: u64,
-        squad_owner: address,
-        name: String,
     }
 
     // Helper functions for formations
@@ -113,13 +87,6 @@
             next_squad_id: 1, // Start squad IDs from 1
         };
         transfer::share_object(squad_registry);
-
-        let player_registry = PlayerRegistry {
-            id: object::new(ctx),
-            players: table::new(ctx),
-            next_player_id: 1, // Start from 1 instead of 0
-        };
-        transfer::share_object(player_registry);
     }
 
     // Creates a new squad.
@@ -235,77 +202,6 @@
         squad.midfielders = midfielders;
         squad.forwards = forwards;
         squad.formation = create_formation(formation_type);
-    }
-
-    // Creates a new player.
-    public entry fun create_player(
-        player_registry: &mut PlayerRegistry,
-        squad_registry: &SquadRegistry,
-        squad_id: u64,
-        name: String,
-        token_price_id: String,
-        allocated_value: u64,
-        position: u8,
-        ctx: &mut TxContext
-    ) {
-        let owner = tx_context::sender(ctx);
-        // Verify that the squad exists and belongs to the owner
-        assert!(table::contains(&squad_registry.squads, squad_id), EOwnerDoesNotHaveSquad);
-        let squad = table::borrow(&squad_registry.squads, squad_id);
-        assert!(squad.owner == owner, EOwnerDoesNotHaveSquad);
-
-        let player_id = player_registry.next_player_id;
-        player_registry.next_player_id = player_id + 1;
-
-        let player = Player {
-            id: object::new(ctx),
-            name,
-            squad_owner: owner,
-            token_price_id,
-            allocated_value,
-            position,
-        };
-
-        table::add(&mut player_registry.players, player_id, player);
-
-        event::emit(PlayerCreated {
-            player_id,
-            squad_owner: owner,
-            name,
-        });
-    }
-
-    // Gets a player by ID.
-    public fun get_player(player_registry: &PlayerRegistry, player_id: u64): &Player {
-        assert!(table::contains(&player_registry.players, player_id), EPlayerDoesNotExist);
-        table::borrow(&player_registry.players, player_id)
-    }
-
-    /// Checks if a player exists.
-    public fun has_player(player_registry: &PlayerRegistry, player_id: u64): bool {
-        table::contains(&player_registry.players, player_id)
-    }
-
-    // Updates a player.
-    public entry fun update_player(
-        player_registry: &mut PlayerRegistry,
-        player_id: u64,
-        name: String,
-        allocated_value: u64,
-        position: u8,
-        ctx: &mut TxContext
-    ) {
-        assert!(table::contains(&player_registry.players, player_id), EPlayerDoesNotExist);
-
-        let player = table::borrow_mut(&mut player_registry.players, player_id);
-        let owner = tx_context::sender(ctx);
-        
-        // Ensure only the squad owner can update their players
-        assert!(player.squad_owner == owner, EOwnerDoesNotHaveSquad);
-
-        player.name = name;
-        player.allocated_value = allocated_value;
-        player.position = position;
     }
 
     // Deletes a squad.
