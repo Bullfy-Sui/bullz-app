@@ -20,8 +20,6 @@
     const EOwnerAlreadyHasSquad: vector<u8> = b"Owner already has a squad";
     #[error]
     const EOwnerDoesNotHaveSquad: vector<u8> = b"Owner does not have a squad";
-    #[error]
-    const EInvalidPlayerCount: vector<u8> = b"Squad must have at least one player";
 
     // Fee amount in MIST (1 SUI = 10^9 MIST)
     const SQUAD_CREATION_FEE: u64 = 1_000_000_000;
@@ -61,21 +59,17 @@
         transfer::share_object(squad_registry);
     }
 
-    // Creates a new squad.
+    // Creates a new squad with empty players vector.
     public entry fun create_squad(
         registry: &mut SquadRegistry,
         fees: &mut fee_collector::Fees,
         mut payment: Coin<SUI>,
         name: String,
-        players: vector<String>,
         ctx: &mut TxContext
     ) {
         // Verify payment amount
         let payment_amount = coin::value(&payment);
         assert!(payment_amount >= SQUAD_CREATION_FEE, EInsufficientFee);
-
-        // Validate that squad has at least one player
-        assert!(vector::length(&players) >= 1, EInvalidPlayerCount);
 
         let owner = tx_context::sender(ctx);
         let squad_id = registry.next_squad_id;
@@ -86,7 +80,7 @@
             owner,
             squad_id,
             name,
-            players,
+            players: vector::empty<String>(), // Initialize with empty vector
         };
 
         // Add the squad to the registry
@@ -146,7 +140,6 @@
         ctx: &mut TxContext
     ) {
         assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
-        assert!(vector::length(&players) >= 1, EInvalidPlayerCount);
 
         let squad = table::borrow_mut(&mut registry.squads, squad_id);
         let owner = tx_context::sender(ctx);
