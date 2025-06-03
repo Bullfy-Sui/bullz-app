@@ -57,17 +57,9 @@ Manages football squads, including creation, updating, retrieval, and deletion o
     - `fees: &mut fee_collector::Fees` — Mutable reference to fee collector.
     - `payment: Coin<SUI>` — Payment for squad creation.
     - `name: String` — Name of the squad.
+    - `players: vector<String>` — List of players for the squad.
     - `ctx: &mut TxContext` — Transaction context.
-  - Description: Creates a new squad with the given name and an empty players vector. Requires payment of 1 SUI.
-
-- **update_squad**
-  - Parameters:
-    - `registry: &mut SquadRegistry` — Mutable reference to the squad registry.
-    - `squad_id: u64` — ID of the squad to update.
-    - `name: String` — New name for the squad.
-    - `players: vector<String>` — New list of players (can be empty).
-    - `ctx: &mut TxContext` — Transaction context.
-  - Description: Updates an existing squad's name and players. Only the squad owner can update. Players vector can be empty.
+  - Description: Creates a new squad with the given name and players. Squad is immutable after creation. Requires payment of 1 SUI.
 
 - **delete_squad**
   - Parameters:
@@ -125,11 +117,9 @@ Manages football squads, including creation, updating, retrieval, and deletion o
 
 ### Usage Example
 
-1. **Creating a Squad**: Call `create_squad` with payment and name. Squad starts with empty players vector.
-2. **Adding Players**: Use `update_squad` to add players to the squad after creation.
-3. **Updating a Squad**: Call `update_squad` with squad ID, new name, and new players list.
-4. **Retrieving Squads**: Use `get_squad` or `get_owner_squads` to access squad data.
-5. **Deleting a Squad**: Call `delete_squad` with the squad ID.
+1. **Creating a Squad**: Call `create_squad` with payment, name, and complete players list. Squad is immutable after creation.
+2. **Retrieving Squads**: Use `get_squad` or `get_owner_squads` to access squad data.
+3. **Deleting a Squad**: Call `delete_squad` with the squad ID to remove it permanently.
 
 ---
 

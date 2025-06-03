@@ -59,12 +59,13 @@
         transfer::share_object(squad_registry);
     }
 
-    // Creates a new squad with empty players vector.
+    // Creates a new squad with the specified players (immutable after creation).
     public entry fun create_squad(
         registry: &mut SquadRegistry,
         fees: &mut fee_collector::Fees,
         mut payment: Coin<SUI>,
         name: String,
+        players: vector<String>,
         ctx: &mut TxContext
     ) {
         // Verify payment amount
@@ -80,7 +81,7 @@
             owner,
             squad_id,
             name,
-            players: vector::empty<String>(), // Initialize with empty vector
+            players, // Use the provided players vector
         };
 
         // Add the squad to the registry
@@ -129,26 +130,6 @@
     // Checks if an owner has any squads.
     public fun has_squads(registry: &SquadRegistry, owner: address): bool {
         table::contains(&registry.owner_squads, owner)
-    }
-
-    // Updates a squad.
-    public entry fun update_squad(
-        registry: &mut SquadRegistry,
-        squad_id: u64,
-        name: String,
-        players: vector<String>,
-        ctx: &mut TxContext
-    ) {
-        assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
-
-        let squad = table::borrow_mut(&mut registry.squads, squad_id);
-        let owner = tx_context::sender(ctx);
-        
-        // Ensure only the squad owner can update it
-        assert!(squad.owner == owner, EOwnerDoesNotHaveSquad);
-
-        squad.name = name;
-        squad.players = players;
     }
 
     // Deletes a squad.
