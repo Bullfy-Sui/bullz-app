@@ -59,13 +59,12 @@
         transfer::share_object(squad_registry);
     }
 
-    // Creates a new squad with the specified players (immutable after creation).
+    // Creates a new squad with empty players vector.
     public entry fun create_squad(
         registry: &mut SquadRegistry,
         fees: &mut fee_collector::Fees,
         mut payment: Coin<SUI>,
         name: String,
-        players: vector<String>,
         ctx: &mut TxContext
     ) {
         // Verify payment amount
@@ -81,7 +80,7 @@
             owner,
             squad_id,
             name,
-            players, // Use the provided players vector
+            players: vector::empty<String>(), // Initialize with empty vector
         };
 
         // Add the squad to the registry
