@@ -20,9 +20,14 @@
     const EOwnerAlreadyHasSquad: vector<u8> = b"Owner already has a squad";
     #[error]
     const EOwnerDoesNotHaveSquad: vector<u8> = b"Owner does not have a squad";
+    #[error]
+    const ESquadHasNoLife: vector<u8> = b"Squad has no life remaining";
 
     // Fee amount in MIST (1 SUI = 10^9 MIST)
     const SQUAD_CREATION_FEE: u64 = 1_000_000_000;
+    
+    // Initial squad life points
+    const INITIAL_SQUAD_LIFE: u64 = 5;
 
     // Represents a football squad.
     public struct Squad has key, store {
@@ -31,6 +36,7 @@
         squad_id: u64,
         name: String,
         players: vector<String>,
+        life: u64,               // Life points (starts at 5)
     }
 
     // Registry for all squads.
@@ -46,6 +52,13 @@
         owner: address,
         squad_id: u64,
         name: String,
+        life: u64,
+    }
+
+    // Event emitted when squad loses life.
+    public struct SquadLifeLost has copy, drop {
+        squad_id: u64,
+        remaining_life: u64,
     }
 
     // Initializes the registries.
@@ -59,7 +72,7 @@
         transfer::share_object(squad_registry);
     }
 
-    // Creates a new squad with empty players vector.
+    // Creates a new squad with empty players vector and 5 life points.
     public entry fun create_squad(
         registry: &mut SquadRegistry,
         fees: &mut fee_collector::Fees,
@@ -81,6 +94,7 @@
             squad_id,
             name,
             players: vector::empty<String>(), // Initialize with empty vector
+            life: INITIAL_SQUAD_LIFE,         // Start with 5 life points
         };
 
         // Add the squad to the registry
@@ -109,6 +123,7 @@
             owner,
             squad_id,
             name,
+            life: INITIAL_SQUAD_LIFE,
         });
     }
 
@@ -129,6 +144,25 @@
     // Checks if an owner has any squads.
     public fun has_squads(registry: &SquadRegistry, owner: address): bool {
         table::contains(&registry.owner_squads, owner)
+    }
+
+    // Checks if a squad is still alive (has life > 0).
+    public fun is_squad_alive(squad: &Squad): bool {
+        squad.life > 0
+    }
+
+    // Decreases squad life by 1 (used when squad loses competition).
+    public fun decrease_squad_life(registry: &mut SquadRegistry, squad_id: u64) {
+        assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
+        let squad = table::borrow_mut(&mut registry.squads, squad_id);
+        assert!(squad.life > 0, ESquadHasNoLife);
+        
+        squad.life = squad.life - 1;
+        
+        event::emit(SquadLifeLost {
+            squad_id,
+            remaining_life: squad.life,
+        });
     }
 
     // Deletes a squad.
@@ -156,7 +190,7 @@
         };
         
         // Delete the squad object
-        let Squad { id, owner: _, squad_id: _, name: _, players: _ } = squad;
+        let Squad { id, owner: _, squad_id: _, name: _, players: _, life: _ } = squad;
         object::delete(id);
     }
 
@@ -178,5 +212,10 @@
     // Get squad ID
     public fun get_squad_id(squad: &Squad): u64 {
         squad.squad_id
+    }
+
+    // Get squad life points
+    public fun get_squad_life(squad: &Squad): u64 {
+        squad.life
     }
 }

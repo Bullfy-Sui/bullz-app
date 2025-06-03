@@ -18,6 +18,7 @@ Manages football squads, including creation, updating, retrieval, and deletion o
     - `squad_id: u64` — Unique ID for the squad.
     - `name: String` — Name of the squad.
     - `players: vector<String>` — List of players in the squad.
+    - `life: u64` — Life points (starts at 5, decreases when losing competitions).
   - Traits: `key, store`
 
 - **SquadRegistry**
@@ -35,17 +36,26 @@ Manages football squads, including creation, updating, retrieval, and deletion o
     - `owner: address` — Owner of the squad.
     - `squad_id: u64` — Unique ID of the created squad.
     - `name: String` — Name of the squad.
+    - `life: u64` — Initial life points (5).
+  - Traits: `copy, drop`
+
+- **SquadLifeLost**
+  - Fields:
+    - `squad_id: u64` — ID of the squad that lost life.
+    - `remaining_life: u64` — Remaining life points after loss.
   - Traits: `copy, drop`
 
 ### Constants
 
 - **SQUAD_CREATION_FEE**: `u64 = 1_000_000_000` — Fee required to create a squad (1 SUI in MIST).
+- **INITIAL_SQUAD_LIFE**: `u64 = 5` — Initial life points for new squads.
 
 ### Error Constants
 
 - **EInsufficientFee**: "Insufficient fee provided"
 - **EOwnerAlreadyHasSquad**: "Owner already has a squad"
 - **EOwnerDoesNotHaveSquad**: "Owner does not have a squad"
+- **ESquadHasNoLife**: "Squad has no life remaining"
 
 ### Functions
 
@@ -58,7 +68,7 @@ Manages football squads, including creation, updating, retrieval, and deletion o
     - `payment: Coin<SUI>` — Payment for squad creation.
     - `name: String` — Name of the squad.
     - `ctx: &mut TxContext` — Transaction context.
-  - Description: Creates a new squad with the given name and an empty players vector. Players will be added via a separate append function. Requires payment of 1 SUI.
+  - Description: Creates a new squad with the given name, an empty players vector, and 5 life points. Players will be added via a separate append function. Requires payment of 1 SUI.
 
 - **delete_squad**
   - Parameters:
@@ -90,6 +100,18 @@ Manages football squads, including creation, updating, retrieval, and deletion o
   - Returns: `bool` — True if the owner has squads.
   - Description: Checks if an owner has any squads.
 
+- **is_squad_alive**
+  - Parameters:
+    - `squad: &Squad` — Reference to the squad.
+  - Returns: `bool` — True if squad still has life points (life > 0).
+  - Description: Checks if a squad is still alive and can participate in competitions.
+
+- **decrease_squad_life**
+  - Parameters:
+    - `registry: &mut SquadRegistry` — Mutable reference to the squad registry.
+    - `squad_id: u64` — ID of the squad that lost.
+  - Description: Decreases squad life by 1 when it loses a competition. Emits SquadLifeLost event.
+
 - **get_squad_name**
   - Parameters:
     - `squad: &Squad` — Reference to the squad.
@@ -114,12 +136,21 @@ Manages football squads, including creation, updating, retrieval, and deletion o
   - Returns: `u64` — The squad ID.
   - Description: Gets the ID of a squad.
 
+- **get_squad_life**
+  - Parameters:
+    - `squad: &Squad` — Reference to the squad.
+  - Returns: `u64` — Current life points.
+  - Description: Gets the remaining life points of a squad.
+
 ### Usage Example
 
-1. **Creating a Squad**: Call `create_squad` with payment and name. Squad starts with empty players vector.
+1. **Creating a Squad**: Call `create_squad` with payment and name. Squad starts with empty players vector and 5 life points.
 2. **Adding Players**: Players will be added via a separate append function (to be implemented).
-3. **Retrieving Squads**: Use `get_squad` or `get_owner_squads` to access squad data.
-4. **Deleting a Squad**: Call `delete_squad` with the squad ID to remove it permanently.
+3. **Checking Squad Status**: Use `is_squad_alive` to check if squad still has life points.
+4. **Competition Loss**: When squad loses a competition, call `decrease_squad_life` to reduce life by 1.
+5. **Squad Death**: When life reaches 0, squad can no longer participate in competitions.
+6. **Retrieving Squads**: Use `get_squad` or `get_owner_squads` to access squad data.
+7. **Deleting a Squad**: Call `delete_squad` with the squad ID to remove it permanently.
 
 ---
 
@@ -222,4 +253,4 @@ Handles collection and management of platform fees.
 
 ## Summary
 
-The Bullfy smart contracts provide a comprehensive system for managing fantasy football squads and matches on the Sui blockchain. The simplified squad system now focuses on just player names and a list of players, making it more flexible while maintaining all core functionality for escrow, challenges, and fee collection. 
+The Bullfy smart contracts provide a comprehensive system for managing fantasy football squads and matches on the Sui blockchain. The squad system uses a life-based mechanic where squads start with 5 life points and lose life when they lose competitions, adding a strategic element to squad management and competition participation. 
