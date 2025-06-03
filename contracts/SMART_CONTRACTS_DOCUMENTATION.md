@@ -65,6 +65,13 @@ Manages football squads, including creation, updating, retrieval, deletion, and 
     - `revived_at: u64` — Timestamp when squad was revived.
   - Traits: `copy, drop`
 
+- **PlayerAddedToSquad**
+  - Fields:
+    - `squad_id: u64` — ID of the squad.
+    - `player_name: String` — Name of the player added.
+    - `total_players: u64` — Total number of players in squad after addition.
+  - Traits: `copy, drop`
+
 ### Constants
 
 - **SQUAD_CREATION_FEE**: `u64 = 1_000_000_000` — Fee required to create a squad (1 SUI in MIST).
@@ -79,6 +86,7 @@ Manages football squads, including creation, updating, retrieval, deletion, and 
 - **ESquadHasNoLife**: "Squad has no life remaining"
 - **ESquadNotDead**: "Squad is not dead, cannot revive"
 - **ERevivalNotReady**: "Squad cannot be revived yet, wait 24 hours"
+- **EPlayerAlreadyInSquad**: "Player is already in this squad"
 
 ### Functions
 
@@ -107,6 +115,14 @@ Manages football squads, including creation, updating, retrieval, deletion, and 
     - `squad_id: u64` — ID of the squad to delete.
     - `ctx: &mut TxContext` — Transaction context.
   - Description: Deletes a squad. Only the squad owner can delete.
+
+- **add_player_to_squad**
+  - Parameters:
+    - `registry: &mut SquadRegistry` — Mutable reference to the squad registry.
+    - `squad_id: u64` — ID of the squad to add player to.
+    - `player_name: String` — Name of the player to add.
+    - `ctx: &mut TxContext` — Transaction context.
+  - Description: Adds a player to a squad. Only the squad owner can add players. Prevents duplicate players in the same squad.
 
 #### Public View Functions
 
@@ -196,7 +212,7 @@ Manages football squads, including creation, updating, retrieval, deletion, and 
 ### Usage Example
 
 1. **Creating a Squad**: Call `create_squad` with payment and name. Squad starts with empty players vector and 5 life points.
-2. **Adding Players**: Players will be added via a separate append function (to be implemented).
+2. **Adding Players**: Call `add_player_to_squad` to add players to your squad. Only squad owners can add players, and duplicate names are prevented.
 3. **Checking Squad Status**: Use `is_squad_alive` to check if squad still has life points.
 4. **Competition Loss**: When squad loses a competition, call `decrease_squad_life` to reduce life by 1.
 5. **Squad Death**: When life reaches 0, death time is automatically recorded.

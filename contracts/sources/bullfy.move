@@ -27,6 +27,8 @@ module bullfy::squad_manager {
     const ESquadNotDead: vector<u8> = b"Squad is not dead, cannot revive";
     #[error]
     const ERevivalNotReady: vector<u8> = b"Squad cannot be revived yet, wait 24 hours";
+    #[error]
+    const EPlayerAlreadyInSquad: vector<u8> = b"Player is already in this squad";
 
     // Fee amount in MIST (1 SUI = 10^9 MIST)
     const SQUAD_CREATION_FEE: u64 = 1_000_000_000;
@@ -87,6 +89,13 @@ module bullfy::squad_manager {
     public struct SquadRevived has copy, drop {
         squad_id: u64,
         revived_at: u64,
+    }
+
+    // Event emitted when player is added to squad.
+    public struct PlayerAddedToSquad has copy, drop {
+        squad_id: u64,
+        player_name: String,
+        total_players: u64,
     }
 
     // Initializes the registries.
@@ -319,5 +328,33 @@ module bullfy::squad_manager {
     // Get squad life points
     public fun get_squad_life(squad: &Squad): u64 {
         squad.life
+    }
+
+    // Adds a player to a squad (only squad owner can add players).
+    public entry fun add_player_to_squad(
+        registry: &mut SquadRegistry,
+        squad_id: u64,
+        player_name: String,
+        ctx: &mut TxContext
+    ) {
+        assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
+        let squad = table::borrow_mut(&mut registry.squads, squad_id);
+        
+        // Only squad owner can add players
+        assert!(squad.owner == tx_context::sender(ctx), EOwnerDoesNotHaveSquad);
+        
+        // Check if player is already in the squad
+        let players = &squad.players;
+        let (found, _) = vector::index_of(players, &player_name);
+        assert!(!found, EPlayerAlreadyInSquad);
+        
+        // Add the player to the squad
+        vector::push_back(&mut squad.players, player_name);
+        
+        event::emit(PlayerAddedToSquad {
+            squad_id,
+            player_name,
+            total_players: vector::length(&squad.players),
+        });
     }
 } 
