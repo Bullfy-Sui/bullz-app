@@ -339,33 +339,6 @@ module bullfy::squad_manager {
         squad.life
     }
 
-    // Adds a player to a squad (only squad owner can add players).
-    public entry fun add_player_to_squad(
-        registry: &mut SquadRegistry,
-        squad_id: u64,
-        player_name: String,
-        ctx: &mut TxContext
-    ) {
-        assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
-        let squad = table::borrow_mut(&mut registry.squads, squad_id);
-        
-        // Only squad owner can add players
-        assert!(squad.owner == tx_context::sender(ctx), EOwnerDoesNotHaveSquad);
-        
-        // Check if player is already in the squad
-        let players = &squad.players;
-        let (found, _) = vector::index_of(players, &player_name);
-        assert!(!found, EPlayerAlreadyInSquad);
-        
-        // Add the player to the squad
-        vector::push_back(&mut squad.players, player_name);
-        
-        event::emit(PlayerAddedToSquad {
-            squad_id,
-            player_name,
-            total_players: vector::length(&squad.players),
-        });
-    }
 
     // Adds 7 players to a squad in one call (only squad owner can add players).
     public entry fun add_players_to_squad(
