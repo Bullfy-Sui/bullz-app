@@ -45,6 +45,13 @@ Manages football squads, including creation, updating, retrieval, and deletion o
     - `remaining_life: u64` — Remaining life points after loss.
   - Traits: `copy, drop`
 
+- **SquadLifeGained**
+  - Fields:
+    - `squad_id: u64` — ID of the squad that gained life.
+    - `life_gained: u64` — Amount of life points gained.
+    - `new_life: u64` — Total life points after gain.
+  - Traits: `copy, drop`
+
 ### Constants
 
 - **SQUAD_CREATION_FEE**: `u64 = 1_000_000_000` — Fee required to create a squad (1 SUI in MIST).
@@ -112,6 +119,13 @@ Manages football squads, including creation, updating, retrieval, and deletion o
     - `squad_id: u64` — ID of the squad that lost.
   - Description: Decreases squad life by 1 when it loses a competition. Emits SquadLifeLost event.
 
+- **increase_squad_life**
+  - Parameters:
+    - `registry: &mut SquadRegistry` — Mutable reference to the squad registry.
+    - `squad_id: u64` — ID of the squad that won.
+    - `life_gained: u64` — Amount of life points to add.
+  - Description: Increases squad life by specified amount when it wins a competition. Emits SquadLifeGained event.
+
 - **get_squad_name**
   - Parameters:
     - `squad: &Squad` — Reference to the squad.
@@ -148,9 +162,10 @@ Manages football squads, including creation, updating, retrieval, and deletion o
 2. **Adding Players**: Players will be added via a separate append function (to be implemented).
 3. **Checking Squad Status**: Use `is_squad_alive` to check if squad still has life points.
 4. **Competition Loss**: When squad loses a competition, call `decrease_squad_life` to reduce life by 1.
-5. **Squad Death**: When life reaches 0, squad can no longer participate in competitions.
-6. **Retrieving Squads**: Use `get_squad` or `get_owner_squads` to access squad data.
-7. **Deleting a Squad**: Call `delete_squad` with the squad ID to remove it permanently.
+5. **Competition Win**: When squad wins a competition, call `increase_squad_life` to add life points.
+6. **Squad Death**: When life reaches 0, squad can no longer participate in competitions.
+7. **Retrieving Squads**: Use `get_squad` or `get_owner_squads` to access squad data.
+8. **Deleting a Squad**: Call `delete_squad` with the squad ID to remove it permanently.
 
 ---
 

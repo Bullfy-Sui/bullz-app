@@ -61,6 +61,13 @@
         remaining_life: u64,
     }
 
+    // Event emitted when squad gains life.
+    public struct SquadLifeGained has copy, drop {
+        squad_id: u64,
+        life_gained: u64,
+        new_life: u64,
+    }
+
     // Initializes the registries.
     fun init(ctx: &mut TxContext) {
         let squad_registry = SquadRegistry {
@@ -162,6 +169,20 @@
         event::emit(SquadLifeLost {
             squad_id,
             remaining_life: squad.life,
+        });
+    }
+
+    // Increases squad life by specified amount (used when squad wins competition).
+    public fun increase_squad_life(registry: &mut SquadRegistry, squad_id: u64, life_gained: u64) {
+        assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
+        let squad = table::borrow_mut(&mut registry.squads, squad_id);
+        
+        squad.life = squad.life + life_gained;
+        
+        event::emit(SquadLifeGained {
+            squad_id,
+            life_gained,
+            new_life: squad.life,
         });
     }
 
