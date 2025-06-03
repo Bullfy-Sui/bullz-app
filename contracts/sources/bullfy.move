@@ -93,12 +93,7 @@ module bullfy::squad_manager {
         revived_at: u64,
     }
 
-    // Event emitted when player is added to squad.
-    public struct PlayerAddedToSquad has copy, drop {
-        squad_id: u64,
-        player_name: String,
-        total_players: u64,
-    }
+    
 
     // Event emitted when multiple players are added to squad.
     public struct PlayersAddedToSquad has copy, drop {
