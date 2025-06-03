@@ -7,7 +7,7 @@ This document provides detailed documentation of the Bullfy smart contracts, inc
 ## 1. Module: bullfy::squad_manager
 
 ### Purpose
-Manages football squads, including creation, updating, retrieval, and deletion of squads.
+Manages football squads, including creation, updating, retrieval, deletion, and revival of squads.
 
 ### Structs
 
@@ -19,6 +19,7 @@ Manages football squads, including creation, updating, retrieval, and deletion o
     - `name: String` — Name of the squad.
     - `players: vector<String>` — List of players in the squad.
     - `life: u64` — Life points (starts at 5, decreases when losing competitions).
+    - `death_time: Option<u64>` — Timestamp when squad died (life reached 0), None if alive.
   - Traits: `key, store`
 
 - **SquadRegistry**
@@ -52,10 +53,23 @@ Manages football squads, including creation, updating, retrieval, and deletion o
     - `new_life: u64` — Total life points after gain.
   - Traits: `copy, drop`
 
+- **SquadDied**
+  - Fields:
+    - `squad_id: u64` — ID of the squad that died.
+    - `death_time: u64` — Timestamp when squad died.
+  - Traits: `copy, drop`
+
+- **SquadRevived**
+  - Fields:
+    - `squad_id: u64` — ID of the squad that was revived.
+    - `revived_at: u64` — Timestamp when squad was revived.
+  - Traits: `copy, drop`
+
 ### Constants
 
 - **SQUAD_CREATION_FEE**: `u64 = 1_000_000_000` — Fee required to create a squad (1 SUI in MIST).
 - **INITIAL_SQUAD_LIFE**: `u64 = 5` — Initial life points for new squads.
+- **REVIVAL_WAIT_TIME_MS**: `u64 = 86400000` — Time to wait before revival (24 hours in milliseconds).
 
 ### Error Constants
 
@@ -63,6 +77,8 @@ Manages football squads, including creation, updating, retrieval, and deletion o
 - **EOwnerAlreadyHasSquad**: "Owner already has a squad"
 - **EOwnerDoesNotHaveSquad**: "Owner does not have a squad"
 - **ESquadHasNoLife**: "Squad has no life remaining"
+- **ESquadNotDead**: "Squad is not dead, cannot revive"
+- **ERevivalNotReady**: "Squad cannot be revived yet, wait 24 hours"
 
 ### Functions
 
@@ -76,6 +92,14 @@ Manages football squads, including creation, updating, retrieval, and deletion o
     - `name: String` — Name of the squad.
     - `ctx: &mut TxContext` — Transaction context.
   - Description: Creates a new squad with the given name, an empty players vector, and 5 life points. Players will be added via a separate append function. Requires payment of 1 SUI.
+
+- **revive_squad**
+  - Parameters:
+    - `registry: &mut SquadRegistry` — Mutable reference to the squad registry.
+    - `squad_id: u64` — ID of the squad to revive.
+    - `clock: &Clock` — Clock object for checking time.
+    - `ctx: &mut TxContext` — Transaction context.
+  - Description: Revives a dead squad after 24 hours, restoring it to 5 life points. Only the squad owner can revive their squad.
 
 - **delete_squad**
   - Parameters:
@@ -117,13 +141,27 @@ Manages football squads, including creation, updating, retrieval, and deletion o
   - Parameters:
     - `registry: &mut SquadRegistry` — Mutable reference to the squad registry.
     - `squad_id: u64` — ID of the squad that lost.
-  - Description: Decreases squad life by 1 when it loses a competition. Emits SquadLifeLost event.
+    - `clock: &Clock` — Clock object for recording death time.
+  - Description: Decreases squad life by 1 when it loses a competition. If life reaches 0, records death time. Emits SquadLifeLost and potentially SquadDied events.
 
 - **increase_squad_life**
   - Parameters:
     - `registry: &mut SquadRegistry` — Mutable reference to the squad registry.
     - `squad_id: u64` — ID of the squad that won.
   - Description: Increases squad life by 1 when it wins a competition. Emits SquadLifeGained event.
+
+- **can_revive_squad**
+  - Parameters:
+    - `squad: &Squad` — Reference to the squad.
+    - `clock: &Clock` — Clock object for checking current time.
+  - Returns: `bool` — True if squad can be revived (dead for 24+ hours).
+  - Description: Checks if a dead squad is eligible for revival.
+
+- **get_squad_death_time**
+  - Parameters:
+    - `squad: &Squad` — Reference to the squad.
+  - Returns: `Option<u64>` — Death timestamp if dead, None if alive.
+  - Description: Gets the death time of a squad (if dead).
 
 - **get_squad_name**
   - Parameters:
@@ -161,10 +199,12 @@ Manages football squads, including creation, updating, retrieval, and deletion o
 2. **Adding Players**: Players will be added via a separate append function (to be implemented).
 3. **Checking Squad Status**: Use `is_squad_alive` to check if squad still has life points.
 4. **Competition Loss**: When squad loses a competition, call `decrease_squad_life` to reduce life by 1.
-5. **Competition Win**: When squad wins a competition, call `increase_squad_life` to add life points.
-6. **Squad Death**: When life reaches 0, squad can no longer participate in competitions.
-7. **Retrieving Squads**: Use `get_squad` or `get_owner_squads` to access squad data.
-8. **Deleting a Squad**: Call `delete_squad` with the squad ID to remove it permanently.
+5. **Squad Death**: When life reaches 0, death time is automatically recorded.
+6. **Revival Check**: Use `can_revive_squad` to check if 24 hours have passed since death.
+7. **Squad Revival**: Call `revive_squad` after 24 hours to restore squad to 5 life points.
+8. **Competition Win**: When squad wins a competition, call `increase_squad_life` to add 1 life point.
+9. **Retrieving Squads**: Use `get_squad` or `get_owner_squads` to access squad data.
+10. **Deleting a Squad**: Call `delete_squad` with the squad ID to remove it permanently.
 
 ---
 
@@ -267,4 +307,4 @@ Handles collection and management of platform fees.
 
 ## Summary
 
-The Bullfy smart contracts provide a comprehensive system for managing fantasy football squads and matches on the Sui blockchain. The squad system uses a life-based mechanic where squads start with 5 life points and lose life when they lose competitions, adding a strategic element to squad management and competition participation. 
+The Bullfy smart contracts provide a comprehensive system for managing fantasy football squads and matches on the Sui blockchain. The squad system uses a life-based mechanic where squads start with 5 life points, lose life when they lose competitions, and can be revived after 24 hours when they die, adding strategic depth to squad management and competition participation. 

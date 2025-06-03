@@ -1,5 +1,5 @@
 #[allow(duplicate_alias,unused_use,unused_const)]
- module bullfy::squad_manager {
+module bullfy::squad_manager {
     use sui::object::{Self, UID};
     use sui::tx_context::{Self, TxContext};
     use sui::coin::{Self, Coin};
@@ -11,6 +11,7 @@
     use sui::transfer;
     use sui::event;
     use sui::sui::SUI;
+    use sui::clock::{Self, Clock};
     use bullfy::fee_collector;
 
     // Error messages using Move 2024 #[error] attribute
@@ -22,12 +23,19 @@
     const EOwnerDoesNotHaveSquad: vector<u8> = b"Owner does not have a squad";
     #[error]
     const ESquadHasNoLife: vector<u8> = b"Squad has no life remaining";
+    #[error]
+    const ESquadNotDead: vector<u8> = b"Squad is not dead, cannot revive";
+    #[error]
+    const ERevivalNotReady: vector<u8> = b"Squad cannot be revived yet, wait 24 hours";
 
     // Fee amount in MIST (1 SUI = 10^9 MIST)
     const SQUAD_CREATION_FEE: u64 = 1_000_000_000;
     
     // Initial squad life points
     const INITIAL_SQUAD_LIFE: u64 = 5;
+    
+    // Revival wait time in milliseconds (24 hours)
+    const REVIVAL_WAIT_TIME_MS: u64 = 864_00_000; // 24 * 60 * 60 * 1000
 
     // Represents a football squad.
     public struct Squad has key, store {
@@ -37,6 +45,7 @@
         name: String,
         players: vector<String>,
         life: u64,               // Life points (starts at 5)
+        death_time: Option<u64>, // Timestamp when squad died (life reached 0)
     }
 
     // Registry for all squads.
@@ -66,6 +75,18 @@
         squad_id: u64,
         life_gained: u64,
         new_life: u64,
+    }
+
+    // Event emitted when squad dies.
+    public struct SquadDied has copy, drop {
+        squad_id: u64,
+        death_time: u64,
+    }
+
+    // Event emitted when squad is revived.
+    public struct SquadRevived has copy, drop {
+        squad_id: u64,
+        revived_at: u64,
     }
 
     // Initializes the registries.
@@ -102,6 +123,7 @@
             name,
             players: vector::empty<String>(), // Initialize with empty vector
             life: INITIAL_SQUAD_LIFE,         // Start with 5 life points
+            death_time: option::none(),       // Not dead initially
         };
 
         // Add the squad to the registry
@@ -159,12 +181,23 @@
     }
 
     // Decreases squad life by 1 (used when squad loses competition).
-    public fun decrease_squad_life(registry: &mut SquadRegistry, squad_id: u64) {
+    public fun decrease_squad_life(registry: &mut SquadRegistry, squad_id: u64, clock: &Clock) {
         assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
         let squad = table::borrow_mut(&mut registry.squads, squad_id);
         assert!(squad.life > 0, ESquadHasNoLife);
         
         squad.life = squad.life - 1;
+        
+        // If squad dies, record the death time
+        if (squad.life == 0) {
+            let death_time = clock::timestamp_ms(clock);
+            squad.death_time = option::some(death_time);
+            
+            event::emit(SquadDied {
+                squad_id,
+                death_time,
+            });
+        };
         
         event::emit(SquadLifeLost {
             squad_id,
@@ -184,6 +217,54 @@
             life_gained: 1,
             new_life: squad.life,
         });
+    }
+
+    // Revives a dead squad after 24 hours, restoring it to 5 life points.
+    public entry fun revive_squad(
+        registry: &mut SquadRegistry,
+        squad_id: u64,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
+        let squad = table::borrow_mut(&mut registry.squads, squad_id);
+        
+        // Only squad owner can revive
+        assert!(squad.owner == tx_context::sender(ctx), EOwnerDoesNotHaveSquad);
+        
+        // Squad must be dead (life = 0 and has death_time)
+        assert!(squad.life == 0, ESquadNotDead);
+        assert!(option::is_some(&squad.death_time), ESquadNotDead);
+        
+        // Check if 24 hours have passed
+        let current_time = clock::timestamp_ms(clock);
+        let death_time = *option::borrow(&squad.death_time);
+        assert!(current_time >= death_time + REVIVAL_WAIT_TIME_MS, ERevivalNotReady);
+        
+        // Revive the squad
+        squad.life = INITIAL_SQUAD_LIFE;
+        squad.death_time = option::none();
+        
+        event::emit(SquadRevived {
+            squad_id,
+            revived_at: current_time,
+        });
+    }
+
+    // Checks if a squad can be revived (dead for 24+ hours).
+    public fun can_revive_squad(squad: &Squad, clock: &Clock): bool {
+        if (squad.life > 0 || option::is_none(&squad.death_time)) {
+            return false
+        };
+        
+        let current_time = clock::timestamp_ms(clock);
+        let death_time = *option::borrow(&squad.death_time);
+        current_time >= death_time + REVIVAL_WAIT_TIME_MS
+    }
+
+    // Gets squad death time (if dead).
+    public fun get_squad_death_time(squad: &Squad): Option<u64> {
+        squad.death_time
     }
 
     // Deletes a squad.
@@ -211,7 +292,7 @@
         };
         
         // Delete the squad object
-        let Squad { id, owner: _, squad_id: _, name: _, players: _, life: _ } = squad;
+        let Squad { id, owner: _, squad_id: _, name: _, players: _, life: _, death_time: _ } = squad;
         object::delete(id);
     }
 
@@ -239,4 +320,4 @@
     public fun get_squad_life(squad: &Squad): u64 {
         squad.life
     }
-}
+} 
