@@ -1,5 +1,5 @@
 #[allow(duplicate_alias,unused_use,unused_const)]
- module bullfy::squad_manager {
+module bullfy::squad_manager {
     use sui::object::{Self, UID};
     use sui::tx_context::{Self, TxContext};
     use sui::coin::{Self, Coin};
@@ -11,15 +11,10 @@
     use sui::transfer;
     use sui::event;
     use sui::sui::SUI;
+    use sui::clock::{Self, Clock};
     use bullfy::fee_collector;
 
     // Error messages using Move 2024 #[error] attribute
-    #[error]
-    const ENotEnoughDefenders: vector<u8> = b"At least one defender is required";
-    #[error]
-    const ENotEnoughMidfielders: vector<u8> = b"At least one midfielder is required";
-    #[error]
-    const ENotEnoughForwards: vector<u8> = b"At least one forward is required";
     #[error]
     const EInsufficientFee: vector<u8> = b"Insufficient fee provided";
     #[error]
@@ -27,44 +22,34 @@
     #[error]
     const EOwnerDoesNotHaveSquad: vector<u8> = b"Owner does not have a squad";
     #[error]
-    const EPlayerDoesNotExist: vector<u8> = b"Player does not exist";
+    const ESquadHasNoLife: vector<u8> = b"Squad has no life remaining";
+    #[error]
+    const ESquadNotDead: vector<u8> = b"Squad is not dead, cannot revive";
+    #[error]
+    const ERevivalNotReady: vector<u8> = b"Squad cannot be revived yet, wait 24 hours";
+    #[error]
+    const EPlayerAlreadyInSquad: vector<u8> = b"Player is already in this squad";
+    #[error]
+    const EMustAddExactlySevenPlayers: vector<u8> = b"Must add exactly 7 players";
 
     // Fee amount in MIST (1 SUI = 10^9 MIST)
     const SQUAD_CREATION_FEE: u64 = 1_000_000_000;
-
-    // Struct for squad formation (changed from enum to struct with constants)
-    public struct SquadFormation has copy, drop, store {
-        formation_type: u8,
-    }
-
-    // Formation constants
-    const FORMATION_4_3_2_1: u8 = 0;
-    const FORMATION_4_2_3_1: u8 = 1;
-    const FORMATION_4_2_2_2: u8 = 2;
-    const FORMATION_4_3_1_2: u8 = 3;
-    const FORMATION_4_2_1_3: u8 = 4;
+    
+    // Initial squad life points
+    const INITIAL_SQUAD_LIFE: u64 = 5;
+    
+    // Revival wait time in milliseconds (24 hours)
+    const REVIVAL_WAIT_TIME_MS: u64 = 864_00_000; // 24 * 60 * 60 * 1000
 
     // Represents a football squad.
     public struct Squad has key, store {
         id: UID,
         owner: address,
         squad_id: u64,
-        goalkeeper: Option<String>,
-        defenders: vector<String>,
-        midfielders: vector<String>,
-        forwards: vector<String>,
-        formation: SquadFormation,
         name: String,
-    }
-
-    // Represents a player in a squad.
-    public struct Player has key, store {
-        id: UID,
-        name: String,
-        squad_owner: address, // Changed from squad_id to squad_owner for easier lookup
-        token_price_id: String,
-        allocated_value: u64,
-        position: u8,
+        players: vector<String>,
+        life: u64,               // Life points (starts at 5)
+        death_time: Option<u64>, // Timestamp when squad died (life reached 0)
     }
 
     // Registry for all squads.
@@ -75,33 +60,46 @@
         next_squad_id: u64,
     }
 
-    // Registry for all players.
-    public struct PlayerRegistry has key {
-        id: UID,
-        players: Table<u64, Player>,
-        next_player_id: u64,
-    }
-
     // Event emitted when a new squad is created.
     public struct SquadCreated has copy, drop {
         owner: address,
         squad_id: u64,
-    }
-
-    // Event emitted when a new player is created.
-    public struct PlayerCreated has copy, drop {
-        player_id: u64,
-        squad_owner: address,
         name: String,
+        life: u64,
     }
 
-    // Helper functions for formations
-    public fun create_formation(formation_type: u8): SquadFormation {
-        SquadFormation { formation_type }
+    // Event emitted when squad loses life.
+    public struct SquadLifeLost has copy, drop {
+        squad_id: u64,
+        remaining_life: u64,
     }
 
-    public fun get_formation_type(formation: &SquadFormation): u8 {
-        formation.formation_type
+    // Event emitted when squad gains life.
+    public struct SquadLifeGained has copy, drop {
+        squad_id: u64,
+        life_gained: u64,
+        new_life: u64,
+    }
+
+    // Event emitted when squad dies.
+    public struct SquadDied has copy, drop {
+        squad_id: u64,
+        death_time: u64,
+    }
+
+    // Event emitted when squad is revived.
+    public struct SquadRevived has copy, drop {
+        squad_id: u64,
+        revived_at: u64,
+    }
+
+    
+
+    // Event emitted when multiple players are added to squad.
+    public struct PlayersAddedToSquad has copy, drop {
+        squad_id: u64,
+        players_added: vector<String>,
+        total_players: u64,
     }
 
     // Initializes the registries.
@@ -113,25 +111,13 @@
             next_squad_id: 1, // Start squad IDs from 1
         };
         transfer::share_object(squad_registry);
-
-        let player_registry = PlayerRegistry {
-            id: object::new(ctx),
-            players: table::new(ctx),
-            next_player_id: 1, // Start from 1 instead of 0
-        };
-        transfer::share_object(player_registry);
     }
 
-    // Creates a new squad.
+    // Creates a new squad with empty players vector and 5 life points.
     public entry fun create_squad(
         registry: &mut SquadRegistry,
         fees: &mut fee_collector::Fees,
         mut payment: Coin<SUI>,
-        goalkeeper: String,
-        defenders: vector<String>,
-        midfielders: vector<String>,
-        forwards: vector<String>,
-        formation_type: u8,
         name: String,
         ctx: &mut TxContext
     ) {
@@ -139,25 +125,18 @@
         let payment_amount = coin::value(&payment);
         assert!(payment_amount >= SQUAD_CREATION_FEE, EInsufficientFee);
 
-        assert!(vector::length(&defenders) >= 1, ENotEnoughDefenders);
-        assert!(vector::length(&midfielders) >= 1, ENotEnoughMidfielders);
-        assert!(vector::length(&forwards) >= 1, ENotEnoughForwards);
-
         let owner = tx_context::sender(ctx);
         let squad_id = registry.next_squad_id;
         registry.next_squad_id = squad_id + 1;
 
-        let formation = create_formation(formation_type);
         let squad = Squad {
             id: object::new(ctx),
             owner,
             squad_id,
-            goalkeeper: option::some(goalkeeper),
-            defenders,
-            midfielders,
-            forwards,
-            formation,
             name,
+            players: vector::empty<String>(), // Initialize with empty vector
+            life: INITIAL_SQUAD_LIFE,         // Start with 5 life points
+            death_time: option::none(),       // Not dead initially
         };
 
         // Add the squad to the registry
@@ -185,6 +164,8 @@
         event::emit(SquadCreated { 
             owner,
             squad_id,
+            name,
+            life: INITIAL_SQUAD_LIFE,
         });
     }
 
@@ -207,105 +188,96 @@
         table::contains(&registry.owner_squads, owner)
     }
 
-    // Updates a squad.
-    public entry fun update_squad(
-        registry: &mut SquadRegistry,
-        squad_id: u64,
-        goalkeeper: String,
-        defenders: vector<String>,
-        midfielders: vector<String>,
-        forwards: vector<String>,
-        formation_type: u8,
-        ctx: &mut TxContext
-    ) {
-        assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
-
-        assert!(vector::length(&defenders) >= 1, ENotEnoughDefenders);
-        assert!(vector::length(&midfielders) >= 1, ENotEnoughMidfielders);
-        assert!(vector::length(&forwards) >= 1, ENotEnoughForwards);
-
-        let squad = table::borrow_mut(&mut registry.squads, squad_id);
-        let owner = tx_context::sender(ctx);
-        
-        // Ensure only the squad owner can update it
-        assert!(squad.owner == owner, EOwnerDoesNotHaveSquad);
-
-        squad.goalkeeper = option::some(goalkeeper);
-        squad.defenders = defenders;
-        squad.midfielders = midfielders;
-        squad.forwards = forwards;
-        squad.formation = create_formation(formation_type);
+    // Checks if a squad is still alive (has life > 0).
+    public fun is_squad_alive(squad: &Squad): bool {
+        squad.life > 0
     }
 
-    // Creates a new player.
-    public entry fun create_player(
-        player_registry: &mut PlayerRegistry,
-        squad_registry: &SquadRegistry,
-        squad_id: u64,
-        name: String,
-        token_price_id: String,
-        allocated_value: u64,
-        position: u8,
-        ctx: &mut TxContext
-    ) {
-        let owner = tx_context::sender(ctx);
-        // Verify that the squad exists and belongs to the owner
-        assert!(table::contains(&squad_registry.squads, squad_id), EOwnerDoesNotHaveSquad);
-        let squad = table::borrow(&squad_registry.squads, squad_id);
-        assert!(squad.owner == owner, EOwnerDoesNotHaveSquad);
-
-        let player_id = player_registry.next_player_id;
-        player_registry.next_player_id = player_id + 1;
-
-        let player = Player {
-            id: object::new(ctx),
-            name,
-            squad_owner: owner,
-            token_price_id,
-            allocated_value,
-            position,
+    // Decreases squad life by 1 (used when squad loses competition).
+    public fun decrease_squad_life(registry: &mut SquadRegistry, squad_id: u64, clock: &Clock) {
+        assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
+        let squad = table::borrow_mut(&mut registry.squads, squad_id);
+        assert!(squad.life > 0, ESquadHasNoLife);
+        
+        squad.life = squad.life - 1;
+        
+        // If squad dies, record the death time
+        if (squad.life == 0) {
+            let death_time = clock::timestamp_ms(clock);
+            squad.death_time = option::some(death_time);
+            
+            event::emit(SquadDied {
+                squad_id,
+                death_time,
+            });
         };
-
-        table::add(&mut player_registry.players, player_id, player);
-
-        event::emit(PlayerCreated {
-            player_id,
-            squad_owner: owner,
-            name,
+        
+        event::emit(SquadLifeLost {
+            squad_id,
+            remaining_life: squad.life,
         });
     }
 
-    // Gets a player by ID.
-    public fun get_player(player_registry: &PlayerRegistry, player_id: u64): &Player {
-        assert!(table::contains(&player_registry.players, player_id), EPlayerDoesNotExist);
-        table::borrow(&player_registry.players, player_id)
+    // Increases squad life by 1 (used when squad wins competition).
+    public fun increase_squad_life(registry: &mut SquadRegistry, squad_id: u64) {
+        assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
+        let squad = table::borrow_mut(&mut registry.squads, squad_id);
+        
+        squad.life = squad.life + 1;
+        
+        event::emit(SquadLifeGained {
+            squad_id,
+            life_gained: 1,
+            new_life: squad.life,
+        });
     }
 
-    /// Checks if a player exists.
-    public fun has_player(player_registry: &PlayerRegistry, player_id: u64): bool {
-        table::contains(&player_registry.players, player_id)
-    }
-
-    // Updates a player.
-    public entry fun update_player(
-        player_registry: &mut PlayerRegistry,
-        player_id: u64,
-        name: String,
-        allocated_value: u64,
-        position: u8,
+    // Revives a dead squad after 24 hours, restoring it to 5 life points.
+    public entry fun revive_squad(
+        registry: &mut SquadRegistry,
+        squad_id: u64,
+        clock: &Clock,
         ctx: &mut TxContext
     ) {
-        assert!(table::contains(&player_registry.players, player_id), EPlayerDoesNotExist);
-
-        let player = table::borrow_mut(&mut player_registry.players, player_id);
-        let owner = tx_context::sender(ctx);
+        assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
+        let squad = table::borrow_mut(&mut registry.squads, squad_id);
         
-        // Ensure only the squad owner can update their players
-        assert!(player.squad_owner == owner, EOwnerDoesNotHaveSquad);
+        // Only squad owner can revive
+        assert!(squad.owner == tx_context::sender(ctx), EOwnerDoesNotHaveSquad);
+        
+        // Squad must be dead (life = 0 and has death_time)
+        assert!(squad.life == 0, ESquadNotDead);
+        assert!(option::is_some(&squad.death_time), ESquadNotDead);
+        
+        // Check if 24 hours have passed
+        let current_time = clock::timestamp_ms(clock);
+        let death_time = *option::borrow(&squad.death_time);
+        assert!(current_time >= death_time + REVIVAL_WAIT_TIME_MS, ERevivalNotReady);
+        
+        // Revive the squad
+        squad.life = INITIAL_SQUAD_LIFE;
+        squad.death_time = option::none();
+        
+        event::emit(SquadRevived {
+            squad_id,
+            revived_at: current_time,
+        });
+    }
 
-        player.name = name;
-        player.allocated_value = allocated_value;
-        player.position = position;
+    // Checks if a squad can be revived (dead for 24+ hours).
+    public fun can_revive_squad(squad: &Squad, clock: &Clock): bool {
+        if (squad.life > 0 || option::is_none(&squad.death_time)) {
+            return false
+        };
+        
+        let current_time = clock::timestamp_ms(clock);
+        let death_time = *option::borrow(&squad.death_time);
+        current_time >= death_time + REVIVAL_WAIT_TIME_MS
+    }
+
+    // Gets squad death time (if dead).
+    public fun get_squad_death_time(squad: &Squad): Option<u64> {
+        squad.death_time
     }
 
     // Deletes a squad.
@@ -333,24 +305,84 @@
         };
         
         // Delete the squad object
-        let Squad { id, owner: _, squad_id: _, goalkeeper: _, defenders: _, midfielders: _, forwards: _, formation: _, name:_ } = squad;
+        let Squad { id, owner: _, squad_id: _, name: _, players: _, life: _, death_time: _ } = squad;
         object::delete(id);
     }
 
-    // Gets squad formation type as a readable string (utility function).
-    public fun formation_to_string(formation: &SquadFormation): String {
-        if (formation.formation_type == FORMATION_4_3_2_1) {
-            string::utf8(b"4-3-2-1")
-        } else if (formation.formation_type == FORMATION_4_2_3_1) {
-            string::utf8(b"4-2-3-1")
-        } else if (formation.formation_type == FORMATION_4_2_2_2) {
-            string::utf8(b"4-2-2-2")
-        } else if (formation.formation_type == FORMATION_4_3_1_2) {
-            string::utf8(b"4-3-1-2")
-        } else if (formation.formation_type == FORMATION_4_2_1_3) {
-            string::utf8(b"4-2-1-3")
-        } else {
-            string::utf8(b"Unknown")
-        }
+    // Get squad name
+    public fun get_squad_name(squad: &Squad): &String {
+        &squad.name
     }
-}
+
+    // Get squad players
+    public fun get_squad_players(squad: &Squad): &vector<String> {
+        &squad.players
+    }
+
+    // Get squad owner
+    public fun get_squad_owner(squad: &Squad): address {
+        squad.owner
+    }
+
+    // Get squad ID
+    public fun get_squad_id(squad: &Squad): u64 {
+        squad.squad_id
+    }
+
+    // Get squad life points
+    public fun get_squad_life(squad: &Squad): u64 {
+        squad.life
+    }
+
+
+    // Adds 7 players to a squad in one call (only squad owner can add players).
+    public entry fun add_players_to_squad(
+        registry: &mut SquadRegistry,
+        squad_id: u64,
+        player_names: vector<String>,
+        ctx: &mut TxContext
+    ) {
+        assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
+        let squad = table::borrow_mut(&mut registry.squads, squad_id);
+        
+        // Only squad owner can add players
+        assert!(squad.owner == tx_context::sender(ctx), EOwnerDoesNotHaveSquad);
+        
+        // Must be exactly 7 players
+        assert!(vector::length(&player_names) == 7, EMustAddExactlySevenPlayers);
+        
+        // Check for duplicates within the new players list
+        let mut i = 0;
+        while (i < vector::length(&player_names)) {
+            let current_player = vector::borrow(&player_names, i);
+            
+            // Check if this player is already in the squad
+            let (found_in_squad, _) = vector::index_of(&squad.players, current_player);
+            assert!(!found_in_squad, EPlayerAlreadyInSquad);
+            
+            // Check for duplicates within the new list
+            let mut j = i + 1;
+            while (j < vector::length(&player_names)) {
+                let other_player = vector::borrow(&player_names, j);
+                assert!(current_player != other_player, EPlayerAlreadyInSquad);
+                j = j + 1;
+            };
+            
+            i = i + 1;
+        };
+        
+        // Add all players to the squad
+        let mut k = 0;
+        while (k < vector::length(&player_names)) {
+            let player_name = *vector::borrow(&player_names, k);
+            vector::push_back(&mut squad.players, player_name);
+            k = k + 1;
+        };
+        
+        event::emit(PlayersAddedToSquad {
+            squad_id,
+            players_added: player_names,
+            total_players: vector::length(&squad.players),
+        });
+    }
+} 

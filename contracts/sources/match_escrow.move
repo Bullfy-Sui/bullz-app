@@ -68,8 +68,9 @@ module bullfy::match_escrow {
         recipient: address,
         amount: u64,
     }
-
-    // Init function must be public and named 'init'
+    
+    
+     
     fun init(ctx: &mut TxContext) {
         let queue = MatchQueue {
             id: object::new(ctx),
