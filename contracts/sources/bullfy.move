@@ -172,16 +172,16 @@
         });
     }
 
-    // Increases squad life by specified amount (used when squad wins competition).
-    public fun increase_squad_life(registry: &mut SquadRegistry, squad_id: u64, life_gained: u64) {
+    // Increases squad life by 1 (used when squad wins competition).
+    public fun increase_squad_life(registry: &mut SquadRegistry, squad_id: u64) {
         assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
         let squad = table::borrow_mut(&mut registry.squads, squad_id);
         
-        squad.life = squad.life + life_gained;
+        squad.life = squad.life + 1;
         
         event::emit(SquadLifeGained {
             squad_id,
-            life_gained,
+            life_gained: 1,
             new_life: squad.life,
         });
     }

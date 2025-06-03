@@ -123,8 +123,7 @@ Manages football squads, including creation, updating, retrieval, and deletion o
   - Parameters:
     - `registry: &mut SquadRegistry` — Mutable reference to the squad registry.
     - `squad_id: u64` — ID of the squad that won.
-    - `life_gained: u64` — Amount of life points to add.
-  - Description: Increases squad life by specified amount when it wins a competition. Emits SquadLifeGained event.
+  - Description: Increases squad life by 1 when it wins a competition. Emits SquadLifeGained event.
 
 - **get_squad_name**
   - Parameters:
