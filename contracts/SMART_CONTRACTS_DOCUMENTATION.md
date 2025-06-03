@@ -72,6 +72,13 @@ Manages football squads, including creation, updating, retrieval, deletion, and 
     - `total_players: u64` — Total number of players in squad after addition.
   - Traits: `copy, drop`
 
+- **PlayersAddedToSquad**
+  - Fields:
+    - `squad_id: u64` — ID of the squad.
+    - `players_added: vector<String>` — List of player names added.
+    - `total_players: u64` — Total number of players in squad after addition.
+  - Traits: `copy, drop`
+
 ### Constants
 
 - **SQUAD_CREATION_FEE**: `u64 = 1_000_000_000` — Fee required to create a squad (1 SUI in MIST).
@@ -87,6 +94,7 @@ Manages football squads, including creation, updating, retrieval, deletion, and 
 - **ESquadNotDead**: "Squad is not dead, cannot revive"
 - **ERevivalNotReady**: "Squad cannot be revived yet, wait 24 hours"
 - **EPlayerAlreadyInSquad**: "Player is already in this squad"
+- **EMustAddExactlySevenPlayers**: "Must add exactly 7 players"
 
 ### Functions
 
@@ -122,7 +130,15 @@ Manages football squads, including creation, updating, retrieval, deletion, and 
     - `squad_id: u64` — ID of the squad to add player to.
     - `player_name: String` — Name of the player to add.
     - `ctx: &mut TxContext` — Transaction context.
-  - Description: Adds a player to a squad. Only the squad owner can add players. Prevents duplicate players in the same squad.
+  - Description: Adds a single player to a squad. Only the squad owner can add players. Prevents duplicate players in the same squad.
+
+- **add_players_to_squad**
+  - Parameters:
+    - `registry: &mut SquadRegistry` — Mutable reference to the squad registry.
+    - `squad_id: u64` — ID of the squad to add players to.
+    - `player_names: vector<String>` — List of exactly 7 player names to add.
+    - `ctx: &mut TxContext` — Transaction context.
+  - Description: Adds exactly 7 players to a squad in one transaction. Only the squad owner can add players. Validates that exactly 7 players are provided, prevents duplicate players within the list, and prevents adding players already in the squad.
 
 #### Public View Functions
 

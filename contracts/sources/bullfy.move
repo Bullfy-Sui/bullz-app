@@ -29,6 +29,8 @@ module bullfy::squad_manager {
     const ERevivalNotReady: vector<u8> = b"Squad cannot be revived yet, wait 24 hours";
     #[error]
     const EPlayerAlreadyInSquad: vector<u8> = b"Player is already in this squad";
+    #[error]
+    const EMustAddExactlySevenPlayers: vector<u8> = b"Must add exactly 7 players";
 
     // Fee amount in MIST (1 SUI = 10^9 MIST)
     const SQUAD_CREATION_FEE: u64 = 1_000_000_000;
@@ -95,6 +97,13 @@ module bullfy::squad_manager {
     public struct PlayerAddedToSquad has copy, drop {
         squad_id: u64,
         player_name: String,
+        total_players: u64,
+    }
+
+    // Event emitted when multiple players are added to squad.
+    public struct PlayersAddedToSquad has copy, drop {
+        squad_id: u64,
+        players_added: vector<String>,
         total_players: u64,
     }
 
@@ -354,6 +363,57 @@ module bullfy::squad_manager {
         event::emit(PlayerAddedToSquad {
             squad_id,
             player_name,
+            total_players: vector::length(&squad.players),
+        });
+    }
+
+    // Adds 7 players to a squad in one call (only squad owner can add players).
+    public entry fun add_players_to_squad(
+        registry: &mut SquadRegistry,
+        squad_id: u64,
+        player_names: vector<String>,
+        ctx: &mut TxContext
+    ) {
+        assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
+        let squad = table::borrow_mut(&mut registry.squads, squad_id);
+        
+        // Only squad owner can add players
+        assert!(squad.owner == tx_context::sender(ctx), EOwnerDoesNotHaveSquad);
+        
+        // Must be exactly 7 players
+        assert!(vector::length(&player_names) == 7, EMustAddExactlySevenPlayers);
+        
+        // Check for duplicates within the new players list
+        let mut i = 0;
+        while (i < vector::length(&player_names)) {
+            let current_player = vector::borrow(&player_names, i);
+            
+            // Check if this player is already in the squad
+            let (found_in_squad, _) = vector::index_of(&squad.players, current_player);
+            assert!(!found_in_squad, EPlayerAlreadyInSquad);
+            
+            // Check for duplicates within the new list
+            let mut j = i + 1;
+            while (j < vector::length(&player_names)) {
+                let other_player = vector::borrow(&player_names, j);
+                assert!(current_player != other_player, EPlayerAlreadyInSquad);
+                j = j + 1;
+            };
+            
+            i = i + 1;
+        };
+        
+        // Add all players to the squad
+        let mut k = 0;
+        while (k < vector::length(&player_names)) {
+            let player_name = *vector::borrow(&player_names, k);
+            vector::push_back(&mut squad.players, player_name);
+            k = k + 1;
+        };
+        
+        event::emit(PlayersAddedToSquad {
+            squad_id,
+            players_added: player_names,
             total_players: vector::length(&squad.players),
         });
     }
