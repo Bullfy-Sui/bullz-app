@@ -9,34 +9,9 @@ export enum SquadFormation {
 }
 
 export const formationLayouts = {
-  OneThreeTwoOne: [
-    [1], // GK
-    [2, 3, 4], // Def
-    [5, 6], // Mid
-    [7], // Fwd
-  ],
-  OneTwoThreeOne: [
-    [1], // GK
-    [2, 3], // Def
-    [4, 5, 6], // Defense
-    [7], // Fwd
-  ],
-  OneTwoTwoTwo: [
-    [1], // GK
-    [2, 3], // Def
-    [4, 5], // Mid
-    [6, 7], // Fwd
-  ],
-  OneThreeOneTwo: [
-    [1], // GK
-    [2, 3, 4], // Def
-    [5], // Mid
-    [6, 7], // Fwd
-  ],
-  OneTwoOneThree: [
-    [1], // GK
-    [2, 3], // Def
-    [4], // Mid
-    [5, 6, 7], // Fwd
-  ],
+  OneThreeTwoOne: [[1], [2, 3, 4], [5, 6], [7]],
+  OneTwoThreeOne: [[1], [2, 3], [4, 5, 6], [7]],
+  OneTwoTwoTwo: [[1], [2, 3], [4, 5], [6, 7]],
+  OneThreeOneTwo: [[1], [2, 3, 4], [5], [6, 7]],
+  OneTwoOneThree: [[1], [2, 3], [4], [5, 6, 7]],
 };
