@@ -20,7 +20,7 @@ export interface HornForm {
 }
 
 export default function Home() {
-  const { data: squadData, isPending: loading } = useGetUserSquads();
+  const { data: squadData } = useGetUserSquads();
   const [squad, setSquad] = useState<SquadResponseItem>();
   const router = useRouter();
   const form = useForm<HornForm>();
@@ -47,7 +47,7 @@ export default function Home() {
           onPlayerClick={(player) => {
             console.log(player);
           }}
-          ctaLabel="Lock horns"
+          ctaLabel="Lock horn"
           ctaOnClick={() => {
             onOpen();
           }}

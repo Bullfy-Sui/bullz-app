@@ -22,7 +22,7 @@ const ConnectDrawer = (props: ConnectDrawerProps) => {
     isError: connectionError,
   } = useConnectWallet();
   const {
-    mutate: registerUser,
+    // mutate: registerUser,
     isPending: registering,
     isSuccess: registrationSuccess,
     isError: registrationError,
@@ -59,6 +59,7 @@ const ConnectDrawer = (props: ConnectDrawerProps) => {
     connectionError,
   ]);
 
+  // @ts-expect-error - -
   const onConnect = (res) => {
     console.log(res);
     console.log("connected");

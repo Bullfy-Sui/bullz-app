@@ -20,7 +20,7 @@ const PriceList = (props?: PriceListProps) => {
             Top coins
           </p>
         </div>
-        <div className="flex gap-[0.1875rem] items-center">
+        <div className="flex gap-[0.1875rem] items-center" hidden>
           <div
             className={cn(
               " text-white rounded-[0.125rem] h-[1.625rem] text-center flex items-center justify-center leading-[1.375rem] text-[0.75rem] font-[600] px-[0.625rem] font-geist",
