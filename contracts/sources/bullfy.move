@@ -169,20 +169,6 @@ module bullfy::squad_manager {
         });
     }
 
-    // Gets a squad by ID.
-    public fun get_squad(registry: &SquadRegistry, squad_id: u64): &Squad {
-        assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
-        table::borrow(&registry.squads, squad_id)
-    }
-
-    // Gets all squads for an owner.
-    public fun get_owner_squads(registry: &SquadRegistry, owner: address): &vector<u64> {
-        if (!table::contains(&registry.owner_squads, owner)) {
-            abort EOwnerDoesNotHaveSquad
-        };
-        table::borrow(&registry.owner_squads, owner)
-    }
-
     // Checks if an owner has any squads.
     public fun has_squads(registry: &SquadRegistry, owner: address): bool {
         table::contains(&registry.owner_squads, owner)
@@ -309,30 +295,7 @@ module bullfy::squad_manager {
         object::delete(id);
     }
 
-    // Get squad name
-    public fun get_squad_name(squad: &Squad): &String {
-        &squad.name
-    }
-
-    // Get squad players
-    public fun get_squad_players(squad: &Squad): &vector<String> {
-        &squad.players
-    }
-
-    // Get squad owner
-    public fun get_squad_owner(squad: &Squad): address {
-        squad.owner
-    }
-
-    // Get squad ID
-    public fun get_squad_id(squad: &Squad): u64 {
-        squad.squad_id
-    }
-
-    // Get squad life points
-    public fun get_squad_life(squad: &Squad): u64 {
-        squad.life
-    }
+   
 
 
     // Adds 7 players to a squad in one call (only squad owner can add players).
@@ -384,5 +347,45 @@ module bullfy::squad_manager {
             players_added: player_names,
             total_players: vector::length(&squad.players),
         });
+    }
+
+
+     // Get squad name
+    public fun get_squad_name(squad: &Squad): &String {
+        &squad.name
+    }
+
+    // Get squad players
+    public fun get_squad_players(squad: &Squad): &vector<String> {
+        &squad.players
+    }
+
+    // Get squad owner
+    public fun get_squad_owner(squad: &Squad): address {
+        squad.owner
+    }
+
+    // Get squad ID
+    public fun get_squad_id(squad: &Squad): u64 {
+        squad.squad_id
+    }
+
+    // Get squad life points
+    public fun get_squad_life(squad: &Squad): u64 {
+        squad.life
+    }
+
+     // Gets a squad by ID.
+    public fun get_squad(registry: &SquadRegistry, squad_id: u64): &Squad {
+        assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
+        table::borrow(&registry.squads, squad_id)
+    }
+
+    // Gets all squads for an owner.
+    public fun get_owner_squads(registry: &SquadRegistry, owner: address): &vector<u64> {
+        if (!table::contains(&registry.owner_squads, owner)) {
+            abort EOwnerDoesNotHaveSquad
+        };
+        table::borrow(&registry.owner_squads, owner)
     }
 } 
