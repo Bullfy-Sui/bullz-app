@@ -171,9 +171,9 @@ const NewSquadPage = () => {
           </Sheet>
 
           <AllocateFunds
-            isOpen={allocationDrawerIsOpen}
-            onClose={closeAllocationDrawer}
-          />
+            isOpen={allocationDrawerIsOpen} onCloseAction={function (): void {
+              throw new Error("Function not implemented.");
+            } } totalBudget={0}          />
         </form>
       </FormProvider>
 
