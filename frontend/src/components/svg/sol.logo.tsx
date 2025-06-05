@@ -9,10 +9,10 @@ const SolanaLogo = () => {
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <g clip-path="url(#clip0_7917_75268)">
+      <g clipPath="url(#clip0_7917_75268)">
         <rect width="44" height="44" rx="22" fill="black" />
         <rect width="44" height="44" fill="black" />
-        <g clip-path="url(#clip1_7917_75268)">
+        <g clipPath="url(#clip1_7917_75268)">
           <path
             d="M13.0879 27.8921C13.2473 27.7328 13.4663 27.6399 13.6986 27.6399H34.7682C35.1532 27.6399 35.3457 28.1046 35.0736 28.3767L30.9114 32.5389C30.7521 32.6982 30.5331 32.7911 30.3007 32.7911H9.23116C8.84615 32.7911 8.65364 32.3264 8.9258 32.0543L13.0879 27.8921Z"
             fill="url(#paint0_linear_7917_75268)"

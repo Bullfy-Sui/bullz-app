@@ -1,16 +1,10 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { useAppStore } from "@/lib/store/app-store";
-import { useConnectWallet, useWallets } from "@mysten/dapp-kit";
 
-import { useRouter } from "next/navigation";
-import { useRegister } from "./api-services";
-
-import NotificationModal from "@/components/general/modals/notify";
 import Bullfy from "@/components/svg/bullfy";
 import { useDisclosure } from "@/lib/hooks/use-diclosure";
-import { useMemo } from "react";
+import ConnectDrawer from "../home/components/connect-drawer";
 
 // Criteria
 // same bid price
@@ -18,70 +12,7 @@ import { useMemo } from "react";
 // if same coins, different allocation of virtual money
 
 export default function LoginPage() {
-  const wallets = useWallets();
-  const {
-    mutate: connect,
-    isPending: connectingWallet,
-    isSuccess: connectionSuccess,
-    isError: connectionError,
-  } = useConnectWallet();
-  const { setAddress } = useAppStore();
-  const router = useRouter();
-  const {
-    mutate: registerUser,
-    isPending: registering,
-    isSuccess: registrationSuccess,
-    isError: registrationError,
-  } = useRegister();
   const { onOpen, onClose, isOpen } = useDisclosure();
-
-  // const { mutate: disconnectWallet, isPending: disconnecting } =
-  //   useDisconnectWallet();
-
-  // @ts-expect-error - -
-  const onConnect = (res) => {
-    console.log(res);
-    console.log("connected");
-    // setAddress(res.accounts[0].address);
-    // router.push("/squad");
-    registerUser(
-      {
-        address: res.accounts[0].address,
-      },
-      {
-        onSuccess: (data) => {
-          setAddress(data.data.address);
-          router.push("/squad");
-        },
-      }
-    );
-  };
-
-  const modalContent = useMemo(() => {
-    if (registrationSuccess || connectionSuccess) {
-      return {
-        title: "Connection Successful",
-        description: "You have successfully connected your wallet",
-        buttonLabel: "Proceed home",
-        type: "success",
-      };
-    }
-    if (registrationError || connectionError) {
-      return {
-        title: "Error connecting wallet",
-        description: "Sorry, we couldn’t connect your wallet",
-        buttonLabel: "Try Again",
-        type: "error",
-      };
-    }
-  }, [
-    registrationSuccess,
-    connectionSuccess,
-    registrationError,
-    connectionError,
-    // registering,
-    // connectingWallet,
-  ]);
 
   return (
     <>
@@ -100,47 +31,12 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {wallets.map((wallet) => (
-          <Button
-            key={wallet.name}
-            className="w-full text-center"
-            onClick={() => {
-              onOpen();
-              connect(
-                { wallet },
-                {
-                  onSuccess: onConnect,
-                }
-              );
-            }}
-          >
-            Connect to {wallet.name}
-          </Button>
-        ))}
-        {/* see this for example */}
-        {/* <Button
-          className="w-full text-center"
-          onClick={() => {
-            disconnectWallet(undefined, {
-              onSuccess: (res) => console.log("Disconnected", res),
-            });
-          }}
-        >
-          {disconnecting ? "Loading..." : "Disconnect wallet"}
-        </Button> */}
+        <Button onClick={() => onOpen()} className="w-full cursor-pointer">
+          Connect Wallet
+        </Button>
       </div>
-      <NotificationModal
-        isOpen={isOpen}
-        onClose={onClose}
-        onButtonClick={onClose}
-        buttonLabel={modalContent?.buttonLabel}
-        // @ts-expect-error - -
-        type={modalContent?.type}
-        isLoading={registering || connectingWallet}
-        title={modalContent?.title}
-        // @ts-expect-error - -
-        description={modalContent?.description}
-      />
+
+      <ConnectDrawer isOpen={isOpen} onClose={onClose} />
     </>
   );
 }
