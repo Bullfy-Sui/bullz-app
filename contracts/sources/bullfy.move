@@ -1,24 +1,17 @@
-#[allow(duplicate_alias,unused_use,unused_const)]
+
 module bullfy::squad_manager {
-    use sui::object::{Self, UID};
-    use sui::tx_context::{Self, TxContext};
-    use sui::coin::{Self, Coin};
-    use sui::balance::{Self, Balance};
-    use std::option::{Self, Option};
-    use std::vector;
-    use std::string::{Self, String};
-    use sui::table::{Self, Table};
-    use sui::transfer;
+    use sui::coin::Coin;
+    use std::string::String;
+    use sui::table::Table;
+    
     use sui::event;
     use sui::sui::SUI;
-    use sui::clock::{Self, Clock};
+    use sui::clock::Clock;
     use bullfy::fee_collector;
 
     // Error messages using Move 2024 #[error] attribute
     #[error]
     const EInsufficientFee: vector<u8> = b"Insufficient fee provided";
-    #[error]
-    const EOwnerAlreadyHasSquad: vector<u8> = b"Owner already has a squad";
     #[error]
     const EOwnerDoesNotHaveSquad: vector<u8> = b"Owner does not have a squad";
     #[error]
@@ -31,6 +24,12 @@ module bullfy::squad_manager {
     const EPlayerAlreadyInSquad: vector<u8> = b"Player is already in this squad";
     #[error]
     const EMustAddExactlySevenPlayers: vector<u8> = b"Must add exactly 7 players";
+    #[error]
+    const ENotEnoughDefenders: vector<u8> = b"Not enough defenders";
+    #[error]
+    const ENotEnoughMidfielders: vector<u8> = b"Not enough midfielders";
+    #[error]
+    const ENotEnoughForwards: vector<u8> = b"Not enough forwards";
 
     // Fee amount in MIST (1 SUI = 10^9 MIST)
     const SQUAD_CREATION_FEE: u64 = 1_000_000_000;
@@ -39,7 +38,12 @@ module bullfy::squad_manager {
     const INITIAL_SQUAD_LIFE: u64 = 5;
     
     // Revival wait time in milliseconds (24 hours)
-    const REVIVAL_WAIT_TIME_MS: u64 = 864_00_000; // 24 * 60 * 60 * 1000
+    const REVIVAL_WAIT_TIME_MS: u64 = 86_400_000; // 24 * 60 * 60 * 1000
+
+    // Squad formation enum
+    public struct SquadFormation has copy, drop, store {
+        formation_type: u8, // 0: 4-4-2, 1: 4-3-3, 2: 3-5-2, etc.
+    }
 
     // Represents a football squad.
     public struct Squad has key, store {
@@ -47,9 +51,34 @@ module bullfy::squad_manager {
         owner: address,
         squad_id: u64,
         name: String,
+        goalkeeper: Option<String>,
+        defenders: vector<String>,
+        midfielders: vector<String>,
+        forwards: vector<String>,
+        formation: SquadFormation,
         players: vector<String>,
         life: u64,               // Life points (starts at 5)
         death_time: Option<u64>, // Timestamp when squad died (life reached 0)
+    }
+
+    // Represents a player in a squad.
+    public struct Player has key, store {
+        id: UID,
+        name: String,
+        squad_owner: address,
+        token_price_id: String,
+        allocated_value: u64,
+        position: u8,
+        players: vector<String>,
+        life: u64,               // Life points (starts at 5)
+        death_time: Option<u64>, // Timestamp when squad died (life reached 0)
+    }
+
+    // Registry for players.
+    public struct PlayerRegistry has key {
+        id: UID,
+        players: Table<u64, Player>,
+        next_player_id: u64,
     }
 
     // Registry for all squads.
@@ -93,7 +122,12 @@ module bullfy::squad_manager {
         revived_at: u64,
     }
 
-    
+    // Event emitted when a new player is created.
+    public struct PlayerCreated has copy, drop {
+        player_id: u64,
+        squad_owner: address,
+        name: String,
+    }
 
     // Event emitted when multiple players are added to squad.
     public struct PlayersAddedToSquad has copy, drop {
@@ -102,52 +136,79 @@ module bullfy::squad_manager {
         total_players: u64,
     }
 
+    // Helper function to create formation
+    fun create_formation(formation_type: u8): SquadFormation {
+        SquadFormation { formation_type }
+    }
+
     // Initializes the registries.
     fun init(ctx: &mut TxContext) {
         let squad_registry = SquadRegistry {
-            id: object::new(ctx),
-            squads: table::new(ctx),
-            owner_squads: table::new(ctx),
+            id: sui::object::new(ctx),
+            squads: sui::table::new(ctx),
+            owner_squads: sui::table::new(ctx),
             next_squad_id: 1, // Start squad IDs from 1
         };
         transfer::share_object(squad_registry);
+
+        let player_registry = PlayerRegistry {
+            id: sui::object::new(ctx),
+            players: sui::table::new(ctx),
+            next_player_id: 1, // Start from 1 instead of 0
+        };
+        transfer::share_object(player_registry);
     }
 
-    // Creates a new squad with empty players vector and 5 life points.
+    // Creates a new squad.
     public entry fun create_squad(
         registry: &mut SquadRegistry,
         fees: &mut fee_collector::Fees,
         mut payment: Coin<SUI>,
         name: String,
+        goalkeeper: String,
+        defenders: vector<String>,
+        midfielders: vector<String>,
+        forwards: vector<String>,
+        formation_type: u8,
         ctx: &mut TxContext
     ) {
         // Verify payment amount
-        let payment_amount = coin::value(&payment);
+        let payment_amount = sui::coin::value(&payment);
         assert!(payment_amount >= SQUAD_CREATION_FEE, EInsufficientFee);
 
-        let owner = tx_context::sender(ctx);
+        // Validate squad composition
+        assert!(vector::length(&defenders) >= 1, ENotEnoughDefenders);
+        assert!(vector::length(&midfielders) >= 1, ENotEnoughMidfielders);
+        assert!(vector::length(&forwards) >= 1, ENotEnoughForwards);
+
+        let owner = sui::tx_context::sender(ctx);
         let squad_id = registry.next_squad_id;
         registry.next_squad_id = squad_id + 1;
 
         let squad = Squad {
-            id: object::new(ctx),
+            id: sui::object::new(ctx),
             owner,
             squad_id,
             name,
+            goalkeeper: std::option::some(goalkeeper),
+            defenders,
+            midfielders,
+            forwards,
+            formation: create_formation(formation_type),
             players: vector::empty<String>(), // Initialize with empty vector
             life: INITIAL_SQUAD_LIFE,         // Start with 5 life points
-            death_time: option::none(),       // Not dead initially
+            death_time: std::option::none<u64>(),       // Not dead initially
         };
 
         // Add the squad to the registry
-        table::add(&mut registry.squads, squad_id, squad);
+        sui::table::add(&mut registry.squads, squad_id, squad);
 
         // Add the squad to the owner's list of squads
-        if (!table::contains(&registry.owner_squads, owner)) {
-            table::add(&mut registry.owner_squads, owner, vector::empty<u64>());
+        if (!sui::table::contains(&registry.owner_squads, owner)) {
+            sui::table::add(&mut registry.owner_squads, owner, vector::empty<u64>());
         };
         
-        let owner_squads = table::borrow_mut(&mut registry.owner_squads, owner);
+        let owner_squads = sui::table::borrow_mut(&mut registry.owner_squads, owner);
         vector::push_back(owner_squads, squad_id);
 
         // Handle payment: take only the required fee, return the rest
@@ -156,7 +217,7 @@ module bullfy::squad_manager {
             fee_collector::collect(fees, payment, ctx);
         } else {
             // More than required, split and return change
-            let fee_coin = coin::split(&mut payment, SQUAD_CREATION_FEE, ctx);
+            let fee_coin = sui::coin::split(&mut payment, SQUAD_CREATION_FEE, ctx);
             fee_collector::collect(fees, fee_coin, ctx);
             transfer::public_transfer(payment, owner);
         };
@@ -171,21 +232,21 @@ module bullfy::squad_manager {
 
     // Gets a squad by ID.
     public fun get_squad(registry: &SquadRegistry, squad_id: u64): &Squad {
-        assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
-        table::borrow(&registry.squads, squad_id)
+        assert!(sui::table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
+        sui::table::borrow(&registry.squads, squad_id)
     }
 
     // Gets all squads for an owner.
     public fun get_owner_squads(registry: &SquadRegistry, owner: address): &vector<u64> {
-        if (!table::contains(&registry.owner_squads, owner)) {
+        if (!sui::table::contains(&registry.owner_squads, owner)) {
             abort EOwnerDoesNotHaveSquad
         };
-        table::borrow(&registry.owner_squads, owner)
+        sui::table::borrow(&registry.owner_squads, owner)
     }
 
     // Checks if an owner has any squads.
     public fun has_squads(registry: &SquadRegistry, owner: address): bool {
-        table::contains(&registry.owner_squads, owner)
+        sui::table::contains(&registry.owner_squads, owner)
     }
 
     // Checks if a squad is still alive (has life > 0).
@@ -195,16 +256,16 @@ module bullfy::squad_manager {
 
     // Decreases squad life by 1 (used when squad loses competition).
     public fun decrease_squad_life(registry: &mut SquadRegistry, squad_id: u64, clock: &Clock) {
-        assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
-        let squad = table::borrow_mut(&mut registry.squads, squad_id);
+        assert!(sui::table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
+        let squad = sui::table::borrow_mut(&mut registry.squads, squad_id);
         assert!(squad.life > 0, ESquadHasNoLife);
         
         squad.life = squad.life - 1;
         
         // If squad dies, record the death time
         if (squad.life == 0) {
-            let death_time = clock::timestamp_ms(clock);
-            squad.death_time = option::some(death_time);
+            let death_time = sui::clock::timestamp_ms(clock);
+            squad.death_time = std::option::some(death_time);
             
             event::emit(SquadDied {
                 squad_id,
@@ -220,8 +281,8 @@ module bullfy::squad_manager {
 
     // Increases squad life by 1 (used when squad wins competition).
     public fun increase_squad_life(registry: &mut SquadRegistry, squad_id: u64) {
-        assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
-        let squad = table::borrow_mut(&mut registry.squads, squad_id);
+        assert!(sui::table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
+        let squad = sui::table::borrow_mut(&mut registry.squads, squad_id);
         
         squad.life = squad.life + 1;
         
@@ -237,26 +298,47 @@ module bullfy::squad_manager {
         registry: &mut SquadRegistry,
         squad_id: u64,
         clock: &Clock,
+        name: String,
+        goalkeeper: String,
+        defenders: vector<String>,
+        midfielders: vector<String>,
+        forwards: vector<String>,
+        formation_type: u8,
         ctx: &mut TxContext
     ) {
-        assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
-        let squad = table::borrow_mut(&mut registry.squads, squad_id);
+        assert!(sui::table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
+        
+        // Validate squad composition
+        assert!(vector::length(&defenders) >= 1, ENotEnoughDefenders);
+        assert!(vector::length(&midfielders) >= 1, ENotEnoughMidfielders);
+        assert!(vector::length(&forwards) >= 1, ENotEnoughForwards);
+
+        let squad = sui::table::borrow_mut(&mut registry.squads, squad_id);
+        let owner = sui::tx_context::sender(ctx);
         
         // Only squad owner can revive
-        assert!(squad.owner == tx_context::sender(ctx), EOwnerDoesNotHaveSquad);
+        assert!(squad.owner == owner, EOwnerDoesNotHaveSquad);
         
         // Squad must be dead (life = 0 and has death_time)
         assert!(squad.life == 0, ESquadNotDead);
-        assert!(option::is_some(&squad.death_time), ESquadNotDead);
+        assert!(std::option::is_some(&squad.death_time), ESquadNotDead);
         
         // Check if 24 hours have passed
-        let current_time = clock::timestamp_ms(clock);
-        let death_time = *option::borrow(&squad.death_time);
+        let current_time = sui::clock::timestamp_ms(clock);
+        let death_time = *std::option::borrow(&squad.death_time);
         assert!(current_time >= death_time + REVIVAL_WAIT_TIME_MS, ERevivalNotReady);
         
         // Revive the squad
         squad.life = INITIAL_SQUAD_LIFE;
-        squad.death_time = option::none();
+        squad.death_time = std::option::none<u64>();
+        
+        // Update squad composition
+        squad.goalkeeper = std::option::some(goalkeeper);
+        squad.defenders = defenders;
+        squad.midfielders = midfielders;
+        squad.forwards = forwards;
+        squad.formation = create_formation(formation_type);
+        squad.name = name;
         
         event::emit(SquadRevived {
             squad_id,
@@ -264,14 +346,55 @@ module bullfy::squad_manager {
         });
     }
 
+    // Creates a new player.
+    public entry fun create_player(
+        player_registry: &mut PlayerRegistry,
+        squad_registry: &SquadRegistry,
+        squad_id: u64,
+        name: String,
+        token_price_id: String,
+        allocated_value: u64,
+        position: u8,
+        ctx: &mut TxContext
+    ) {
+        let owner = sui::tx_context::sender(ctx);
+        // Verify that the squad exists and belongs to the owner
+        assert!(sui::table::contains(&squad_registry.squads, squad_id), EOwnerDoesNotHaveSquad);
+        let squad = sui::table::borrow(&squad_registry.squads, squad_id);
+        assert!(squad.owner == owner, EOwnerDoesNotHaveSquad);
+
+        let player_id = player_registry.next_player_id;
+        player_registry.next_player_id = player_id + 1;
+
+        let player = Player {
+            id: sui::object::new(ctx),
+            name,
+            squad_owner: owner,
+            token_price_id,
+            allocated_value,
+            position,
+            players: vector::empty<String>(),
+            life: INITIAL_SQUAD_LIFE,
+            death_time: std::option::none<u64>(),
+        };
+
+        sui::table::add(&mut player_registry.players, player_id, player);
+
+        event::emit(PlayerCreated {
+            player_id,
+            squad_owner: owner,
+            name,
+        });
+    }
+
     // Checks if a squad can be revived (dead for 24+ hours).
     public fun can_revive_squad(squad: &Squad, clock: &Clock): bool {
-        if (squad.life > 0 || option::is_none(&squad.death_time)) {
+        if (squad.life > 0 || std::option::is_none(&squad.death_time)) {
             return false
         };
         
-        let current_time = clock::timestamp_ms(clock);
-        let death_time = *option::borrow(&squad.death_time);
+        let current_time = sui::clock::timestamp_ms(clock);
+        let death_time = *std::option::borrow(&squad.death_time);
         current_time >= death_time + REVIVAL_WAIT_TIME_MS
     }
 
@@ -286,27 +409,40 @@ module bullfy::squad_manager {
         squad_id: u64,
         ctx: &mut TxContext
     ) {
-        assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
+        assert!(sui::table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
         
-        let squad = table::borrow(&registry.squads, squad_id);
-        let owner = tx_context::sender(ctx);
+        let squad = sui::table::borrow(&registry.squads, squad_id);
+        let owner = sui::tx_context::sender(ctx);
         
         // Ensure only the squad owner can delete it
         assert!(squad.owner == owner, EOwnerDoesNotHaveSquad);
         
         // Remove from the registry
-        let squad = table::remove(&mut registry.squads, squad_id);
+        let squad = sui::table::remove(&mut registry.squads, squad_id);
         
         // Remove from owner's squads list
-        let owner_squads = table::borrow_mut(&mut registry.owner_squads, owner);
+        let owner_squads = sui::table::borrow_mut(&mut registry.owner_squads, owner);
         let (found, index) = vector::index_of(owner_squads, &squad_id);
         if (found) {
             vector::remove(owner_squads, index);
         };
         
         // Delete the squad object
-        let Squad { id, owner: _, squad_id: _, name: _, players: _, life: _, death_time: _ } = squad;
-        object::delete(id);
+        let Squad { 
+            id, 
+            owner: _, 
+            squad_id: _, 
+            name: _, 
+            goalkeeper: _, 
+            defenders: _, 
+            midfielders: _, 
+            forwards: _, 
+            formation: _, 
+            players: _, 
+            life: _, 
+            death_time: _ 
+        } = squad;
+        sui::object::delete(id);
     }
 
     // Get squad name
@@ -334,7 +470,6 @@ module bullfy::squad_manager {
         squad.life
     }
 
-
     // Adds 7 players to a squad in one call (only squad owner can add players).
     public entry fun add_players_to_squad(
         registry: &mut SquadRegistry,
@@ -342,11 +477,11 @@ module bullfy::squad_manager {
         player_names: vector<String>,
         ctx: &mut TxContext
     ) {
-        assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
-        let squad = table::borrow_mut(&mut registry.squads, squad_id);
+        assert!(sui::table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
+        let squad = sui::table::borrow_mut(&mut registry.squads, squad_id);
         
         // Only squad owner can add players
-        assert!(squad.owner == tx_context::sender(ctx), EOwnerDoesNotHaveSquad);
+        assert!(squad.owner == sui::tx_context::sender(ctx), EOwnerDoesNotHaveSquad);
         
         // Must be exactly 7 players
         assert!(vector::length(&player_names) == 7, EMustAddExactlySevenPlayers);
@@ -385,4 +520,4 @@ module bullfy::squad_manager {
             total_players: vector::length(&squad.players),
         });
     }
-} 
+}
