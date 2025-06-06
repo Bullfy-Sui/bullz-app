@@ -52,9 +52,13 @@ module bullfy::squad_player_challenge {
     const MIN_PARTICIPANTS: u64 = 2;
     const MAX_PARTICIPANTS: u64 = 20;
     const MIN_BID_AMOUNT: u64 = 1000000; // 0.001 SUI (1 MIST = 1e-9 SUI, so 1e6 MIST = 0.001 SUI)
-    const PLATFORM_FEE_BPS: u64 = 250; // 2.5% platform fee
+    const UPFRONT_FEE_BPS: u64 = 500; // 5% upfront fee on bid amount
+    const PLATFORM_FEE_BPS: u64 = 250; // 2.5% platform fee (kept for backward compatibility)
     const MIN_DURATION: u64 = 300000; // 5 minutes in milliseconds
     const MAX_DURATION: u64 = 2592000000; // 30 days in milliseconds
+
+    // Fee collection object address (to be set to actual fee collector)
+    const FEE_COLLECTOR: address = @0x1; // TODO: Replace with actual fee collector address
 
     // Challenge status enum
     public enum ChallengeStatus has copy, drop, store {
@@ -81,8 +85,10 @@ module bullfy::squad_player_challenge {
         current_participants: u64,          // Current number of participants
         participants: vector<address>,      // List of participant addresses
         participant_squads: Table<address, u64>, // Track which squad each participant is using
-        bid_pool: Balance<SUI>,            // Total bid pool
+        bid_pool: Balance<SUI>,            // Total bid pool (excluding fees)
+        fee_vault: Balance<SUI>,           // Collected upfront fees (5% of each bid)
         participant_bids: Table<address, u64>, // Track individual bid amounts
+        participant_fees: Table<address, u64>, // Track individual fee amounts
         scheduled_start_time: u64,         // When challenge should start
         duration: u64,                     // Challenge duration in milliseconds
         actual_start_time: Option<u64>,    // When challenge actually started
@@ -146,6 +152,26 @@ module bullfy::squad_player_challenge {
         participant: address,
     }
 
+    public struct FeeCollected has copy, drop {
+        challenge_id: ID,
+        participant: address,
+        bid_amount: u64,
+        fee_amount: u64,
+        total_payment: u64,
+    }
+
+    public struct FeesTransferredToCollector has copy, drop {
+        challenge_id: ID,
+        total_fees: u64,
+        collector: address,
+    }
+
+    public struct FeesRefunded has copy, drop {
+        challenge_id: ID,
+        total_fees_refunded: u64,
+        participant_count: u64,
+    }
+
     // Initialize the active squad registry
     fun init(ctx: &mut TxContext) {
         let registry = ActiveSquadRegistry {
@@ -187,16 +213,22 @@ module bullfy::squad_player_challenge {
         
         // Validate creator's bid
         let creator_bid_amount = coin::value(&creator_bid);
-        assert!(creator_bid_amount >= bid_amount, E_INSUFFICIENT_BID);
+        let fee_amount = (bid_amount * UPFRONT_FEE_BPS) / 10000; // 5% fee
+        let total_required = bid_amount + fee_amount;
+        assert!(creator_bid_amount >= total_required, E_INSUFFICIENT_BID);
 
-        // Handle creator's bid payment
-        let actual_bid = if (creator_bid_amount == bid_amount) {
-            creator_bid
+        // Handle creator's payment (bid + fee)
+        let (actual_bid, fee_payment) = if (creator_bid_amount == total_required) {
+            // Exact amount - split into bid and fee
+            let fee_coin = coin::split(&mut creator_bid, fee_amount, ctx);
+            (creator_bid, fee_coin)
         } else {
-            // Split the exact bid amount and return change
-            let change = coin::split(&mut creator_bid, creator_bid_amount - bid_amount, ctx);
-            transfer::public_transfer(change, creator);
-            creator_bid
+            // Overpaid - split exact amounts and return change
+            let fee_coin = coin::split(&mut creator_bid, fee_amount, ctx);
+            let bid_coin = coin::split(&mut creator_bid, bid_amount, ctx);
+            // Return change
+            transfer::public_transfer(creator_bid, creator);
+            (bid_coin, fee_coin)
         };
 
         // Create the challenge
@@ -209,7 +241,9 @@ module bullfy::squad_player_challenge {
             participants: vector::singleton(creator),
             participant_squads: table::new(ctx),
             bid_pool: coin::into_balance(actual_bid),
+            fee_vault: coin::into_balance(fee_payment),
             participant_bids: table::new(ctx),
+            participant_fees: table::new(ctx),
             scheduled_start_time,
             duration,
             actual_start_time: option::none(),
@@ -224,10 +258,20 @@ module bullfy::squad_player_challenge {
 
         // Record creator's bid and squad
         table::add(&mut challenge.participant_bids, creator, bid_amount);
+        table::add(&mut challenge.participant_fees, creator, fee_amount);
         table::add(&mut challenge.participant_squads, creator, creator_squad_id);
 
         // Register squad as active in this challenge
         table::add(&mut active_squad_registry.active_squads, creator_squad_id, challenge_id);
+
+        // Emit fee collection event
+        event::emit(FeeCollected {
+            challenge_id,
+            participant: creator,
+            bid_amount,
+            fee_amount,
+            total_payment: total_required,
+        });
 
         // Emit squad registration event
         event::emit(SquadRegisteredInChallenge {
@@ -289,31 +333,48 @@ module bullfy::squad_player_challenge {
 
         // Validate bid amount
         let participant_bid_amount = coin::value(&participant_bid);
-        assert!(participant_bid_amount >= challenge.bid_amount, E_INSUFFICIENT_BID);
+        let fee_amount = (challenge.bid_amount * UPFRONT_FEE_BPS) / 10000; // 5% fee
+        let total_required = challenge.bid_amount + fee_amount;
+        assert!(participant_bid_amount >= total_required, E_INSUFFICIENT_BID);
 
-        // Handle bid payment
-        let actual_bid = if (participant_bid_amount == challenge.bid_amount) {
-            participant_bid
+        // Handle participant's payment (bid + fee)
+        let (actual_bid, fee_payment) = if (participant_bid_amount == total_required) {
+            // Exact amount - split into bid and fee
+            let fee_coin = coin::split(&mut participant_bid, fee_amount, ctx);
+            (participant_bid, fee_coin)
         } else {
-            // Split the exact bid amount and return change
-            let change = coin::split(&mut participant_bid, participant_bid_amount - challenge.bid_amount, ctx);
-            transfer::public_transfer(change, participant);
-            participant_bid
+            // Overpaid - split exact amounts and return change
+            let fee_coin = coin::split(&mut participant_bid, fee_amount, ctx);
+            let bid_coin = coin::split(&mut participant_bid, challenge.bid_amount, ctx);
+            // Return change
+            transfer::public_transfer(participant_bid, participant);
+            (bid_coin, fee_coin)
         };
 
         // Add participant to challenge
         vector::push_back(&mut challenge.participants, participant);
         challenge.current_participants = challenge.current_participants + 1;
         
-        // Add bid to pool
+        // Add bid to pool and fee to vault
         balance::join(&mut challenge.bid_pool, coin::into_balance(actual_bid));
+        balance::join(&mut challenge.fee_vault, coin::into_balance(fee_payment));
         
-        // Record participant's bid and squad
+        // Record participant's bid, fee, and squad
         table::add(&mut challenge.participant_bids, participant, challenge.bid_amount);
+        table::add(&mut challenge.participant_fees, participant, fee_amount);
         table::add(&mut challenge.participant_squads, participant, participant_squad_id);
 
         // Register squad as active in this challenge
         table::add(&mut active_squad_registry.active_squads, participant_squad_id, object::id(challenge));
+
+        // Emit fee collection event
+        event::emit(FeeCollected {
+            challenge_id: object::id(challenge),
+            participant,
+            bid_amount: challenge.bid_amount,
+            fee_amount,
+            total_payment: total_required,
+        });
 
         // Emit squad registration event
         event::emit(SquadRegisteredInChallenge {
@@ -412,6 +473,7 @@ module bullfy::squad_player_challenge {
         let total_pool = balance::value(&challenge.bid_pool);
         let platform_fee = (total_pool * PLATFORM_FEE_BPS) / 10000;
         let winner_prize = total_pool - platform_fee;
+        let collected_fees = balance::value(&challenge.fee_vault);
 
         // Update challenge status
         challenge.status = ChallengeStatus::Completed;
@@ -430,13 +492,29 @@ module bullfy::squad_player_challenge {
             transfer::public_transfer(winner_coin, winner);
         };
 
-        // Extract platform fee (for now, send to creator - in production, send to fee collector)
+        // Extract platform fee (send to fee collector)
         if (platform_fee > 0) {
             let fee_coin = coin::from_balance(
                 balance::split(&mut challenge.bid_pool, platform_fee),
                 ctx
             );
-            transfer::public_transfer(fee_coin, challenge.creator);
+            transfer::public_transfer(fee_coin, FEE_COLLECTOR);
+        };
+
+        // Transfer collected upfront fees to fee collector
+        if (collected_fees > 0) {
+            let upfront_fees_coin = coin::from_balance(
+                balance::split(&mut challenge.fee_vault, collected_fees),
+                ctx
+            );
+            transfer::public_transfer(upfront_fees_coin, FEE_COLLECTOR);
+            
+            // Emit fees transferred event
+            event::emit(FeesTransferredToCollector {
+                challenge_id: object::id(challenge),
+                total_fees: collected_fees,
+                collector: FEE_COLLECTOR,
+            });
         };
 
         // Emit completion event
@@ -493,10 +571,14 @@ module bullfy::squad_player_challenge {
     // Helper function to refund all participants
     fun refund_participants(challenge: &mut Challenge, ctx: &mut TxContext) {
         let mut i = 0;
+        let mut total_fees_refunded = 0u64;
+        
         while (i < vector::length(&challenge.participants)) {
             let participant = *vector::borrow(&challenge.participants, i);
             let bid_amount = *table::borrow(&challenge.participant_bids, participant);
+            let fee_amount = *table::borrow(&challenge.participant_fees, participant);
             
+            // Refund bid
             if (bid_amount > 0) {
                 let refund_coin = coin::from_balance(
                     balance::split(&mut challenge.bid_pool, bid_amount),
@@ -505,7 +587,26 @@ module bullfy::squad_player_challenge {
                 transfer::public_transfer(refund_coin, participant);
             };
             
+            // Refund fee
+            if (fee_amount > 0) {
+                let fee_refund_coin = coin::from_balance(
+                    balance::split(&mut challenge.fee_vault, fee_amount),
+                    ctx
+                );
+                transfer::public_transfer(fee_refund_coin, participant);
+                total_fees_refunded = total_fees_refunded + fee_amount;
+            };
+            
             i = i + 1;
+        };
+        
+        // Emit fees refunded event
+        if (total_fees_refunded > 0) {
+            event::emit(FeesRefunded {
+                challenge_id: object::id(challenge),
+                total_fees_refunded,
+                participant_count: vector::length(&challenge.participants),
+            });
         };
         
         // Clean up tables (optional, but good practice)
@@ -513,6 +614,9 @@ module bullfy::squad_player_challenge {
             let participant = vector::pop_back(&mut challenge.participants);
             if (table::contains(&challenge.participant_bids, participant)) {
                 table::remove(&mut challenge.participant_bids, participant);
+            };
+            if (table::contains(&challenge.participant_fees, participant)) {
+                table::remove(&mut challenge.participant_fees, participant);
             };
             if (table::contains(&challenge.participant_squads, participant)) {
                 table::remove(&mut challenge.participant_squads, participant);
@@ -574,7 +678,8 @@ module bullfy::squad_player_challenge {
         u64,              // duration
         Option<address>,  // winner
         u8,               // status
-        u64               // total_pool
+        u64,              // total_pool
+        u64               // total_fees_collected
     ) {
         (
             challenge.creator,
@@ -585,7 +690,8 @@ module bullfy::squad_player_challenge {
             challenge.duration,
             challenge.winner,
             status_to_u8(&challenge.status),
-            balance::value(&challenge.bid_pool)
+            balance::value(&challenge.bid_pool),
+            balance::value(&challenge.fee_vault)
         )
     }
 
@@ -599,6 +705,25 @@ module bullfy::squad_player_challenge {
         } else {
             0
         }
+    }
+
+    public fun get_participant_fee(challenge: &Challenge, participant: address): u64 {
+        if (table::contains(&challenge.participant_fees, participant)) {
+            *table::borrow(&challenge.participant_fees, participant)
+        } else {
+            0
+        }
+    }
+
+    public fun get_participant_total_payment(challenge: &Challenge, participant: address): u64 {
+        get_participant_bid(challenge, participant) + get_participant_fee(challenge, participant)
+    }
+
+    // Helper function to calculate total required payment for a bid amount
+    public fun calculate_total_payment(bid_amount: u64): (u64, u64, u64) {
+        let fee_amount = (bid_amount * UPFRONT_FEE_BPS) / 10000;
+        let total_required = bid_amount + fee_amount;
+        (bid_amount, fee_amount, total_required)
     }
 
     public fun get_participant_squad(challenge: &Challenge, participant: address): u64 {
