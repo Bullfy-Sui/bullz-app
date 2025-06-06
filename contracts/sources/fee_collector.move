@@ -1,4 +1,3 @@
-#[allow(duplicate_alias,unused_const,lint(self_transfer))]
 module bullfy::fee_collector {
     use sui::coin::{Self, Coin};
     use sui::balance::{Self};
@@ -8,8 +7,6 @@ module bullfy::fee_collector {
     use bullfy::admin::AdminCap;
 
     // Error codes with descriptive messages
-    #[error]
-    const ENotAdmin: vector<u8> = b"Only the admin can perform this action";
     #[error]
     const EInsufficientBalance: vector<u8> = b"Insufficient balance for withdrawal";
 
@@ -70,22 +67,22 @@ module bullfy::fee_collector {
         });
     }
     
-    // Allow admin to withdraw all fees at once
-    public fun withdraw_all(_: &AdminCap, fees: &mut Fees, ctx: &mut TxContext) {
-        let sender = tx_context::sender(ctx);
+    // Allow admin to withdraw all fees - returns coin for composability
+    public fun withdraw_all(_: &AdminCap, fees: &mut Fees, ctx: &mut TxContext): Coin<SUI> {
         let amount = balance::value(&fees.total);
         assert!(amount > 0, EInsufficientBalance);
         
-        // Extract and transfer all coins
+        // Extract all coins and return them
         let withdrawn_balance = balance::split(&mut fees.total, amount);
         let withdrawn = coin::from_balance(withdrawn_balance, ctx);
-        transfer::public_transfer(withdrawn, sender);
         
         // Emit event
         event::emit(FeeWithdrawn {
             amount,
-            recipient: sender,
+            recipient: tx_context::sender(ctx),
         });
+        
+        withdrawn
     }
     
     // Function to check the total collected fees

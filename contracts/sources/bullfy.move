@@ -1,14 +1,8 @@
-#[allow(duplicate_alias,unused_use,unused_const)]
+
 module bullfy::squad_manager {
-    use sui::object::{Self, UID};
-    use sui::tx_context::{Self, TxContext};
     use sui::coin::{Self, Coin};
-    use sui::balance::{Self, Balance};
-    use std::option::{Self, Option};
-    use std::vector;
-    use std::string::{Self, String};
+    use std::string::String;
     use sui::table::{Self, Table};
-    use sui::transfer;
     use sui::event;
     use sui::sui::SUI;
     use sui::clock::{Self, Clock};
@@ -17,8 +11,6 @@ module bullfy::squad_manager {
     // Error messages using Move 2024 #[error] attribute
     #[error]
     const EInsufficientFee: vector<u8> = b"Insufficient fee provided";
-    #[error]
-    const EOwnerAlreadyHasSquad: vector<u8> = b"Owner already has a squad";
     #[error]
     const EOwnerDoesNotHaveSquad: vector<u8> = b"Owner does not have a squad";
     #[error]
@@ -31,6 +23,8 @@ module bullfy::squad_manager {
     const EPlayerAlreadyInSquad: vector<u8> = b"Player is already in this squad";
     #[error]
     const EMustAddExactlySevenPlayers: vector<u8> = b"Must add exactly 7 players";
+    #[error]
+    const ENotSquadOwner: vector<u8> = b"Only squad owner can perform this action";
 
     // Fee amount in MIST (1 SUI = 10^9 MIST)
     const SQUAD_CREATION_FEE: u64 = 1_000_000_000;
@@ -39,7 +33,7 @@ module bullfy::squad_manager {
     const INITIAL_SQUAD_LIFE: u64 = 5;
     
     // Revival wait time in milliseconds (24 hours)
-    const REVIVAL_WAIT_TIME_MS: u64 = 864_00_000; // 24 * 60 * 60 * 1000
+    const REVIVAL_WAIT_TIME_MS: u64 = 86_400_000; // 24 * 60 * 60 * 1000
 
     // Represents a football squad.
     public struct Squad has key, store {
@@ -92,8 +86,6 @@ module bullfy::squad_manager {
         squad_id: u64,
         revived_at: u64,
     }
-
-    
 
     // Event emitted when multiple players are added to squad.
     public struct PlayersAddedToSquad has copy, drop {
@@ -229,7 +221,7 @@ module bullfy::squad_manager {
         let squad = table::borrow_mut(&mut registry.squads, squad_id);
         
         // Only squad owner can revive
-        assert!(squad.owner == tx_context::sender(ctx), EOwnerDoesNotHaveSquad);
+        assert!(squad.owner == tx_context::sender(ctx), ENotSquadOwner);
         
         // Squad must be dead (life = 0 and has death_time)
         assert!(squad.life == 0, ESquadNotDead);
@@ -278,20 +270,30 @@ module bullfy::squad_manager {
         let owner = tx_context::sender(ctx);
         
         // Ensure only the squad owner can delete it
-        assert!(squad.owner == owner, EOwnerDoesNotHaveSquad);
+        assert!(squad.owner == owner, ENotSquadOwner);
         
         // Remove from the registry
         let squad = table::remove(&mut registry.squads, squad_id);
         
         // Remove from owner's squads list
-        let owner_squads = table::borrow_mut(&mut registry.owner_squads, owner);
-        let (found, index) = vector::index_of(owner_squads, &squad_id);
-        if (found) {
-            vector::remove(owner_squads, index);
+        if (table::contains(&registry.owner_squads, owner)) {
+            let owner_squads = table::borrow_mut(&mut registry.owner_squads, owner);
+            let (found, index) = vector::index_of(owner_squads, &squad_id);
+            if (found) {
+                vector::remove(owner_squads, index);
+            };
         };
         
         // Delete the squad object
-        let Squad { id, owner: _, squad_id: _, name: _, players: _, life: _, death_time: _ } = squad;
+        let Squad { 
+            id, 
+            owner: _, 
+            squad_id: _, 
+            name: _, 
+            players: _, 
+            life: _, 
+            death_time: _ 
+        } = squad;
         object::delete(id);
     }
 

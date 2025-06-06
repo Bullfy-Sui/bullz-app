@@ -1,21 +1,14 @@
-#[allow(unused_const,lint(custom_state_change),duplicate_alias)]
+
 module bullfy::admin {
-    use sui::object::{Self, UID};
-    use sui::tx_context::{Self, TxContext};
-    use sui::transfer;
     use sui::event;
-
-    // Error codes with descriptive messages
-    #[error]
-    const ENotOwner: vector<u8> = b"Only the owner can perform this action";
-
-    // AdminCap to control admin-only functions
-    public struct AdminCap has key {
-        id: UID
-    }
 
     // OwnerCap - special capability for the contract owner
     public struct OwnerCap has key {
+        id: UID
+    }
+
+    // AdminCap to control admin-only functions
+    public struct AdminCap has key {
         id: UID
     }
 
@@ -88,4 +81,4 @@ module bullfy::admin {
     ) {
         transfer::transfer(owner_cap, new_owner);
     }
-} 
+}

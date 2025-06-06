@@ -1,0 +1,59 @@
+sui client call \
+  --package 0x28a96c59bf8e42826b78c0ed84ecce97750cfe80f66b620e59f26e7961403ca9 \
+  --module squad_manager \
+  --function create_squad \
+  --args 0xe79c0be4c2fc27733f112f3344bd0b6e8132003d5c548044b6ccbd460c630eb5 0xb7285b548cd9bf4d549cb1517c30c3cb558be081a9c36ca31dec4a37ad60c948 1000000000 "MySquad" "goalkeeper1" '["defender1","defender2"]' '["midfielder1","midfielder2"]' '["forward1","forward2"]' 0 \
+  --gas-budget 100000000
+
+sui client call \
+  --package 0x28a96c59bf8e42826b78c0ed84ecce97750cfe80f66b620e59f26e7961403ca9 \
+  --module squad_manager \
+  --function update_squad \
+  --args 0xe79c0be4c2fc27733f112f3344bd0b6e8132003d5c548044b6ccbd460c630eb5 1 "UpdatedSquad" "goalkeeper2" '["defender3"]' '["midfielder3"]' '["forward3"]' 1 \
+  --gas-budget 100000000
+
+sui client call \
+  --package 0x28a96c59bf8e42826b78c0ed84ecce97750cfe80f66b620e59f26e7961403ca9 \
+  --module squad_manager \
+  --function create_player \
+  --args 0x9d5cc646c2145805adbe570b4308acd440dbdacba82c08573ece2ca636dc9866 0xe79c0be4c2fc27733f112f3344bd0b6e8132003d5c548044b6ccbd460c630eb5 1 "player1" "token_price_1" 100 0 \
+  --gas-budget 100000000
+
+sui client call \
+  --package 0x28a96c59bf8e42826b78c0ed84ecce97750cfe80f66b620e59f26e7961403ca9 \
+  --module squad_manager \
+  --function update_player \
+  --args 0x9d5cc646c2145805adbe570b4308acd440dbdacba82c08573ece2ca636dc9866 1 "player1_updated" 150 1 \
+  --gas-budget 100000000
+
+sui client call \
+  --package 0x28a96c59bf8e42826b78c0ed84ecce97750cfe80f66b620e59f26e7961403ca9 \
+  --module squad_manager \
+  --function delete_squad \
+  --args 0xe79c0be4c2fc27733f112f3344bd0b6e8132003d5c548044b6ccbd460c630eb5 1 \
+  --gas-budget 100000000
+
+sui client call \
+  --package 0x28a96c59bf8e42826b78c0ed84ecce97750cfe80f66b620e59f26e7961403ca9 \
+  --module admin \
+  --function create_admin_cap \
+  --args 0x6f8a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a 0x123456789abcdef \
+  --gas-budget 100000000
+
+sui client call \
+  --package 0x28a96c59bf8e42826b78c0ed84ecce97750cfe80f66b620e59f26e7961403ca9 \
+  --module admin \
+  --function revoke_admin_cap \
+  --args 0x6f8a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a 0x6f8a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a 0x123456789abcdef \
+  --gas-budget 100000000
+
+sui client call \
+  --package 0x28a96c59bf8e42826b78c0ed84ecce97750cfe80f66b620e59f26e7961403ca9 \
+  --module admin \
+  --function transfer_owner_cap \
+  --args 0x6f8a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a 0x123456789abcdef \
+  --gas-budget 100000000
+
+# Notes:
+# - Replace object IDs like 0x6f8a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a and addresses with actual values from your environment.
+# - Adjust arguments as needed for your test cases.

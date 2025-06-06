@@ -44,6 +44,17 @@ compiler-version = "1.49.1"
 edition = "2024.beta"
 flavor = "sui"
 
+original-published-id = "0xfd7a14835a1f9f7d9d4fa8fa5347e23369e232ae559c2a36c3fa9f70a7b20e71"
+latest-published-id = "0xfd7a14835a1f9f7d9d4fa8fa5347e23369e232ae559c2a36c3fa9f70a7b20e71"
+published-version = "1"
+
+[env.devnet]
+chain-id = "4a5f769e"
+original-published-id = "0xa39fec41279f52abb7e91bcb5157492ce1da1b11817388ce9609099d2fa09ec7"
+latest-published-id = "0xa39fec41279f52abb7e91bcb5157492ce1da1b11817388ce9609099d2fa09ec7"
+>>>>>>> 189bb9c5855fc2cb5b7081687c6844c5f5aa5356
+published-version = "1"
+=======
 [env]
 
 [env.testnet]
@@ -56,4 +67,15 @@ published-version = "1"
 chain-id = "4a5f769e"
 original-published-id = "0xa39fec41279f52abb7e91bcb5157492ce1da1b11817388ce9609099d2fa09ec7"
 latest-published-id = "0xa39fec41279f52abb7e91bcb5157492ce1da1b11817388ce9609099d2fa09ec7"
+published-version = "1"
+=======
+original-published-id = "0xfd7a14835a1f9f7d9d4fa8fa5347e23369e232ae559c2a36c3fa9f70a7b20e71"
+latest-published-id = "0xfd7a14835a1f9f7d9d4fa8fa5347e23369e232ae559c2a36c3fa9f70a7b20e71"
+published-version = "1"
+
+[env.devnet]
+chain-id = "4a5f769e"
+original-published-id = "0xa39fec41279f52abb7e91bcb5157492ce1da1b11817388ce9609099d2fa09ec7"
+latest-published-id = "0xa39fec41279f52abb7e91bcb5157492ce1da1b11817388ce9609099d2fa09ec7"
+>>>>>>> 189bb9c5855fc2cb5b7081687c6844c5f5aa5356
 published-version = "1"

@@ -1,13 +1,9 @@
-#[allow(duplicate_alias,unused_use)]
 
 module bullfy::match_escrow {
-    use sui::object::{Self, UID};
-    use sui::tx_context::{Self, TxContext};
+    //use sui::object::UID;
+    //use sui::tx_context::TxContext;
     use sui::coin::{Self, Coin};
     use sui::balance::{Self, Balance};
-    use sui::transfer;
-    use std::option::{Self, Option};
-    use std::vector;
     use sui::table::{Self, Table};
     use sui::event;
     use sui::sui::SUI;

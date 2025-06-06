@@ -1,12 +1,75 @@
+# Commands to test bullfy::squad_manager module functions
 
+# Replace PACKAGE_ADDRESS with actual deployed package address (e.g., 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b)
+
+# 1. create_squad
 sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
-  --module squad_manager \
+  --package 0x28a96c59bf8e42826b78c0ed84ecce97750cfe80f66b620e59f26e7961403ca9  \
+  --module bullfy::squad_manager \
   --function create_squad \
-  --args 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 "goalkeeper" "[defenders1, defender2]" "[midfielder1, midfielder2]" "[forward1, forward2]" 3 \
+  --args 0xe79c0be4c2fc27733f112f3344bd0b6e8132003d5c548044b6ccbd460c630eb5 0xb7285b548cd9bf4d549cb1517c30c3cb558be081a9c36ca31dec4a37ad60c948 1000000000 "MySquad" "goalkeeper1" '["defender1","defender2"]' '["midfielder1","midfielder2"]' '["forward1","forward2"]' 0 \
   --gas-budget 100000000
 
+# 2. update_squad
+sui client call \
+  --package 0x28a96c59bf8e42826b78c0ed84ecce97750cfe80f66b620e59f26e7961403ca9  \
+  --module bullfy::squad_manager \
+  --function update_squad \
+  --args 0x0 1 "UpdatedSquad" "goalkeeper2" '["defender3"]' '["midfielder3"]' '["forward3"]' 1 \
+  --gas-budget 100000000
 
-sui client ptb \
-  --move-call 0x226bc26a396add43dbd8f0b9ffaca41de1ad076ce797164a95431ec221f4c0ae::dashboard::create_proposal \
-  '" Proosal 2 "' '" proposal description 2 "' 1774518152
+# 3. create_player
+sui client call \
+  --package 0x28a96c59bf8e42826b78c0ed84ecce97750cfe80f66b620e59f26e7961403ca9  \
+  --module bullfy::squad_manager \
+  --function create_player \
+  --args 0x0 0x0 1 "player1" "token_price_1" 100 0 \
+  --gas-budget 100000000
+
+# 4. update_player
+sui client call \
+  --package 0x28a96c59bf8e42826b78c0ed84ecce97750cfe80f66b620e59f26e7961403ca9  \
+  --module bullfy::squad_manager \
+  --function update_player \
+  --args 0x0 1 "player1_updated" 150 1 \
+  --gas-budget 100000000
+
+# 5. delete_squad
+sui client call \
+  --package 0x28a96c59bf8e42826b78c0ed84ecce97750cfe80f66b620e59f26e7961403ca9  \
+  --module bullfy::squad_manager \
+  --function delete_squad \
+  --args 0x0 1 \
+  --gas-budget 100000000
+
+# Commands to test bullfy::admin module functions
+
+# 6. create_admin_cap
+sui client call \
+  --package 0x28a96c59bf8e42826b78c0ed84ecce97750cfe80f66b620e59f26e7961403ca9  \
+  --module bullfy::admin \
+  --function create_admin_cap \
+  --args 0x0 0x123456789abcdef \
+  --gas-budget 100000000
+
+# 7. revoke_admin_cap
+# Note: Requires AdminCap object, which must be obtained from previous transactions
+sui client call \
+  --package 0x28a96c59bf8e42826b78c0ed84ecce97750cfe80f66b620e59f26e7961403ca9  \
+  --module bullfy::admin \
+  --function revoke_admin_cap \
+  --args 0x0 0x0 0x123456789abcdef \
+  --gas-budget 100000000
+
+# 8. transfer_owner_cap
+sui client call \
+  --package 0x28a96c59bf8e42826b78c0ed84ecce97750cfe80f66b620e59f26e7961403ca9  \
+  --module bullfy::admin \
+  --function transfer_owner_cap \
+  --args 0x0 0x123456789abcdef \
+  --gas-budget 100000000
+
+# Notes:
+# - Replace PACKAGE_ADDRESS with the actual package address after deployment.
+# - Replace addresses like 0x0 and 0x123456789abcdef with actual addresses or object IDs as needed.
+# - Adjust arguments according to your test data and environment.
