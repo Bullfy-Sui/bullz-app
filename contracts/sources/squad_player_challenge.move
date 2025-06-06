@@ -18,8 +18,6 @@ module bullfy::squad_player_challenge {
     #[error]
     const E_INVALID_STATUS_TYPE: vector<u8> = b"Invalid status type for ChallengeStatus creation";
     #[error]
-    const E_INSUFFICIENT_BID: vector<u8> = b"Bid amount is insufficient";
-    #[error]
     const E_CHALLENGE_FULL: vector<u8> = b"Challenge has reached maximum participants";
     #[error]
     const E_ALREADY_JOINED: vector<u8> = b"Address has already joined this challenge";
@@ -47,6 +45,8 @@ module bullfy::squad_player_challenge {
     const E_SQUAD_ALREADY_USED: vector<u8> = b"Squad is already being used in this challenge";
     #[error]
     const E_SQUAD_ACTIVE_IN_CHALLENGE: vector<u8> = b"Squad is already active in another challenge";
+    #[error]
+    const E_INSUFFICIENT_BID: vector<u8> = b"Bid amount is insufficient";
 
     // Constants
     const MIN_PARTICIPANTS: u64 = 2;
@@ -146,16 +146,6 @@ module bullfy::squad_player_challenge {
         participant: address,
     }
 
-    // Helper functions for status management
-    public fun create_status(status_type: u8): ChallengeStatus {
-        assert!(status_type <= 4, E_INVALID_STATUS_TYPE);
-        ChallengeStatus { status_type }
-    }
-
-    public fun get_status_type(status: &ChallengeStatus): u8 {
-        status.status_type
-    }
-
     // Initialize the active squad registry
     fun init(ctx: &mut TxContext) {
         let registry = ActiveSquadRegistry {
@@ -225,7 +215,7 @@ module bullfy::squad_player_challenge {
             actual_start_time: option::none(),
             end_time: option::none(),
             winner: option::none(),
-            status: create_status(STATUS_SCHEDULED),
+            status: ChallengeStatus::Scheduled,
             created_at: current_time,
             updated_at: current_time,
         };
@@ -292,7 +282,7 @@ module bullfy::squad_player_challenge {
         };
 
         // Validate challenge state
-        assert!(challenge.status.status_type == STATUS_SCHEDULED, E_CHALLENGE_NOT_PENDING);
+        assert!(challenge.status == ChallengeStatus::Scheduled, E_CHALLENGE_NOT_PENDING);
         assert!(challenge.current_participants < challenge.max_participants, E_CHALLENGE_FULL);
         assert!(!vector::contains(&challenge.participants, &participant), E_ALREADY_JOINED);
         assert!(current_time < challenge.scheduled_start_time, E_CHALLENGE_EXPIRED);
@@ -359,12 +349,12 @@ module bullfy::squad_player_challenge {
         assert!(vector::contains(&challenge.participants, &sender), E_UNAUTHORIZED);
         
         // Validate challenge state
-        assert!(challenge.status.status_type == STATUS_SCHEDULED, E_CHALLENGE_NOT_PENDING);
+        assert!(challenge.status == ChallengeStatus::Scheduled, E_CHALLENGE_NOT_PENDING);
         assert!(current_time >= challenge.scheduled_start_time, E_CHALLENGE_NOT_STARTED);
         assert!(challenge.current_participants >= MIN_PARTICIPANTS, E_CHALLENGE_NOT_READY);
 
         // Update challenge status
-        challenge.status = create_status(STATUS_ACTIVE);
+        challenge.status = ChallengeStatus::Active;
         challenge.actual_start_time = option::some(current_time);
         challenge.end_time = option::some(current_time + challenge.duration);
         challenge.updated_at = current_time;
@@ -415,7 +405,7 @@ module bullfy::squad_player_challenge {
         assert!(sender == challenge.creator, E_UNAUTHORIZED);
         
         // Validate challenge state
-        assert!(challenge.status.status_type == STATUS_ACTIVE, E_CHALLENGE_ALREADY_COMPLETED);
+        assert!(challenge.status == ChallengeStatus::Active, E_CHALLENGE_ALREADY_COMPLETED);
         assert!(vector::contains(&challenge.participants, &winner), E_INVALID_WINNER);
 
         // Calculate prize distribution
@@ -424,7 +414,7 @@ module bullfy::squad_player_challenge {
         let winner_prize = total_pool - platform_fee;
 
         // Update challenge status
-        challenge.status = create_status(STATUS_COMPLETED);
+        challenge.status = ChallengeStatus::Completed;
         challenge.winner = option::some(winner);
         challenge.updated_at = current_time;
 
@@ -474,13 +464,13 @@ module bullfy::squad_player_challenge {
         
         // Validate challenge state (can cancel if scheduled or active)
         assert!(
-            challenge.status.status_type == STATUS_SCHEDULED || 
-            challenge.status.status_type == STATUS_ACTIVE, 
+            challenge.status == ChallengeStatus::Scheduled || 
+            challenge.status == ChallengeStatus::Active, 
             E_CHALLENGE_ALREADY_COMPLETED
         );
 
         // Update status
-        challenge.status = create_status(STATUS_CANCELLED);
+        challenge.status = ChallengeStatus::Cancelled;
         challenge.updated_at = current_time;
 
         // Calculate refund amount before processing refunds
@@ -541,14 +531,14 @@ module bullfy::squad_player_challenge {
         let current_time = clock::timestamp_ms(clock);
         let grace_period = 3600000; // 1 hour grace period
         
-        assert!(challenge.status.status_type == STATUS_SCHEDULED, E_CHALLENGE_NOT_PENDING);
+        assert!(challenge.status == ChallengeStatus::Scheduled, E_CHALLENGE_NOT_PENDING);
         assert!(current_time > challenge.scheduled_start_time + grace_period, E_CHALLENGE_NOT_STARTED);
 
         // Calculate refund amount before processing refunds
         let total_refund = balance::value(&challenge.bid_pool);
 
         // Cancel and refund
-        challenge.status = create_status(STATUS_CANCELLED);
+        challenge.status = ChallengeStatus::Cancelled;
         challenge.updated_at = current_time;
 
         // Remove all squads from active registry
@@ -561,6 +551,17 @@ module bullfy::squad_player_challenge {
             reason: string::utf8(b"Expired - not started within grace period"),
             refund_amount: total_refund,
         });
+    }
+
+    // Helper function to convert enum to u8 for compatibility
+    public fun status_to_u8(status: &ChallengeStatus): u8 {
+        match (status) {
+            ChallengeStatus::Scheduled => 0,
+            ChallengeStatus::Pending => 1,
+            ChallengeStatus::Active => 2,
+            ChallengeStatus::Completed => 3,
+            ChallengeStatus::Cancelled => 4,
+        }
     }
 
     // Getter functions
@@ -583,7 +584,7 @@ module bullfy::squad_player_challenge {
             challenge.scheduled_start_time,
             challenge.duration,
             challenge.winner,
-            challenge.status.status_type,
+            status_to_u8(&challenge.status),
             balance::value(&challenge.bid_pool)
         )
     }
@@ -636,18 +637,12 @@ module bullfy::squad_player_challenge {
 
     // Utility function to convert status to readable string
     public fun status_to_string(status: &ChallengeStatus): String {
-        if (status.status_type == STATUS_SCHEDULED) {
-            string::utf8(b"Scheduled")
-        } else if (status.status_type == STATUS_PENDING) {
-            string::utf8(b"Pending")
-        } else if (status.status_type == STATUS_ACTIVE) {
-            string::utf8(b"Active")
-        } else if (status.status_type == STATUS_COMPLETED) {
-            string::utf8(b"Completed")
-        } else if (status.status_type == STATUS_CANCELLED) {
-            string::utf8(b"Cancelled")
-        } else {
-            string::utf8(b"Unknown")
+        match (status) {
+            ChallengeStatus::Scheduled => string::utf8(b"Scheduled"),
+            ChallengeStatus::Pending => string::utf8(b"Pending"),
+            ChallengeStatus::Active => string::utf8(b"Active"),
+            ChallengeStatus::Completed => string::utf8(b"Completed"),
+            ChallengeStatus::Cancelled => string::utf8(b"Cancelled"),
         }
     }
 
