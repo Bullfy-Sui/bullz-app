@@ -7,6 +7,7 @@ module bullfy::squad_player_challenge {
     use sui::table::{Self, Table};
     use std::string::{Self, String};
     use bullfy::squad_manager::{Self, SquadRegistry};
+    use bullfy::fee_collector::{Self, Fees};
 
     // Error constants
     #[error]
@@ -56,9 +57,6 @@ module bullfy::squad_player_challenge {
     const PLATFORM_FEE_BPS: u64 = 250; // 2.5% platform fee (kept for backward compatibility)
     const MIN_DURATION: u64 = 300000; // 5 minutes in milliseconds
     const MAX_DURATION: u64 = 2592000000; // 30 days in milliseconds
-
-    // Fee collection object address (to be set to actual fee collector)
-    const FEE_COLLECTOR: address = @0x1; // TODO: Replace with actual fee collector address
 
     // Challenge status enum
     public enum ChallengeStatus has copy, drop, store {
@@ -163,7 +161,8 @@ module bullfy::squad_player_challenge {
     public struct FeesTransferredToCollector has copy, drop {
         challenge_id: ID,
         total_fees: u64,
-        collector: address,
+        platform_fee: u64,
+        upfront_fees: u64,
     }
 
     public struct FeesRefunded has copy, drop {
@@ -455,6 +454,7 @@ module bullfy::squad_player_challenge {
     public entry fun complete_challenge(
         active_squad_registry: &mut ActiveSquadRegistry,
         challenge: &mut Challenge,
+        fees: &mut Fees,
         winner: address,
         clock: &Clock,
         ctx: &mut TxContext
@@ -498,7 +498,7 @@ module bullfy::squad_player_challenge {
                 balance::split(&mut challenge.bid_pool, platform_fee),
                 ctx
             );
-            transfer::public_transfer(fee_coin, FEE_COLLECTOR);
+            fee_collector::collect(fees, fee_coin, ctx);
         };
 
         // Transfer collected upfront fees to fee collector
@@ -507,13 +507,16 @@ module bullfy::squad_player_challenge {
                 balance::split(&mut challenge.fee_vault, collected_fees),
                 ctx
             );
-            transfer::public_transfer(upfront_fees_coin, FEE_COLLECTOR);
-            
-            // Emit fees transferred event
+            fee_collector::collect(fees, upfront_fees_coin, ctx);
+        };
+        
+        // Emit fees transferred event if any fees were collected
+        if (platform_fee > 0 || collected_fees > 0) {
             event::emit(FeesTransferredToCollector {
                 challenge_id: object::id(challenge),
-                total_fees: collected_fees,
-                collector: FEE_COLLECTOR,
+                total_fees: platform_fee + collected_fees,
+                platform_fee,
+                upfront_fees: collected_fees,
             });
         };
 
