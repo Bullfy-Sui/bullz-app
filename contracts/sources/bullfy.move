@@ -297,6 +297,9 @@ module bullfy::squad_manager {
         object::delete(id);
     }
 
+   
+
+
     // Adds 7 players to a squad in one call (only squad owner can add players).
     public entry fun add_players_to_squad(
         registry: &mut SquadRegistry,
@@ -308,24 +311,23 @@ module bullfy::squad_manager {
         let squad = table::borrow_mut(&mut registry.squads, squad_id);
         
         // Only squad owner can add players
-        assert!(squad.owner == tx_context::sender(ctx), ENotSquadOwner);
+        assert!(squad.owner == tx_context::sender(ctx), EOwnerDoesNotHaveSquad);
         
         // Must be exactly 7 players
-        let player_count = vector::length(&player_names);
-        assert!(player_count == 7, EMustAddExactlySevenPlayers);
+        assert!(vector::length(&player_names) == 7, EMustAddExactlySevenPlayers);
         
-        // Use more efficient duplicate checking with early termination
+        // Check for duplicates within the new players list
         let mut i = 0;
-        while (i < player_count) {
+        while (i < vector::length(&player_names)) {
             let current_player = vector::borrow(&player_names, i);
             
             // Check if this player is already in the squad
             let (found_in_squad, _) = vector::index_of(&squad.players, current_player);
             assert!(!found_in_squad, EPlayerAlreadyInSquad);
             
-            // Check for duplicates within the new list (only check forward to avoid double checking)
+            // Check for duplicates within the new list
             let mut j = i + 1;
-            while (j < player_count) {
+            while (j < vector::length(&player_names)) {
                 let other_player = vector::borrow(&player_names, j);
                 assert!(current_player != other_player, EPlayerAlreadyInSquad);
                 j = j + 1;
@@ -334,8 +336,13 @@ module bullfy::squad_manager {
             i = i + 1;
         };
         
-        // Add all players to the squad more efficiently
-        vector::append(&mut squad.players, player_names);
+        // Add all players to the squad
+        let mut k = 0;
+        while (k < vector::length(&player_names)) {
+            let player_name = *vector::borrow(&player_names, k);
+            vector::push_back(&mut squad.players, player_name);
+            k = k + 1;
+        };
         
         event::emit(PlayersAddedToSquad {
             squad_id,
@@ -344,7 +351,8 @@ module bullfy::squad_manager {
         });
     }
 
-    // Get squad name
+
+     // Get squad name
     public fun get_squad_name(squad: &Squad): &String {
         &squad.name
     }
@@ -369,7 +377,7 @@ module bullfy::squad_manager {
         squad.life
     }
 
-    // Gets a squad by ID.
+     // Gets a squad by ID.
     public fun get_squad(registry: &SquadRegistry, squad_id: u64): &Squad {
         assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
         table::borrow(&registry.squads, squad_id)
@@ -377,42 +385,9 @@ module bullfy::squad_manager {
 
     // Gets all squads for an owner.
     public fun get_owner_squads(registry: &SquadRegistry, owner: address): &vector<u64> {
-        assert!(table::contains(&registry.owner_squads, owner), EOwnerDoesNotHaveSquad);
+        if (!table::contains(&registry.owner_squads, owner)) {
+            abort EOwnerDoesNotHaveSquad
+        };
         table::borrow(&registry.owner_squads, owner)
     }
-
-    // Batch function to get multiple squads at once for efficiency
-    public fun get_multiple_squads(
-        registry: &SquadRegistry, 
-        squad_ids: &vector<u64>
-    ): vector<u64> {
-        let mut valid_squads = vector::empty<u64>();
-        let mut i = 0;
-        let len = vector::length(squad_ids);
-        
-        while (i < len) {
-            let squad_id = *vector::borrow(squad_ids, i);
-            if (table::contains(&registry.squads, squad_id)) {
-                vector::push_back(&mut valid_squads, squad_id);
-            };
-            i = i + 1;
-        };
-        
-        valid_squads
-    }
-
-    // Get total number of squads
-    public fun get_total_squads(registry: &SquadRegistry): u64 {
-        registry.next_squad_id - 1
-    }
-
-    // Check if squad has full roster (7 players)
-    public fun has_full_roster(squad: &Squad): bool {
-        vector::length(&squad.players) == 7
-    }
-
-    // Get number of players in squad
-    public fun get_player_count(squad: &Squad): u64 {
-        vector::length(&squad.players)
-    }
-}
+} 

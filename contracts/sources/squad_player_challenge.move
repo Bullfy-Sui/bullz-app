@@ -1,4 +1,3 @@
-
 module bullfy::squad_player_challenge {
     use sui::clock::{Self, Clock};
     use sui::event;
