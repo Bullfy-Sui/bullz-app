@@ -656,16 +656,6 @@ module bullfy::squad_player_challenge {
         });
     }
 
-    // Helper function to convert enum to u8 for compatibility
-    public fun status_to_u8(status: &ChallengeStatus): u8 {
-        match (status) {
-            ChallengeStatus::Scheduled => 0,
-            ChallengeStatus::Active => 1,
-            ChallengeStatus::Completed => 2,
-            ChallengeStatus::Cancelled => 3,
-        }
-    }
-
     // Getter functions
     public fun get_challenge_info(challenge: &Challenge): (
         address,           // creator
@@ -675,7 +665,7 @@ module bullfy::squad_player_challenge {
         u64,              // scheduled_start_time
         u64,              // duration
         Option<address>,  // winner
-        u8,               // status
+        ChallengeStatus,  // status
         u64,              // total_pool
         u64               // total_fees_collected
     ) {
@@ -687,7 +677,7 @@ module bullfy::squad_player_challenge {
             challenge.scheduled_start_time,
             challenge.duration,
             challenge.winner,
-            status_to_u8(&challenge.status),
+            challenge.status,
             balance::value(&challenge.bid_pool),
             balance::value(&challenge.fee_vault)
         )
