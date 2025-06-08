@@ -49,20 +49,19 @@ module bullfy::squad_player_challenge {
 
     // Constants
     const MIN_PARTICIPANTS: u64 = 2;
-    const MAX_PARTICIPANTS: u64 = 20;
-    const MIN_BID_AMOUNT: u64 = 1000000; // 0.001 SUI (1 MIST = 1e-9 SUI, so 1e6 MIST = 0.001 SUI)
+    const MIN_BID_AMOUNT: u64 = 1_000_000; // 0.001 SUI 
     const UPFRONT_FEE_BPS: u64 = 500; // 5% upfront fee on bid amount
     const PLATFORM_FEE_BPS: u64 = 250; // 2.5% platform fee (kept for backward compatibility)
-    const MIN_DURATION: u64 = 300000; // 5 minutes in milliseconds
-    const MAX_DURATION: u64 = 2592000000; // 30 days in milliseconds
+    const MIN_DURATION: u64 = 300_000; // 5 minutes in milliseconds
+    const MAX_DURATION: u64 = 2_592_000_000; // 30 days in milliseconds
 
     // Challenge status enum
     public enum ChallengeStatus has copy, drop, store {
-        Scheduled,  // Future scheduled challenge
-        Pending,    // Waiting for participants (unused currently)
-        Active,     // Currently running
-        Completed,  // Finished with winner
-        Cancelled,  // Cancelled/refunded
+        Scheduled,  
+        Pending,    
+        Active,     
+        Completed,  
+        Cancelled, 
     }
 
     // Global registry to track which squads are active in challenges
@@ -204,7 +203,7 @@ module bullfy::squad_player_challenge {
 
         // Validate inputs
         assert!(bid_amount >= MIN_BID_AMOUNT, E_INVALID_BID_AMOUNT);
-        assert!(max_participants >= MIN_PARTICIPANTS && max_participants <= MAX_PARTICIPANTS, E_INVALID_PARTICIPANT_COUNT);
+        assert!(max_participants >= MIN_PARTICIPANTS, E_INVALID_PARTICIPANT_COUNT);
         assert!(scheduled_start_time > current_time, E_INVALID_START_TIME);
         assert!(duration >= MIN_DURATION && duration <= MAX_DURATION, E_INVALID_DURATION);
         
