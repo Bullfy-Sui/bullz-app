@@ -13,7 +13,7 @@ module bullfy::squad_player_challenge {
     #[error]
     const E_UNAUTHORIZED: vector<u8> = b"Sender is not authorized to perform this action";
     #[error]
-    const E_CHALLENGE_NOT_PENDING: vector<u8> = b"Challenge is not in a pending state";
+    const E_CHALLENGE_NOT_SCHEDULED: vector<u8> = b"Challenge is not in a scheduled state";
     #[error]
     const E_CHALLENGE_ALREADY_COMPLETED: vector<u8> = b"Challenge has already been completed or cancelled";
     #[error]
@@ -58,7 +58,6 @@ module bullfy::squad_player_challenge {
     // Challenge status enum
     public enum ChallengeStatus has copy, drop, store {
         Scheduled,  
-        Pending,    
         Active,     
         Completed,  
         Cancelled, 
@@ -322,7 +321,7 @@ module bullfy::squad_player_challenge {
         };
 
         // Validate challenge state
-        assert!(challenge.status == ChallengeStatus::Scheduled, E_CHALLENGE_NOT_PENDING);
+        assert!(challenge.status == ChallengeStatus::Scheduled, E_CHALLENGE_NOT_SCHEDULED);
         assert!(challenge.current_participants < challenge.max_participants, E_CHALLENGE_FULL);
         assert!(!vector::contains(&challenge.participants, &participant), E_ALREADY_JOINED);
         assert!(current_time < challenge.scheduled_start_time, E_CHALLENGE_EXPIRED);
@@ -406,7 +405,7 @@ module bullfy::squad_player_challenge {
         assert!(vector::contains(&challenge.participants, &sender), E_UNAUTHORIZED);
         
         // Validate challenge state
-        assert!(challenge.status == ChallengeStatus::Scheduled, E_CHALLENGE_NOT_PENDING);
+        assert!(challenge.status == ChallengeStatus::Scheduled, E_CHALLENGE_NOT_SCHEDULED);
         assert!(current_time >= challenge.scheduled_start_time, E_CHALLENGE_NOT_STARTED);
         assert!(challenge.current_participants >= MIN_PARTICIPANTS, E_CHALLENGE_NOT_READY);
 
@@ -635,7 +634,7 @@ module bullfy::squad_player_challenge {
         let current_time = clock::timestamp_ms(clock);
         let grace_period = 3600000; // 1 hour grace period
         
-        assert!(challenge.status == ChallengeStatus::Scheduled, E_CHALLENGE_NOT_PENDING);
+        assert!(challenge.status == ChallengeStatus::Scheduled, E_CHALLENGE_NOT_SCHEDULED);
         assert!(current_time > challenge.scheduled_start_time + grace_period, E_CHALLENGE_NOT_STARTED);
 
         // Calculate refund amount before processing refunds
@@ -661,10 +660,9 @@ module bullfy::squad_player_challenge {
     public fun status_to_u8(status: &ChallengeStatus): u8 {
         match (status) {
             ChallengeStatus::Scheduled => 0,
-            ChallengeStatus::Pending => 1,
-            ChallengeStatus::Active => 2,
-            ChallengeStatus::Completed => 3,
-            ChallengeStatus::Cancelled => 4,
+            ChallengeStatus::Active => 1,
+            ChallengeStatus::Completed => 2,
+            ChallengeStatus::Cancelled => 3,
         }
     }
 
@@ -764,7 +762,6 @@ module bullfy::squad_player_challenge {
     public fun status_to_string(status: &ChallengeStatus): String {
         match (status) {
             ChallengeStatus::Scheduled => string::utf8(b"Scheduled"),
-            ChallengeStatus::Pending => string::utf8(b"Pending"),
             ChallengeStatus::Active => string::utf8(b"Active"),
             ChallengeStatus::Completed => string::utf8(b"Completed"),
             ChallengeStatus::Cancelled => string::utf8(b"Cancelled"),
