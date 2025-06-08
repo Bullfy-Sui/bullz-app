@@ -1,8 +1,5 @@
 #[allow(unused_const,lint(custom_state_change),duplicate_alias)]
 module bullfy::admin {
-    use sui::object::{Self, UID};
-    use sui::tx_context::{Self, TxContext};
-    use sui::transfer;
     use sui::event;
 
     // Error codes with descriptive messages

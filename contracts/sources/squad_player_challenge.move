@@ -17,8 +17,6 @@ module bullfy::squad_player_challenge {
     #[error]
     const E_CHALLENGE_ALREADY_COMPLETED: vector<u8> = b"Challenge has already been completed or cancelled";
     #[error]
-    const E_INVALID_STATUS_TYPE: vector<u8> = b"Invalid status type for ChallengeStatus creation";
-    #[error]
     const E_CHALLENGE_FULL: vector<u8> = b"Challenge has reached maximum participants";
     #[error]
     const E_ALREADY_JOINED: vector<u8> = b"Address has already joined this challenge";
