@@ -580,54 +580,7 @@ module bullfy::match_escrow {
         });
     }
 
-    // View functions
-    public fun get_bid(registry: &EscrowRegistry, bid_id: ID): &Bid {
-        let bid_index = *table::borrow(&registry.bid_id_to_index, bid_id);
-        vector::borrow(&registry.active_bids, bid_index)
-    }
-
-    public fun get_match(registry: &EscrowRegistry, match_id: ID): &Match {
-        let match_index = *table::borrow(&registry.match_id_to_index, match_id);
-        vector::borrow(&registry.active_matches, match_index)
-    }
-
-    public fun get_user_active_bids(registry: &EscrowRegistry, user: address): &vector<u64> {
-        table::borrow(&registry.user_active_bids, user)
-    }
-
-    public fun get_user_completed_bids(registry: &EscrowRegistry, user: address): &vector<ID> {
-        table::borrow(&registry.user_completed_bids, user)
-    }
-
-    public fun get_user_active_matches(registry: &EscrowRegistry, user: address): &vector<u64> {
-        table::borrow(&registry.user_active_matches, user)
-    }
-
-    public fun get_user_completed_matches(registry: &EscrowRegistry, user: address): &vector<ID> {
-        table::borrow(&registry.user_completed_matches, user)
-    }
-
-    public fun get_active_bids(registry: &EscrowRegistry): &vector<Bid> {
-        &registry.active_bids
-    }
-
-    public fun get_completed_bids(registry: &EscrowRegistry): &Table<ID, Bid> {
-        &registry.completed_bids
-    }
-
-    public fun get_active_matches(registry: &EscrowRegistry): &vector<Match> {
-        &registry.active_matches
-    }
-
-    public fun get_completed_matches(registry: &EscrowRegistry): &Table<ID, Match> {
-        &registry.completed_matches
-    }
-
-    // Helper function to check if bid is still valid
-    public fun is_bid_valid(bid: &Bid, _clock: &Clock): bool {
-        bid.status == BidStatus::Open
-    }
-
+    
     // Helper function to move completed bid from active to completed vector
     fun move_bid_to_completed(registry: &mut EscrowRegistry, bid_id: ID) {
         let bid_index = *table::borrow(&registry.bid_id_to_index, bid_id);
@@ -786,6 +739,55 @@ module bullfy::match_escrow {
         };
         match_ids
     }
+
+    // View functions
+    public fun get_bid(registry: &EscrowRegistry, bid_id: ID): &Bid {
+        let bid_index = *table::borrow(&registry.bid_id_to_index, bid_id);
+        vector::borrow(&registry.active_bids, bid_index)
+    }
+
+    public fun get_match(registry: &EscrowRegistry, match_id: ID): &Match {
+        let match_index = *table::borrow(&registry.match_id_to_index, match_id);
+        vector::borrow(&registry.active_matches, match_index)
+    }
+
+    public fun get_user_active_bids(registry: &EscrowRegistry, user: address): &vector<u64> {
+        table::borrow(&registry.user_active_bids, user)
+    }
+
+    public fun get_user_completed_bids(registry: &EscrowRegistry, user: address): &vector<ID> {
+        table::borrow(&registry.user_completed_bids, user)
+    }
+
+    public fun get_user_active_matches(registry: &EscrowRegistry, user: address): &vector<u64> {
+        table::borrow(&registry.user_active_matches, user)
+    }
+
+    public fun get_user_completed_matches(registry: &EscrowRegistry, user: address): &vector<ID> {
+        table::borrow(&registry.user_completed_matches, user)
+    }
+
+    public fun get_active_bids(registry: &EscrowRegistry): &vector<Bid> {
+        &registry.active_bids
+    }
+
+    public fun get_completed_bids(registry: &EscrowRegistry): &Table<ID, Bid> {
+        &registry.completed_bids
+    }
+
+    public fun get_active_matches(registry: &EscrowRegistry): &vector<Match> {
+        &registry.active_matches
+    }
+
+    public fun get_completed_matches(registry: &EscrowRegistry): &Table<ID, Match> {
+        &registry.completed_matches
+    }
+
+    // Helper function to check if bid is still valid
+    public fun is_bid_valid(bid: &Bid, _clock: &Clock): bool {
+        bid.status == BidStatus::Open
+    }
+
 
 }
 
