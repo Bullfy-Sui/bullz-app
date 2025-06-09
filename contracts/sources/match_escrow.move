@@ -13,6 +13,7 @@ module bullfy::match_escrow {
     use std::vector;
     use bullfy::squad_manager::{Self, SquadRegistry};
     use bullfy::fee_collector::{Self, Fees};
+    use bullfy::squad_player_challenge::{Self, ActiveSquadRegistry};
 
     // Error constants
     #[error]
@@ -41,6 +42,8 @@ module bullfy::match_escrow {
     const E_MATCH_ALREADY_COMPLETED: vector<u8> = b"Match has already been completed";
     #[error]
     const E_INVALID_WINNER: vector<u8> = b"Winner must be one of the match participants";
+    #[error]
+    const E_SQUAD_ALREADY_ACTIVE: vector<u8> = b"Squad is already active in another match or bid";
 
     // Constants
     const MIN_BID_AMOUNT: u64 = 1_000_000; // 0.001 SUI in MIST
@@ -97,7 +100,7 @@ module bullfy::match_escrow {
         prize_claimed: bool,
     }
 
-    // Global registry for bids and matches
+    // Registry for bids and matches (no longer tracks active squads)
     public struct EscrowRegistry has key {
         id: UID,
         bids: Table<ID, Bid>,
@@ -176,6 +179,7 @@ module bullfy::match_escrow {
     public entry fun create_bid(
         registry: &mut EscrowRegistry,
         squad_registry: &SquadRegistry,
+        active_squad_registry: &mut ActiveSquadRegistry,
         squad_id: u64,
         bid_amount: u64,
         duration: u64, // Match duration in milliseconds
@@ -196,13 +200,13 @@ module bullfy::match_escrow {
         assert!(squad_manager::get_squad_owner(squad) == creator, E_SQUAD_NOT_OWNED);
         assert!(squad_manager::is_squad_alive(squad), E_SQUAD_NOT_ALIVE);
 
+        // Check if squad is already active using existing function
+        assert!(!squad_player_challenge::is_squad_active(active_squad_registry, squad_id), E_SQUAD_ALREADY_ACTIVE);
+
         // Validate payment
         let payment_amount = coin::value(&payment);
         assert!(payment_amount >= bid_amount, E_INSUFFICIENT_PAYMENT);
 
-        // Create bid ID
-        let bid_id = object::id_from_address(@0x0); // Temporary, will be replaced
-        
         // Handle payment - take exact bid amount, return change if any
         let escrow_balance = if (payment_amount == bid_amount) {
             coin::into_balance(payment)
@@ -231,6 +235,9 @@ module bullfy::match_escrow {
         // Add to registry
         table::add(&mut registry.bids, bid_id, bid);
 
+        // Register squad as active using existing registry
+        squad_player_challenge::register_squad_active(active_squad_registry, squad_id, bid_id);
+
         // Track user's bids
         if (!table::contains(&registry.user_bids, creator)) {
             table::add(&mut registry.user_bids, creator, vector::empty<ID>());
@@ -254,6 +261,7 @@ module bullfy::match_escrow {
     public entry fun match_bid(
         registry: &mut EscrowRegistry,
         squad_registry: &mut SquadRegistry,
+        active_squad_registry: &mut ActiveSquadRegistry,
         fees: &mut Fees,
         target_bid_id: ID,
         squad_id: u64,
@@ -278,12 +286,15 @@ module bullfy::match_escrow {
         assert!(squad_manager::get_squad_owner(squad) == matcher, E_SQUAD_NOT_OWNED);
         assert!(squad_manager::is_squad_alive(squad), E_SQUAD_NOT_ALIVE);
 
+        // Check if squad is already active using existing function
+        assert!(!squad_player_challenge::is_squad_active(active_squad_registry, squad_id), E_SQUAD_ALREADY_ACTIVE);
+
         // Validate payment matches bid amount
         let payment_amount = coin::value(&payment);
         assert!(payment_amount >= target_bid.bid_amount, E_INSUFFICIENT_PAYMENT);
 
         // Handle payment
-        let match_payment = if (payment_amount == target_bid.bid_amount) {
+        let mut match_payment = if (payment_amount == target_bid.bid_amount) {
             coin::into_balance(payment)
         } else {
             let match_coin = coin::split(&mut payment, target_bid.bid_amount, ctx);
@@ -320,10 +331,15 @@ module bullfy::match_escrow {
         // Update target bid status
         target_bid.status = BidStatus::Matched;
 
+        // Update active squads registry - remove first squad from bid tracking, add both to match tracking
+        squad_player_challenge::unregister_squad_active(active_squad_registry, target_bid.squad_id);
+        squad_player_challenge::register_squad_active(active_squad_registry, target_bid.squad_id, match_id);
+        squad_player_challenge::register_squad_active(active_squad_registry, squad_id, match_id);
+
         // Collect platform fees
         let fee_balance1 = balance::split(&mut target_bid.escrow, platform_fee / 2);
         let fee_balance2 = balance::split(&mut match_payment, platform_fee / 2);
-        let total_fee_balance = fee_balance1;
+        let mut total_fee_balance = fee_balance1;
         balance::join(&mut total_fee_balance, fee_balance2);
         let fee_coin = coin::from_balance(total_fee_balance, ctx);
         fee_collector::collect(fees, fee_coin, ctx);
@@ -336,7 +352,7 @@ module bullfy::match_escrow {
 
         // Track user matches
         let users = vector[target_bid.creator, matcher];
-        let i = 0;
+        let mut i = 0;
         while (i < vector::length(&users)) {
             let user = *vector::borrow(&users, i);
             if (!table::contains(&registry.user_matches, user)) {
@@ -365,6 +381,7 @@ module bullfy::match_escrow {
     // Cancel an open bid and refund the creator
     public entry fun cancel_bid(
         registry: &mut EscrowRegistry,
+        active_squad_registry: &mut ActiveSquadRegistry,
         bid_id: ID,
         ctx: &mut TxContext
     ) {
@@ -384,6 +401,9 @@ module bullfy::match_escrow {
         let refund_coin = coin::from_balance(refund_balance, ctx);
         transfer::public_transfer(refund_coin, sender);
 
+        // Remove squad from active registry
+        squad_player_challenge::unregister_squad_active(active_squad_registry, bid.squad_id);
+
         // Emit event
         event::emit(BidCancelled {
             bid_id,
@@ -396,6 +416,7 @@ module bullfy::match_escrow {
     public entry fun complete_match(
         registry: &mut EscrowRegistry,
         squad_registry: &mut SquadRegistry,
+        active_squad_registry: &mut ActiveSquadRegistry,
         match_id: ID,
         winner: address,
         clock: &Clock,
@@ -437,6 +458,10 @@ module bullfy::match_escrow {
         // Winner gains life, loser loses life
         squad_manager::increase_squad_life(squad_registry, winner_squad_id);
         squad_manager::decrease_squad_life(squad_registry, loser_squad_id, clock);
+
+        // Remove both squads from active registry since match is completed
+        squad_player_challenge::unregister_squad_active(active_squad_registry, match_obj.squad1_id);
+        squad_player_challenge::unregister_squad_active(active_squad_registry, match_obj.squad2_id);
 
         // Emit event
         event::emit(MatchCompleted {
@@ -480,6 +505,40 @@ module bullfy::match_escrow {
             match_id,
             winner: sender,
             amount: match_obj.total_prize,
+        });
+    }
+
+    // Expire old bids and refund creators (can be called by anyone)
+    public entry fun expire_bid(
+        registry: &mut EscrowRegistry,
+        active_squad_registry: &mut ActiveSquadRegistry,
+        bid_id: ID,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        assert!(table::contains(&registry.bids, bid_id), E_BID_NOT_FOUND);
+        let bid = table::borrow_mut(&mut registry.bids, bid_id);
+        
+        // Check if bid is expired and still open
+        let current_time = clock::timestamp_ms(clock);
+        assert!(current_time > bid.expires_at, E_BID_NOT_FOUND);
+        assert!(bid.status == BidStatus::Open, E_BID_NOT_FOUND);
+
+        // Update status and refund
+        bid.status = BidStatus::Expired;
+        let refund_amount = balance::value(&bid.escrow);
+        let refund_balance = balance::withdraw_all(&mut bid.escrow);
+        let refund_coin = coin::from_balance(refund_balance, ctx);
+        transfer::public_transfer(refund_coin, bid.creator);
+
+        // Remove squad from active registry
+        squad_player_challenge::unregister_squad_active(active_squad_registry, bid.squad_id);
+
+        // Emit event
+        event::emit(BidExpired {
+            bid_id,
+            creator: bid.creator,
+            refund_amount,
         });
     }
 

@@ -783,4 +783,24 @@ module bullfy::squad_player_challenge {
             option::none()
         }
     }
+
+    // Register a squad as active in a challenge/match (public function for other modules)
+    public fun register_squad_active(active_squad_registry: &mut ActiveSquadRegistry, squad_id: u64, challenge_id: ID) {
+        table::add(&mut active_squad_registry.active_squads, squad_id, challenge_id);
+    }
+
+    // Unregister a squad from active challenges/matches (public function for other modules)
+    public fun unregister_squad_active(active_squad_registry: &mut ActiveSquadRegistry, squad_id: u64) {
+        table::remove(&mut active_squad_registry.active_squads, squad_id);
+    }
+
+    // Update a squad's active challenge/match ID (public function for other modules)
+    public fun update_squad_active(active_squad_registry: &mut ActiveSquadRegistry, squad_id: u64, new_challenge_id: ID) {
+        if (table::contains(&active_squad_registry.active_squads, squad_id)) {
+            let active_id = table::borrow_mut(&mut active_squad_registry.active_squads, squad_id);
+            *active_id = new_challenge_id;
+        } else {
+            table::add(&mut active_squad_registry.active_squads, squad_id, new_challenge_id);
+        };
+    }
 }
