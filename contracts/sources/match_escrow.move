@@ -104,15 +104,15 @@ module bullfy::match_escrow {
     public struct EscrowRegistry has key {
         id: UID,
         active_bids: vector<Bid>, // Active open bids
-        completed_bids: vector<Bid>, // Completed/cancelled bids for history
+        completed_bids: Table<ID, Bid>, // Completed/cancelled bids stored by ID
         active_matches: vector<Match>, // Active ongoing matches
-        completed_matches: vector<Match>, // Completed matches for history
+        completed_matches: Table<ID, Match>, // Completed matches stored by ID
         user_active_bids: Table<address, vector<u64>>, // Track user's active bid indices
-        user_completed_bids: Table<address, vector<u64>>, // Track user's completed bid indices
+        user_completed_bids: Table<address, vector<ID>>, // Track user's completed bid IDs
         user_active_matches: Table<address, vector<u64>>, // Track user's active match indices
-        user_completed_matches: Table<address, vector<u64>>, // Track user's completed match indices
-        bid_id_to_index: Table<ID, u64>, // Map bid ID to vector index
-        match_id_to_index: Table<ID, u64>, // Map match ID to vector index
+        user_completed_matches: Table<address, vector<ID>>, // Track user's completed match IDs
+        bid_id_to_index: Table<ID, u64>, // Map bid ID to vector index for active bids only
+        match_id_to_index: Table<ID, u64>, // Map match ID to vector index for active matches only
         next_bid_id: u64,
         next_match_id: u64,
     }
@@ -164,9 +164,9 @@ module bullfy::match_escrow {
         let registry = EscrowRegistry {
             id: object::new(ctx),
             active_bids: vector::empty<Bid>(),
-            completed_bids: vector::empty<Bid>(),
+            completed_bids: table::new(ctx),
             active_matches: vector::empty<Match>(),
-            completed_matches: vector::empty<Match>(),
+            completed_matches: table::new(ctx),
             user_active_bids: table::new(ctx),
             user_completed_bids: table::new(ctx),
             user_active_matches: table::new(ctx),
@@ -595,7 +595,7 @@ module bullfy::match_escrow {
         table::borrow(&registry.user_active_bids, user)
     }
 
-    public fun get_user_completed_bids(registry: &EscrowRegistry, user: address): &vector<u64> {
+    public fun get_user_completed_bids(registry: &EscrowRegistry, user: address): &vector<ID> {
         table::borrow(&registry.user_completed_bids, user)
     }
 
@@ -603,7 +603,7 @@ module bullfy::match_escrow {
         table::borrow(&registry.user_active_matches, user)
     }
 
-    public fun get_user_completed_matches(registry: &EscrowRegistry, user: address): &vector<u64> {
+    public fun get_user_completed_matches(registry: &EscrowRegistry, user: address): &vector<ID> {
         table::borrow(&registry.user_completed_matches, user)
     }
 
@@ -611,7 +611,7 @@ module bullfy::match_escrow {
         &registry.active_bids
     }
 
-    public fun get_completed_bids(registry: &EscrowRegistry): &vector<Bid> {
+    public fun get_completed_bids(registry: &EscrowRegistry): &Table<ID, Bid> {
         &registry.completed_bids
     }
 
@@ -619,7 +619,7 @@ module bullfy::match_escrow {
         &registry.active_matches
     }
 
-    public fun get_completed_matches(registry: &EscrowRegistry): &vector<Match> {
+    public fun get_completed_matches(registry: &EscrowRegistry): &Table<ID, Match> {
         &registry.completed_matches
     }
 
@@ -634,10 +634,10 @@ module bullfy::match_escrow {
         let bid = vector::borrow(&registry.active_bids, bid_index);
         let creator = bid.creator;
         
-        // Remove bid from active vector and add to completed
+        // Remove bid from active vector and add to completed table
         let bid = vector::remove(&mut registry.active_bids, bid_index);
-        let completed_index = vector::length(&registry.completed_bids);
-        vector::push_back(&mut registry.completed_bids, bid);
+        let bid_id_for_table = object::id(&bid);
+        table::add(&mut registry.completed_bids, bid_id_for_table, bid);
         
         // Update user tracking - move from active to completed
         if (table::contains(&registry.user_active_bids, creator)) {
@@ -653,10 +653,10 @@ module bullfy::match_escrow {
         };
         
         if (!table::contains(&registry.user_completed_bids, creator)) {
-            table::add(&mut registry.user_completed_bids, creator, vector::empty<u64>());
+            table::add(&mut registry.user_completed_bids, creator, vector::empty<ID>());
         };
         let user_completed_bids = table::borrow_mut(&mut registry.user_completed_bids, creator);
-        vector::push_back(user_completed_bids, completed_index);
+        vector::push_back(user_completed_bids, bid_id_for_table);
         
         // Update indices for all active bids after the removed one
         let mut i = bid_index;
@@ -679,10 +679,10 @@ module bullfy::match_escrow {
         let player1 = match_obj.player1;
         let player2 = match_obj.player2;
         
-        // Remove match from active vector and add to completed
+        // Remove match from active vector and add to completed table
         let match_obj = vector::remove(&mut registry.active_matches, match_index);
-        let completed_index = vector::length(&registry.completed_matches);
-        vector::push_back(&mut registry.completed_matches, match_obj);
+        let match_id_for_table = object::id(&match_obj);
+        table::add(&mut registry.completed_matches, match_id_for_table, match_obj);
         
         // Update user tracking - move from active to completed for both players
         let players = vector[player1, player2];
@@ -705,10 +705,10 @@ module bullfy::match_escrow {
             
             // Add to completed matches
             if (!table::contains(&registry.user_completed_matches, player)) {
-                table::add(&mut registry.user_completed_matches, player, vector::empty<u64>());
+                table::add(&mut registry.user_completed_matches, player, vector::empty<ID>());
             };
             let user_completed_matches = table::borrow_mut(&mut registry.user_completed_matches, player);
-            vector::push_back(user_completed_matches, completed_index);
+            vector::push_back(user_completed_matches, match_id_for_table);
             
             i = i + 1;
         };
@@ -728,46 +728,39 @@ module bullfy::match_escrow {
     }
 
     // Helper functions to find completed bids/matches by ID
-    public fun find_completed_bid_by_id(registry: &EscrowRegistry, bid_id: ID): Option<u64> {
-        let mut i = 0;
-        while (i < vector::length(&registry.completed_bids)) {
-            let bid = vector::borrow(&registry.completed_bids, i);
-            if (object::id(bid) == bid_id) {
-                return option::some(i)
-            };
-            i = i + 1;
-        };
-        option::none()
+    public fun get_completed_bid_by_id(registry: &EscrowRegistry, bid_id: ID): &Bid {
+        table::borrow(&registry.completed_bids, bid_id)
     }
 
-    public fun find_completed_match_by_id(registry: &EscrowRegistry, match_id: ID): Option<u64> {
-        let mut i = 0;
-        while (i < vector::length(&registry.completed_matches)) {
-            let match_obj = vector::borrow(&registry.completed_matches, i);
-            if (object::id(match_obj) == match_id) {
-                return option::some(i)
-            };
-            i = i + 1;
-        };
-        option::none()
+    public fun get_completed_match_by_id(registry: &EscrowRegistry, match_id: ID): &Match {
+        table::borrow(&registry.completed_matches, match_id)
     }
 
-    // Get completed bid/match by ID (returns index instead of reference)
-    public fun get_completed_bid_index_by_id(registry: &EscrowRegistry, bid_id: ID): Option<u64> {
-        find_completed_bid_by_id(registry, bid_id)
+    // Check if bid/match is completed
+    public fun is_bid_completed(registry: &EscrowRegistry, bid_id: ID): bool {
+        table::contains(&registry.completed_bids, bid_id)
     }
 
-    public fun get_completed_match_index_by_id(registry: &EscrowRegistry, match_id: ID): Option<u64> {
-        find_completed_match_by_id(registry, match_id)
+    public fun is_match_completed(registry: &EscrowRegistry, match_id: ID): bool {
+        table::contains(&registry.completed_matches, match_id)
     }
 
-    // Get completed bid/match by index
-    public fun get_completed_bid_by_index(registry: &EscrowRegistry, index: u64): &Bid {
-        vector::borrow(&registry.completed_bids, index)
+    // Get all completed bid IDs for a user
+    public fun get_user_completed_bid_ids(registry: &EscrowRegistry, user: address): vector<ID> {
+        if (table::contains(&registry.user_completed_bids, user)) {
+            *table::borrow(&registry.user_completed_bids, user)
+        } else {
+            vector::empty<ID>()
+        }
     }
 
-    public fun get_completed_match_by_index(registry: &EscrowRegistry, index: u64): &Match {
-        vector::borrow(&registry.completed_matches, index)
+    // Get all completed match IDs for a user  
+    public fun get_user_completed_match_ids(registry: &EscrowRegistry, user: address): vector<ID> {
+        if (table::contains(&registry.user_completed_matches, user)) {
+            *table::borrow(&registry.user_completed_matches, user)
+        } else {
+            vector::empty<ID>()
+        }
     }
 
     // Get all active bid IDs
@@ -776,18 +769,6 @@ module bullfy::match_escrow {
         let mut i = 0;
         while (i < vector::length(&registry.active_bids)) {
             let bid = vector::borrow(&registry.active_bids, i);
-            vector::push_back(&mut bid_ids, object::id(bid));
-            i = i + 1;
-        };
-        bid_ids
-    }
-
-    // Get all completed bid IDs  
-    public fun get_all_completed_bid_ids(registry: &EscrowRegistry): vector<ID> {
-        let mut bid_ids = vector::empty<ID>();
-        let mut i = 0;
-        while (i < vector::length(&registry.completed_bids)) {
-            let bid = vector::borrow(&registry.completed_bids, i);
             vector::push_back(&mut bid_ids, object::id(bid));
             i = i + 1;
         };
@@ -806,16 +787,5 @@ module bullfy::match_escrow {
         match_ids
     }
 
-    // Get all completed match IDs
-    public fun get_all_completed_match_ids(registry: &EscrowRegistry): vector<ID> {
-        let mut match_ids = vector::empty<ID>();
-        let mut i = 0;
-        while (i < vector::length(&registry.completed_matches)) {
-            let match_obj = vector::borrow(&registry.completed_matches, i);
-            vector::push_back(&mut match_ids, object::id(match_obj));
-            i = i + 1;
-        };
-        match_ids
-    }
-
 }
+
