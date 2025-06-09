@@ -51,7 +51,7 @@ module bullfy::match_escrow {
     const MIN_BID_AMOUNT: u64 = 1_000_000; // 0.001 SUI in MIST
     const MIN_DURATION: u64 = 60_000; // 1 minute in milliseconds
     const MAX_DURATION: u64 = 1_800_000; // 30 minutes in milliseconds
-    const PLATFORM_FEE_BPS: u64 = 250; // 2.5% platform fee
+    const UPFRONT_FEE_BPS: u64 = 500; // 5% upfront fee on bid amount
 
     // Bid status enum
     public enum BidStatus has copy, drop, store {
@@ -170,6 +170,7 @@ module bullfy::match_escrow {
         registry: &mut EscrowRegistry,
         squad_registry: &SquadRegistry,
         active_squad_registry: &mut ActiveSquadRegistry,
+        fees: &mut Fees,
         squad_id: u64,
         bid_amount: u64,
         duration: u64, // Match duration in milliseconds
@@ -192,18 +193,27 @@ module bullfy::match_escrow {
         // Check if squad is already active
         assert!(!squad_player_challenge::is_squad_active(active_squad_registry, squad_id), E_SQUAD_ALREADY_ACTIVE);
 
-        // Validate payment
+        // Calculate required payment (bid + 5% upfront fee)
+        let fee_amount = (bid_amount * UPFRONT_FEE_BPS) / 10000; // 5% fee
+        let total_required = bid_amount + fee_amount;
         let payment_amount = coin::value(&payment);
-        assert!(payment_amount >= bid_amount, E_INSUFFICIENT_PAYMENT);
+        assert!(payment_amount >= total_required, E_INSUFFICIENT_PAYMENT);
 
-        // Handle payment - take exact bid amount, return change if any
-        let escrow_balance = if (payment_amount == bid_amount) {
-            coin::into_balance(payment)
+        // Handle payment - split into bid and fee, return change if any
+        let (escrow_balance, fee_coin) = if (payment_amount == total_required) {
+            // Exact amount - split into bid and fee
+            let fee_coin = coin::split(&mut payment, fee_amount, ctx);
+            (coin::into_balance(payment), fee_coin)
         } else {
+            // Overpaid - split exact amounts and return change
+            let fee_coin = coin::split(&mut payment, fee_amount, ctx);
             let bid_coin = coin::split(&mut payment, bid_amount, ctx);
             transfer::public_transfer(payment, creator); // Return change
-            coin::into_balance(bid_coin)
+            (coin::into_balance(bid_coin), fee_coin)
         };
+
+        // Collect upfront fee
+        fee_collector::collect(fees, fee_coin, ctx);
 
         // Create the bid
         let bid = Bid {
@@ -247,7 +257,6 @@ module bullfy::match_escrow {
         registry: &mut EscrowRegistry,
         _squad_registry: &SquadRegistry,
         active_squad_registry: &mut ActiveSquadRegistry,
-        fees: &mut Fees,
         bid1_id: ID,
         bid2_id: ID,
         clock: &Clock,
@@ -266,7 +275,7 @@ module bullfy::match_escrow {
             let bid1 = table::borrow(&registry.bids, bid1_id);
             let bid2 = table::borrow(&registry.bids, bid2_id);
 
-            // Validate bid status and expiry
+            // Validate bid status
             assert!(bid1.status == BidStatus::Open, E_BID_NOT_FOUND);
             assert!(bid2.status == BidStatus::Open, E_BID_NOT_FOUND);
 
@@ -288,10 +297,8 @@ module bullfy::match_escrow {
             _bid2_duration = bid2.duration;
         };
 
-        // Calculate fees and prize
-        let total_bids = bid1_amount * 2;
-        let platform_fee = (total_bids * PLATFORM_FEE_BPS) / 10000;
-        let total_prize = total_bids - platform_fee;
+        // Calculate total prize (both bid amounts, fees already collected upfront)
+        let total_prize = bid1_amount * 2;
 
         // Create match
         let match_obj = Match {
@@ -303,7 +310,7 @@ module bullfy::match_escrow {
             squad1_id: bid1_squad_id,
             squad2_id: bid2_squad_id,
             total_prize,
-            platform_fee,
+            platform_fee: 0, // No platform fee since upfront fees already collected
             duration: bid1_duration,
             started_at: current_time,
             ends_at: current_time + bid1_duration,
@@ -314,36 +321,26 @@ module bullfy::match_escrow {
 
         let match_id = object::id(&match_obj);
 
-        // Update both bids status and collect fees
+        // Update both bids status
         {
             let bid1 = table::borrow_mut(&mut registry.bids, bid1_id);
             bid1.status = BidStatus::Matched;
-            
-            // Collect platform fees from bid1
-            let fee_balance1 = balance::split(&mut bid1.escrow, platform_fee / 2);
-            let fee_coin1 = coin::from_balance(fee_balance1, ctx);
-            fee_collector::collect(fees, fee_coin1, ctx);
         };
 
         {
             let bid2 = table::borrow_mut(&mut registry.bids, bid2_id);
             bid2.status = BidStatus::Matched;
-            
-            // Collect platform fees from bid2
-            let fee_balance2 = balance::split(&mut bid2.escrow, platform_fee / 2);
-            let fee_coin2 = coin::from_balance(fee_balance2, ctx);
-            fee_collector::collect(fees, fee_coin2, ctx);
         };
 
-        // Combine remaining balances for prize pool
-        let bid2_remaining_balance = {
+        // Combine both bid balances for prize pool (no fee deduction needed)
+        let bid2_balance = {
             let bid2 = table::borrow_mut(&mut registry.bids, bid2_id);
             balance::withdraw_all(&mut bid2.escrow)
         };
         
         {
             let bid1 = table::borrow_mut(&mut registry.bids, bid1_id);
-            balance::join(&mut bid1.escrow, bid2_remaining_balance);
+            balance::join(&mut bid1.escrow, bid2_balance);
         };
 
         // Add match to registry
@@ -470,13 +467,13 @@ module bullfy::match_escrow {
         squad_player_challenge::unregister_squad_active(active_squad_registry, match_obj.squad1_id);
         squad_player_challenge::unregister_squad_active(active_squad_registry, match_obj.squad2_id);
 
-        // Emit event
+        // Emit event (no platform fee since already collected upfront)
         event::emit(MatchCompleted {
             match_id,
             winner,
             loser,
             prize_amount: match_obj.total_prize,
-            platform_fee: match_obj.platform_fee,
+            platform_fee: 0, // No platform fee since already collected upfront
         });
     }
 
