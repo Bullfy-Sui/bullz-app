@@ -5,6 +5,11 @@ module bullfy::admin {
     // Error codes with descriptive messages
     #[error]
     const ENotOwner: vector<u8> = b"Only the owner can perform this action";
+    #[error]
+    const EInvalidFeePercentage: vector<u8> = b"Fee percentage must be between 0 and 1000 (0-10%)";
+
+    // Constants
+    const MAX_FEE_BPS: u64 = 1000; // Maximum 10% fee
 
     // AdminCap to control admin-only functions
     public struct AdminCap has key {
@@ -16,6 +21,12 @@ module bullfy::admin {
         id: UID
     }
 
+    // Global fee configuration
+    public struct FeeConfig has key {
+        id: UID,
+        upfront_fee_bps: u64, // Fee in basis points (e.g., 500 = 5%)
+    }
+
     // Events
     public struct AdminCapCreated has copy, drop {
         admin: address
@@ -23,6 +34,12 @@ module bullfy::admin {
 
     public struct AdminCapRevoked has copy, drop {
         admin: address
+    }
+
+    public struct FeePercentageUpdated has copy, drop {
+        old_fee_bps: u64,
+        new_fee_bps: u64,
+        updated_by: address,
     }
 
     // Init function to create the OwnerCap
@@ -40,6 +57,13 @@ module bullfy::admin {
             id: object::new(ctx)
         };
         transfer::transfer(admin_cap, sender);
+
+        // Create global fee configuration with 5% default fee
+        let fee_config = FeeConfig {
+            id: object::new(ctx),
+            upfront_fee_bps: 500, // 5% default fee
+        };
+        transfer::share_object(fee_config);
         
         // Emit event for the first admin
         event::emit(AdminCapCreated { admin: sender });
@@ -84,5 +108,33 @@ module bullfy::admin {
         new_owner: address
     ) {
         transfer::transfer(owner_cap, new_owner);
+    }
+
+    // Update the upfront fee percentage (admin only)
+    public entry fun update_fee_percentage(
+        _: &AdminCap,
+        fee_config: &mut FeeConfig,
+        new_fee_bps: u64,
+        ctx: &mut TxContext
+    ) {
+        let sender = tx_context::sender(ctx);
+        
+        // Validate fee percentage (0-10%)
+        assert!(new_fee_bps <= MAX_FEE_BPS, EInvalidFeePercentage);
+        
+        let old_fee_bps = fee_config.upfront_fee_bps;
+        fee_config.upfront_fee_bps = new_fee_bps;
+        
+        // Emit event
+        event::emit(FeePercentageUpdated {
+            old_fee_bps,
+            new_fee_bps,
+            updated_by: sender,
+        });
+    }
+
+    // Get current fee percentage
+    public fun get_upfront_fee_bps(fee_config: &FeeConfig): u64 {
+        fee_config.upfront_fee_bps
     }
 } 

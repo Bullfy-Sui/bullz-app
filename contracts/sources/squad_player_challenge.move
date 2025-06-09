@@ -8,6 +8,7 @@ module bullfy::squad_player_challenge {
     use std::string::{Self, String};
     use bullfy::squad_manager::{Self, SquadRegistry};
     use bullfy::fee_collector::{Self, Fees};
+    use bullfy::admin::{Self, FeeConfig};
 
     // Error constants
     #[error]
@@ -50,7 +51,6 @@ module bullfy::squad_player_challenge {
     // Constants
     const MIN_PARTICIPANTS: u64 = 2;
     const MIN_BID_AMOUNT: u64 = 1_000_000; // 0.001 SUI 
-    const UPFRONT_FEE_BPS: u64 = 500; // 5% upfront fee on bid amount
     const MIN_DURATION: u64 = 300_000; // 5 minutes in milliseconds
     const MAX_DURATION: u64 = 2_592_000_000; // 30 days in milliseconds
 
@@ -177,6 +177,7 @@ module bullfy::squad_player_challenge {
     public entry fun create_challenge(
         squad_registry: &SquadRegistry,
         active_squad_registry: &mut ActiveSquadRegistry,
+        fee_config: &FeeConfig,
         creator_squad_id: u64,
         bid_amount: u64,
         max_participants: u64,
@@ -205,7 +206,7 @@ module bullfy::squad_player_challenge {
         
         // Validate creator's bid
         let creator_bid_amount = coin::value(&creator_bid);
-        let fee_amount = (bid_amount * UPFRONT_FEE_BPS) / 10000; // 5% fee
+        let fee_amount = (bid_amount * admin::get_upfront_fee_bps(fee_config)) / 10000;
         let total_required = bid_amount + fee_amount;
         assert!(creator_bid_amount >= total_required, E_INSUFFICIENT_BID);
 
@@ -291,6 +292,7 @@ module bullfy::squad_player_challenge {
     public entry fun join_challenge(
         squad_registry: &SquadRegistry,
         active_squad_registry: &mut ActiveSquadRegistry,
+        fee_config: &FeeConfig,
         challenge: &mut Challenge,
         participant_squad_id: u64,
         mut participant_bid: Coin<SUI>,
@@ -325,7 +327,7 @@ module bullfy::squad_player_challenge {
 
         // Validate bid amount
         let participant_bid_amount = coin::value(&participant_bid);
-        let fee_amount = (challenge.bid_amount * UPFRONT_FEE_BPS) / 10000; // 5% fee
+        let fee_amount = (challenge.bid_amount * admin::get_upfront_fee_bps(fee_config)) / 10000;
         let total_required = challenge.bid_amount + fee_amount;
         assert!(participant_bid_amount >= total_required, E_INSUFFICIENT_BID);
 
@@ -692,8 +694,8 @@ module bullfy::squad_player_challenge {
     }
 
     // Helper function to calculate total required payment for a bid amount
-    public fun calculate_total_payment(bid_amount: u64): (u64, u64, u64) {
-        let fee_amount = (bid_amount * UPFRONT_FEE_BPS) / 10000;
+    public fun calculate_total_payment(fee_config: &FeeConfig, bid_amount: u64): (u64, u64, u64) {
+        let fee_amount = (bid_amount * admin::get_upfront_fee_bps(fee_config)) / 10000;
         let total_required = bid_amount + fee_amount;
         (bid_amount, fee_amount, total_required)
     }

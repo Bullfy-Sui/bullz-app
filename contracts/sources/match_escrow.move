@@ -14,7 +14,7 @@ module bullfy::match_escrow {
     use bullfy::squad_manager::{Self, SquadRegistry};
     use bullfy::fee_collector::{Self, Fees};
     use bullfy::squad_player_challenge::{Self, ActiveSquadRegistry};
-    use bullfy::admin::AdminCap;
+    use bullfy::admin::{Self, AdminCap, FeeConfig};
 
     // Error constants
     #[error]
@@ -52,7 +52,6 @@ module bullfy::match_escrow {
     const MIN_BID_AMOUNT: u64 = 1_000_000; // 0.001 SUI in MIST
     const MIN_DURATION: u64 = 60_000; // 1 minute in milliseconds
     const MAX_DURATION: u64 = 1_800_000; // 30 minutes in milliseconds
-    const UPFRONT_FEE_BPS: u64 = 500; // 5% upfront fee on bid amount
 
     // Bid status enum
     public enum BidStatus has copy, drop, store {
@@ -185,6 +184,7 @@ module bullfy::match_escrow {
         registry: &mut EscrowRegistry,
         squad_registry: &SquadRegistry,
         active_squad_registry: &mut ActiveSquadRegistry,
+        fee_config: &FeeConfig,
         squad_id: u64,
         bid_amount: u64,
         duration: u64, // Match duration in milliseconds
@@ -207,8 +207,8 @@ module bullfy::match_escrow {
         // Check if squad is already active
         assert!(!squad_player_challenge::is_squad_active(active_squad_registry, squad_id), E_SQUAD_ALREADY_ACTIVE);
 
-        // Calculate required payment (bid + 5% upfront fee)
-        let fee_amount = (bid_amount * UPFRONT_FEE_BPS) / 10000; // 5% fee
+        // Calculate required payment (bid + upfront fee)
+        let fee_amount = (bid_amount * admin::get_upfront_fee_bps(fee_config)) / 10000;
         let total_required = bid_amount + fee_amount;
         let payment_amount = coin::value(&payment);
         assert!(payment_amount >= total_required, E_INSUFFICIENT_PAYMENT);
