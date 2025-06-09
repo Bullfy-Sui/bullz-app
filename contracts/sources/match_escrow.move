@@ -144,7 +144,7 @@ module bullfy::match_escrow {
         winner: address,
         loser: address,
         prize_amount: u64,
-        platform_fee: u64,
+        total_fees: u64,
     }
 
     public struct PrizeClaimed has copy, drop {
@@ -488,7 +488,7 @@ module bullfy::match_escrow {
             winner,
             loser,
             prize_amount: match_obj.total_prize,
-            platform_fee: match_obj.total_fees, // Total fees from both bids
+            total_fees: match_obj.total_fees, // Total fees from both bids
         });
     }
 
