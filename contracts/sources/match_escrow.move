@@ -77,7 +77,6 @@ module bullfy::match_escrow {
         escrow: Balance<SUI>, // Escrowed bid amount
         created_at: u64,
         status: BidStatus,
-        description: String, // Optional description/challenge message
     }
 
     // Match between two bids
@@ -117,7 +116,6 @@ module bullfy::match_escrow {
         squad_id: u64,
         bid_amount: u64,
         duration: u64,
-        description: String,
     }
 
     public struct BidsMatched has copy, drop {
@@ -175,7 +173,6 @@ module bullfy::match_escrow {
         squad_id: u64,
         bid_amount: u64,
         duration: u64, // Match duration in milliseconds
-        description: String,
         mut payment: Coin<SUI>,
         clock: &Clock,
         ctx: &mut TxContext
@@ -218,7 +215,6 @@ module bullfy::match_escrow {
             escrow: escrow_balance,
             created_at: current_time,
             status: BidStatus::Open,
-            description,
         };
 
         let bid_id = object::id(&bid);
@@ -243,7 +239,6 @@ module bullfy::match_escrow {
             squad_id,
             bid_amount,
             duration,
-            description,
         });
     }
 
