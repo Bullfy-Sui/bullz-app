@@ -51,7 +51,6 @@ module bullfy::squad_player_challenge {
     const MIN_PARTICIPANTS: u64 = 2;
     const MIN_BID_AMOUNT: u64 = 1_000_000; // 0.001 SUI 
     const UPFRONT_FEE_BPS: u64 = 500; // 5% upfront fee on bid amount
-    const PLATFORM_FEE_BPS: u64 = 250; // 2.5% platform fee (kept for backward compatibility)
     const MIN_DURATION: u64 = 300_000; // 5 minutes in milliseconds
     const MAX_DURATION: u64 = 2_592_000_000; // 30 days in milliseconds
 
@@ -125,7 +124,6 @@ module bullfy::squad_player_challenge {
         challenge_id: ID,
         winner: address,
         prize_amount: u64,
-        platform_fee: u64,
     }
 
     public struct ChallengeCancelled has copy, drop {
@@ -157,7 +155,6 @@ module bullfy::squad_player_challenge {
     public struct FeesTransferredToCollector has copy, drop {
         challenge_id: ID,
         total_fees: u64,
-        platform_fee: u64,
         upfront_fees: u64,
     }
 
@@ -467,8 +464,6 @@ module bullfy::squad_player_challenge {
 
         // Calculate prize distribution
         let total_pool = balance::value(&challenge.bid_pool);
-        let platform_fee = (total_pool * PLATFORM_FEE_BPS) / 10000;
-        let winner_prize = total_pool - platform_fee;
         let collected_fees = balance::value(&challenge.fee_vault);
 
         // Update challenge status
@@ -480,21 +475,12 @@ module bullfy::squad_player_challenge {
         remove_squads_from_active_registry(active_squad_registry, challenge);
 
         // Distribute prizes
-        if (winner_prize > 0) {
+        if (total_pool > 0) {
             let winner_coin = coin::from_balance(
-                balance::split(&mut challenge.bid_pool, winner_prize),
+                balance::split(&mut challenge.bid_pool, total_pool),
                 ctx
             );
             transfer::public_transfer(winner_coin, winner);
-        };
-
-        // Extract platform fee (send to fee collector)
-        if (platform_fee > 0) {
-            let fee_coin = coin::from_balance(
-                balance::split(&mut challenge.bid_pool, platform_fee),
-                ctx
-            );
-            fee_collector::collect(fees, fee_coin, ctx);
         };
 
         // Transfer collected upfront fees to fee collector
@@ -507,11 +493,10 @@ module bullfy::squad_player_challenge {
         };
         
         // Emit fees transferred event if any fees were collected
-        if (platform_fee > 0 || collected_fees > 0) {
+        if (collected_fees > 0) {
             event::emit(FeesTransferredToCollector {
                 challenge_id: object::id(challenge),
-                total_fees: platform_fee + collected_fees,
-                platform_fee,
+                total_fees: collected_fees,
                 upfront_fees: collected_fees,
             });
         };
@@ -520,8 +505,7 @@ module bullfy::squad_player_challenge {
         event::emit(ChallengeCompleted {
             challenge_id: object::id(challenge),
             winner,
-            prize_amount: winner_prize,
-            platform_fee,
+            prize_amount: total_pool,
         });
     }
 
