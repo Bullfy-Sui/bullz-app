@@ -313,9 +313,9 @@ module bullfy::match_escrow {
             squad2_id: bid2_squad_id,
             total_prize,
             total_fees,
-            duration: bid1_duration,
+            duration: bid1_duration,// calculated as milliseconds as an integer
             started_at: current_time,
-            ends_at: current_time + bid1_duration,
+            ends_at: current_time + bid1_duration, // append the duration to the current time 
             status: MatchStatus::Active,
             winner: option::none(),
             prize_claimed: false,
