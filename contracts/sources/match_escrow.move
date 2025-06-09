@@ -103,10 +103,16 @@ module bullfy::match_escrow {
     // Registry for bids and matches
     public struct EscrowRegistry has key {
         id: UID,
-        bids: Table<ID, Bid>,
-        matches: Table<ID, Match>,
-        user_bids: Table<address, vector<ID>>, // Track user's bids
-        user_matches: Table<address, vector<ID>>, // Track user's matches
+        active_bids: vector<Bid>, // Active open bids
+        completed_bids: vector<Bid>, // Completed/cancelled bids for history
+        active_matches: vector<Match>, // Active ongoing matches
+        completed_matches: vector<Match>, // Completed matches for history
+        user_active_bids: Table<address, vector<u64>>, // Track user's active bid indices
+        user_completed_bids: Table<address, vector<u64>>, // Track user's completed bid indices
+        user_active_matches: Table<address, vector<u64>>, // Track user's active match indices
+        user_completed_matches: Table<address, vector<u64>>, // Track user's completed match indices
+        bid_id_to_index: Table<ID, u64>, // Map bid ID to vector index
+        match_id_to_index: Table<ID, u64>, // Map match ID to vector index
         next_bid_id: u64,
         next_match_id: u64,
     }
@@ -157,10 +163,16 @@ module bullfy::match_escrow {
     fun init(ctx: &mut TxContext) {
         let registry = EscrowRegistry {
             id: object::new(ctx),
-            bids: table::new(ctx),
-            matches: table::new(ctx),
-            user_bids: table::new(ctx),
-            user_matches: table::new(ctx),
+            active_bids: vector::empty<Bid>(),
+            completed_bids: vector::empty<Bid>(),
+            active_matches: vector::empty<Match>(),
+            completed_matches: vector::empty<Match>(),
+            user_active_bids: table::new(ctx),
+            user_completed_bids: table::new(ctx),
+            user_active_matches: table::new(ctx),
+            user_completed_matches: table::new(ctx),
+            bid_id_to_index: table::new(ctx),
+            match_id_to_index: table::new(ctx),
             next_bid_id: 1,
             next_match_id: 1,
         };
@@ -229,17 +241,18 @@ module bullfy::match_escrow {
         let bid_id = object::id(&bid);
 
         // Add to registry
-        table::add(&mut registry.bids, bid_id, bid);
+        vector::push_back(&mut registry.active_bids, bid);
+        table::add(&mut registry.bid_id_to_index, bid_id, vector::length(&registry.active_bids) - 1);
 
         // Register squad as active
         squad_player_challenge::register_squad_active(active_squad_registry, squad_id, bid_id);
 
         // Track user's bids
-        if (!table::contains(&registry.user_bids, creator)) {
-            table::add(&mut registry.user_bids, creator, vector::empty<ID>());
+        if (!table::contains(&registry.user_active_bids, creator)) {
+            table::add(&mut registry.user_active_bids, creator, vector::empty<u64>());
         };
-        let user_bids = table::borrow_mut(&mut registry.user_bids, creator);
-        vector::push_back(user_bids, bid_id);
+        let user_active_bids = table::borrow_mut(&mut registry.user_active_bids, creator);
+        vector::push_back(user_active_bids, vector::length(&registry.active_bids) - 1);
 
         // Emit event
         event::emit(BidCreated {
@@ -264,38 +277,38 @@ module bullfy::match_escrow {
         let current_time = clock::timestamp_ms(clock);
 
         // Validate both bids exist
-        assert!(table::contains(&registry.bids, bid1_id), E_BID_NOT_FOUND);
-        assert!(table::contains(&registry.bids, bid2_id), E_BID_NOT_FOUND);
+        assert!(table::contains(&registry.bid_id_to_index, bid1_id), E_BID_NOT_FOUND);
+        assert!(table::contains(&registry.bid_id_to_index, bid2_id), E_BID_NOT_FOUND);
 
         // Get bid info (without mutable borrow first)
         let (bid1_creator, bid1_squad_id, bid1_amount, bid1_duration, bid1_fee_amount);
         let (bid2_creator, bid2_squad_id, _bid2_amount, _bid2_duration, bid2_fee_amount);
         {
-            let bid1 = table::borrow(&registry.bids, bid1_id);
-            let bid2 = table::borrow(&registry.bids, bid2_id);
+            let bid1_index = *table::borrow(&registry.bid_id_to_index, bid1_id);
+            let bid2_index = *table::borrow(&registry.bid_id_to_index, bid2_id);
 
             // Validate bid status
-            assert!(bid1.status == BidStatus::Open, E_BID_NOT_FOUND);
-            assert!(bid2.status == BidStatus::Open, E_BID_NOT_FOUND);
+            assert!(vector::borrow(&registry.active_bids, bid1_index).status == BidStatus::Open, E_BID_NOT_FOUND);
+            assert!(vector::borrow(&registry.active_bids, bid2_index).status == BidStatus::Open, E_BID_NOT_FOUND);
 
             // Validate different creators
-            assert!(bid1.creator != bid2.creator, E_CANNOT_MATCH_OWN_BID);
+            assert!(vector::borrow(&registry.active_bids, bid1_index).creator != vector::borrow(&registry.active_bids, bid2_index).creator, E_CANNOT_MATCH_OWN_BID);
 
             // Validate matching amounts and durations
-            assert!(bid1.bid_amount == bid2.bid_amount, E_BID_AMOUNT_MISMATCH);
-            assert!(bid1.duration == bid2.duration, E_DURATION_MISMATCH);
+            assert!(vector::borrow(&registry.active_bids, bid1_index).bid_amount == vector::borrow(&registry.active_bids, bid2_index).bid_amount, E_BID_AMOUNT_MISMATCH);
+            assert!(vector::borrow(&registry.active_bids, bid1_index).duration == vector::borrow(&registry.active_bids, bid2_index).duration, E_DURATION_MISMATCH);
 
-            bid1_creator = bid1.creator;
-            bid1_squad_id = bid1.squad_id;
-            bid1_amount = bid1.bid_amount;
-            bid1_duration = bid1.duration;
-            bid1_fee_amount = balance::value(&bid1.fee_balance);
+            bid1_creator = vector::borrow(&registry.active_bids, bid1_index).creator;
+            bid1_squad_id = vector::borrow(&registry.active_bids, bid1_index).squad_id;
+            bid1_amount = vector::borrow(&registry.active_bids, bid1_index).bid_amount;
+            bid1_duration = vector::borrow(&registry.active_bids, bid1_index).duration;
+            bid1_fee_amount = balance::value(&vector::borrow(&registry.active_bids, bid1_index).fee_balance);
 
-            bid2_creator = bid2.creator;
-            bid2_squad_id = bid2.squad_id;
-            _bid2_amount = bid2.bid_amount;
-            _bid2_duration = bid2.duration;
-            bid2_fee_amount = balance::value(&bid2.fee_balance);
+            bid2_creator = vector::borrow(&registry.active_bids, bid2_index).creator;
+            bid2_squad_id = vector::borrow(&registry.active_bids, bid2_index).squad_id;
+            _bid2_amount = vector::borrow(&registry.active_bids, bid2_index).bid_amount;
+            _bid2_duration = vector::borrow(&registry.active_bids, bid2_index).duration;
+            bid2_fee_amount = balance::value(&vector::borrow(&registry.active_bids, bid2_index).fee_balance);
         };
 
         // Calculate total prize and fees
@@ -326,29 +339,34 @@ module bullfy::match_escrow {
 
         // Update both bids status
         {
-            let bid1 = table::borrow_mut(&mut registry.bids, bid1_id);
+            let bid1_index = *table::borrow(&registry.bid_id_to_index, bid1_id);
+            let bid1 = vector::borrow_mut(&mut registry.active_bids, bid1_index);
             bid1.status = BidStatus::Matched;
         };
 
         {
-            let bid2 = table::borrow_mut(&mut registry.bids, bid2_id);
+            let bid2_index = *table::borrow(&registry.bid_id_to_index, bid2_id);
+            let bid2 = vector::borrow_mut(&mut registry.active_bids, bid2_index);
             bid2.status = BidStatus::Matched;
         };
 
         // Combine both bid balances and fee balances for match
         let (bid2_balance, bid2_fee_balance) = {
-            let bid2 = table::borrow_mut(&mut registry.bids, bid2_id);
+            let bid2_index = *table::borrow(&registry.bid_id_to_index, bid2_id);
+            let bid2 = vector::borrow_mut(&mut registry.active_bids, bid2_index);
             (balance::withdraw_all(&mut bid2.escrow), balance::withdraw_all(&mut bid2.fee_balance))
         };
         
         {
-            let bid1 = table::borrow_mut(&mut registry.bids, bid1_id);
+            let bid1_index = *table::borrow(&registry.bid_id_to_index, bid1_id);
+            let bid1 = vector::borrow_mut(&mut registry.active_bids, bid1_index);
             balance::join(&mut bid1.escrow, bid2_balance);
             balance::join(&mut bid1.fee_balance, bid2_fee_balance);
         };
 
         // Add match to registry
-        table::add(&mut registry.matches, match_id, match_obj);
+        vector::push_back(&mut registry.active_matches, match_obj);
+        table::add(&mut registry.match_id_to_index, match_id, vector::length(&registry.active_matches) - 1);
 
         // Update active squads registry
         squad_player_challenge::unregister_squad_active(active_squad_registry, bid1_squad_id);
@@ -362,11 +380,11 @@ module bullfy::match_escrow {
         while (i < vector::length(&users)) {
             let user = *vector::borrow(&users, i);
             
-            if (!table::contains(&registry.user_matches, user)) {
-                table::add(&mut registry.user_matches, user, vector::empty<ID>());
+            if (!table::contains(&registry.user_active_matches, user)) {
+                table::add(&mut registry.user_active_matches, user, vector::empty<u64>());
             };
-            let user_matches = table::borrow_mut(&mut registry.user_matches, user);
-            vector::push_back(user_matches, match_id);
+            let user_active_matches = table::borrow_mut(&mut registry.user_active_matches, user);
+            vector::push_back(user_active_matches, vector::length(&registry.active_matches) - 1);
             
             i = i + 1;
         };
@@ -395,14 +413,15 @@ module bullfy::match_escrow {
     ) {
         let sender = tx_context::sender(ctx);
         
-        assert!(table::contains(&registry.bids, bid_id), E_BID_NOT_FOUND);
-        let bid = table::borrow_mut(&mut registry.bids, bid_id);
+        assert!(table::contains(&registry.bid_id_to_index, bid_id), E_BID_NOT_FOUND);
+        let bid_index = *table::borrow(&registry.bid_id_to_index, bid_id);
         
         // Validate authorization and status
-        assert!(bid.creator == sender, E_UNAUTHORIZED);
-        assert!(bid.status == BidStatus::Open, E_BID_NOT_FOUND);
+        assert!(vector::borrow(&registry.active_bids, bid_index).creator == sender, E_UNAUTHORIZED);
+        assert!(vector::borrow(&registry.active_bids, bid_index).status == BidStatus::Open, E_BID_NOT_FOUND);
 
         // Update status and refund both bid and fee amounts
+        let bid = vector::borrow_mut(&mut registry.active_bids, bid_index);
         bid.status = BidStatus::Cancelled;
         let bid_refund_amount = balance::value(&bid.escrow);
         let fee_refund_amount = balance::value(&bid.fee_balance);
@@ -423,6 +442,9 @@ module bullfy::match_escrow {
         // Remove squad from active registry
         squad_player_challenge::unregister_squad_active(active_squad_registry, bid.squad_id);
 
+        // Move bid to completed vector
+        move_bid_to_completed(registry, bid_id);
+
         // Emit event
         event::emit(BidCancelled {
             bid_id,
@@ -441,8 +463,9 @@ module bullfy::match_escrow {
         clock: &Clock,
         _ctx: &mut TxContext
     ) {
-        assert!(table::contains(&registry.matches, match_id), E_MATCH_NOT_FOUND);
-        let match_obj = table::borrow_mut(&mut registry.matches, match_id);
+        assert!(table::contains(&registry.match_id_to_index, match_id), E_MATCH_NOT_FOUND);
+        let match_index = *table::borrow(&registry.match_id_to_index, match_id);
+        let match_obj = vector::borrow_mut(&mut registry.active_matches, match_index);
         
         // Validate match status
         assert!(match_obj.status == MatchStatus::Active, E_MATCH_NOT_ACTIVE);
@@ -501,16 +524,28 @@ module bullfy::match_escrow {
     ) {
         let sender = tx_context::sender(ctx);
         
-        assert!(table::contains(&registry.matches, match_id), E_MATCH_NOT_FOUND);
-        let match_obj = table::borrow_mut(&mut registry.matches, match_id);
+        assert!(table::contains(&registry.match_id_to_index, match_id), E_MATCH_NOT_FOUND);
+        let match_index = *table::borrow(&registry.match_id_to_index, match_id);
         
-        // Validate claiming of the prize to avoid unathorized users
-        assert!(match_obj.status == MatchStatus::Completed, E_MATCH_NOT_ACTIVE);
-        assert!(!match_obj.prize_claimed, E_MATCH_ALREADY_COMPLETED);
-        assert!(option::contains(&match_obj.winner, &sender), E_UNAUTHORIZED);
+        // Get all needed data before mutable borrow
+        let (bid1_id, total_prize, fees_collected, total_fees);
+        {
+            let match_obj = vector::borrow(&registry.active_matches, match_index);
+            
+            // Validate claiming of the prize to avoid unauthorized users
+            assert!(match_obj.status == MatchStatus::Completed, E_MATCH_NOT_ACTIVE);
+            assert!(!match_obj.prize_claimed, E_MATCH_ALREADY_COMPLETED);
+            assert!(option::contains(&match_obj.winner, &sender), E_UNAUTHORIZED);
+
+            bid1_id = match_obj.bid1_id;
+            total_prize = match_obj.total_prize;
+            fees_collected = match_obj.fees_collected;
+            total_fees = match_obj.total_fees;
+        };
 
         // Get the original bid to access escrow and fees
-        let bid = table::borrow_mut(&mut registry.bids, match_obj.bid1_id);
+        let bid_index = *table::borrow(&registry.bid_id_to_index, bid1_id);
+        let bid = vector::borrow_mut(&mut registry.active_bids, bid_index);
         
         // Transfer prize to winner
         let prize_balance = balance::withdraw_all(&mut bid.escrow);
@@ -518,44 +553,269 @@ module bullfy::match_escrow {
         transfer::public_transfer(prize_coin, sender);
         
         // Send fees to collector (if any)
-        if (!match_obj.fees_collected && match_obj.total_fees > 0) {
+        if (!fees_collected && total_fees > 0) {
             let fee_balance = balance::withdraw_all(&mut bid.fee_balance);
             let fee_coin = coin::from_balance(fee_balance, ctx);
             fee_collector::collect(fees, fee_coin, ctx);
+            
+            // Update fees_collected status
+            let match_obj = vector::borrow_mut(&mut registry.active_matches, match_index);
             match_obj.fees_collected = true;
         };
         
         // Mark as claimed
-        match_obj.prize_claimed = true;
+        {
+            let match_obj = vector::borrow_mut(&mut registry.active_matches, match_index);
+            match_obj.prize_claimed = true;
+        };
+
+        // Move match to completed vector
+        move_match_to_completed(registry, match_id);
 
         // Emit event
         event::emit(PrizeClaimed {
             match_id,
             winner: sender,
-            amount: match_obj.total_prize,
+            amount: total_prize,
         });
     }
 
     // View functions
     public fun get_bid(registry: &EscrowRegistry, bid_id: ID): &Bid {
-        table::borrow(&registry.bids, bid_id)
+        let bid_index = *table::borrow(&registry.bid_id_to_index, bid_id);
+        vector::borrow(&registry.active_bids, bid_index)
     }
 
     public fun get_match(registry: &EscrowRegistry, match_id: ID): &Match {
-        table::borrow(&registry.matches, match_id)
+        let match_index = *table::borrow(&registry.match_id_to_index, match_id);
+        vector::borrow(&registry.active_matches, match_index)
     }
 
-    public fun get_user_bids(registry: &EscrowRegistry, user: address): &vector<ID> {
-        table::borrow(&registry.user_bids, user)
+    public fun get_user_active_bids(registry: &EscrowRegistry, user: address): &vector<u64> {
+        table::borrow(&registry.user_active_bids, user)
     }
 
-    public fun get_user_matches(registry: &EscrowRegistry, user: address): &vector<ID> {
-        table::borrow(&registry.user_matches, user)
+    public fun get_user_completed_bids(registry: &EscrowRegistry, user: address): &vector<u64> {
+        table::borrow(&registry.user_completed_bids, user)
+    }
+
+    public fun get_user_active_matches(registry: &EscrowRegistry, user: address): &vector<u64> {
+        table::borrow(&registry.user_active_matches, user)
+    }
+
+    public fun get_user_completed_matches(registry: &EscrowRegistry, user: address): &vector<u64> {
+        table::borrow(&registry.user_completed_matches, user)
+    }
+
+    public fun get_active_bids(registry: &EscrowRegistry): &vector<Bid> {
+        &registry.active_bids
+    }
+
+    public fun get_completed_bids(registry: &EscrowRegistry): &vector<Bid> {
+        &registry.completed_bids
+    }
+
+    public fun get_active_matches(registry: &EscrowRegistry): &vector<Match> {
+        &registry.active_matches
+    }
+
+    public fun get_completed_matches(registry: &EscrowRegistry): &vector<Match> {
+        &registry.completed_matches
     }
 
     // Helper function to check if bid is still valid
     public fun is_bid_valid(bid: &Bid, _clock: &Clock): bool {
         bid.status == BidStatus::Open
+    }
+
+    // Helper function to move completed bid from active to completed vector
+    fun move_bid_to_completed(registry: &mut EscrowRegistry, bid_id: ID) {
+        let bid_index = *table::borrow(&registry.bid_id_to_index, bid_id);
+        let bid = vector::borrow(&registry.active_bids, bid_index);
+        let creator = bid.creator;
+        
+        // Remove bid from active vector and add to completed
+        let bid = vector::remove(&mut registry.active_bids, bid_index);
+        let completed_index = vector::length(&registry.completed_bids);
+        vector::push_back(&mut registry.completed_bids, bid);
+        
+        // Update user tracking - move from active to completed
+        if (table::contains(&registry.user_active_bids, creator)) {
+            let user_active_bids = table::borrow_mut(&mut registry.user_active_bids, creator);
+            let mut i = 0;
+            while (i < vector::length(user_active_bids)) {
+                if (*vector::borrow(user_active_bids, i) == bid_index) {
+                    vector::remove(user_active_bids, i);
+                    break
+                };
+                i = i + 1;
+            };
+        };
+        
+        if (!table::contains(&registry.user_completed_bids, creator)) {
+            table::add(&mut registry.user_completed_bids, creator, vector::empty<u64>());
+        };
+        let user_completed_bids = table::borrow_mut(&mut registry.user_completed_bids, creator);
+        vector::push_back(user_completed_bids, completed_index);
+        
+        // Update indices for all active bids after the removed one
+        let mut i = bid_index;
+        while (i < vector::length(&registry.active_bids)) {
+            let current_bid = vector::borrow(&registry.active_bids, i);
+            let current_bid_id = object::id(current_bid);
+            let index_ref = table::borrow_mut(&mut registry.bid_id_to_index, current_bid_id);
+            *index_ref = i;
+            i = i + 1;
+        };
+        
+        // Remove the moved bid from index table
+        table::remove(&mut registry.bid_id_to_index, bid_id);
+    }
+
+    // Helper function to move completed match from active to completed vector
+    fun move_match_to_completed(registry: &mut EscrowRegistry, match_id: ID) {
+        let match_index = *table::borrow(&registry.match_id_to_index, match_id);
+        let match_obj = vector::borrow(&registry.active_matches, match_index);
+        let player1 = match_obj.player1;
+        let player2 = match_obj.player2;
+        
+        // Remove match from active vector and add to completed
+        let match_obj = vector::remove(&mut registry.active_matches, match_index);
+        let completed_index = vector::length(&registry.completed_matches);
+        vector::push_back(&mut registry.completed_matches, match_obj);
+        
+        // Update user tracking - move from active to completed for both players
+        let players = vector[player1, player2];
+        let mut i = 0;
+        while (i < vector::length(&players)) {
+            let player = *vector::borrow(&players, i);
+            
+            // Remove from active matches
+            if (table::contains(&registry.user_active_matches, player)) {
+                let user_active_matches = table::borrow_mut(&mut registry.user_active_matches, player);
+                let mut j = 0;
+                while (j < vector::length(user_active_matches)) {
+                    if (*vector::borrow(user_active_matches, j) == match_index) {
+                        vector::remove(user_active_matches, j);
+                        break
+                    };
+                    j = j + 1;
+                };
+            };
+            
+            // Add to completed matches
+            if (!table::contains(&registry.user_completed_matches, player)) {
+                table::add(&mut registry.user_completed_matches, player, vector::empty<u64>());
+            };
+            let user_completed_matches = table::borrow_mut(&mut registry.user_completed_matches, player);
+            vector::push_back(user_completed_matches, completed_index);
+            
+            i = i + 1;
+        };
+        
+        // Update indices for all active matches after the removed one
+        let mut i = match_index;
+        while (i < vector::length(&registry.active_matches)) {
+            let current_match = vector::borrow(&registry.active_matches, i);
+            let current_match_id = object::id(current_match);
+            let index_ref = table::borrow_mut(&mut registry.match_id_to_index, current_match_id);
+            *index_ref = i;
+            i = i + 1;
+        };
+        
+        // Remove the moved match from index table
+        table::remove(&mut registry.match_id_to_index, match_id);
+    }
+
+    // Helper functions to find completed bids/matches by ID
+    public fun find_completed_bid_by_id(registry: &EscrowRegistry, bid_id: ID): Option<u64> {
+        let mut i = 0;
+        while (i < vector::length(&registry.completed_bids)) {
+            let bid = vector::borrow(&registry.completed_bids, i);
+            if (object::id(bid) == bid_id) {
+                return option::some(i)
+            };
+            i = i + 1;
+        };
+        option::none()
+    }
+
+    public fun find_completed_match_by_id(registry: &EscrowRegistry, match_id: ID): Option<u64> {
+        let mut i = 0;
+        while (i < vector::length(&registry.completed_matches)) {
+            let match_obj = vector::borrow(&registry.completed_matches, i);
+            if (object::id(match_obj) == match_id) {
+                return option::some(i)
+            };
+            i = i + 1;
+        };
+        option::none()
+    }
+
+    // Get completed bid/match by ID (returns index instead of reference)
+    public fun get_completed_bid_index_by_id(registry: &EscrowRegistry, bid_id: ID): Option<u64> {
+        find_completed_bid_by_id(registry, bid_id)
+    }
+
+    public fun get_completed_match_index_by_id(registry: &EscrowRegistry, match_id: ID): Option<u64> {
+        find_completed_match_by_id(registry, match_id)
+    }
+
+    // Get completed bid/match by index
+    public fun get_completed_bid_by_index(registry: &EscrowRegistry, index: u64): &Bid {
+        vector::borrow(&registry.completed_bids, index)
+    }
+
+    public fun get_completed_match_by_index(registry: &EscrowRegistry, index: u64): &Match {
+        vector::borrow(&registry.completed_matches, index)
+    }
+
+    // Get all active bid IDs
+    public fun get_all_active_bid_ids(registry: &EscrowRegistry): vector<ID> {
+        let mut bid_ids = vector::empty<ID>();
+        let mut i = 0;
+        while (i < vector::length(&registry.active_bids)) {
+            let bid = vector::borrow(&registry.active_bids, i);
+            vector::push_back(&mut bid_ids, object::id(bid));
+            i = i + 1;
+        };
+        bid_ids
+    }
+
+    // Get all completed bid IDs  
+    public fun get_all_completed_bid_ids(registry: &EscrowRegistry): vector<ID> {
+        let mut bid_ids = vector::empty<ID>();
+        let mut i = 0;
+        while (i < vector::length(&registry.completed_bids)) {
+            let bid = vector::borrow(&registry.completed_bids, i);
+            vector::push_back(&mut bid_ids, object::id(bid));
+            i = i + 1;
+        };
+        bid_ids
+    }
+
+    // Get all active match IDs
+    public fun get_all_active_match_ids(registry: &EscrowRegistry): vector<ID> {
+        let mut match_ids = vector::empty<ID>();
+        let mut i = 0;
+        while (i < vector::length(&registry.active_matches)) {
+            let match_obj = vector::borrow(&registry.active_matches, i);
+            vector::push_back(&mut match_ids, object::id(match_obj));
+            i = i + 1;
+        };
+        match_ids
+    }
+
+    // Get all completed match IDs
+    public fun get_all_completed_match_ids(registry: &EscrowRegistry): vector<ID> {
+        let mut match_ids = vector::empty<ID>();
+        let mut i = 0;
+        while (i < vector::length(&registry.completed_matches)) {
+            let match_obj = vector::borrow(&registry.completed_matches, i);
+            vector::push_back(&mut match_ids, object::id(match_obj));
+            i = i + 1;
+        };
+        match_ids
     }
 
 }
