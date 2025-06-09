@@ -29,8 +29,6 @@ module bullfy::match_escrow {
     #[error]
     const E_BID_NOT_FOUND: vector<u8> = b"Bid not found";
     #[error]
-    const E_BID_EXPIRED: vector<u8> = b"Bid has expired";
-    #[error]
     const E_CANNOT_MATCH_OWN_BID: vector<u8> = b"Cannot match your own bid";
     #[error]
     const E_INSUFFICIENT_PAYMENT: vector<u8> = b"Payment amount is insufficient";
@@ -51,16 +49,14 @@ module bullfy::match_escrow {
 
     // Constants
     const MIN_BID_AMOUNT: u64 = 1_000_000; // 0.001 SUI in MIST
-    const MIN_DURATION: u64 = 300_000; // 5 minutes in milliseconds
+    const MIN_DURATION: u64 = 60_000; // 1 minute in milliseconds
     const MAX_DURATION: u64 = 604_800_000; // 7 days in milliseconds
     const PLATFORM_FEE_BPS: u64 = 250; // 2.5% platform fee
-    const BID_EXPIRY_TIME: u64 = 86_400_000; // 24 hours in milliseconds
 
     // Bid status enum
     public enum BidStatus has copy, drop, store {
         Open,      // Available for matching
         Matched,   // Matched and match is active
-        Expired,   // Expired without being matched
         Cancelled, // Cancelled by creator
     }
 
@@ -80,7 +76,6 @@ module bullfy::match_escrow {
         duration: u64, // Match duration in milliseconds
         escrow: Balance<SUI>, // Escrowed bid amount
         created_at: u64,
-        expires_at: u64,
         status: BidStatus,
         description: String, // Optional description/challenge message
     }
@@ -122,7 +117,6 @@ module bullfy::match_escrow {
         squad_id: u64,
         bid_amount: u64,
         duration: u64,
-        expires_at: u64,
         description: String,
     }
 
@@ -140,12 +134,6 @@ module bullfy::match_escrow {
     }
 
     public struct BidCancelled has copy, drop {
-        bid_id: ID,
-        creator: address,
-        refund_amount: u64,
-    }
-
-    public struct BidExpired has copy, drop {
         bid_id: ID,
         creator: address,
         refund_amount: u64,
@@ -229,7 +217,6 @@ module bullfy::match_escrow {
             duration,
             escrow: escrow_balance,
             created_at: current_time,
-            expires_at: current_time + BID_EXPIRY_TIME,
             status: BidStatus::Open,
             description,
         };
@@ -256,7 +243,6 @@ module bullfy::match_escrow {
             squad_id,
             bid_amount,
             duration,
-            expires_at: current_time + BID_EXPIRY_TIME,
             description,
         });
     }
@@ -288,8 +274,6 @@ module bullfy::match_escrow {
             // Validate bid status and expiry
             assert!(bid1.status == BidStatus::Open, E_BID_NOT_FOUND);
             assert!(bid2.status == BidStatus::Open, E_BID_NOT_FOUND);
-            assert!(current_time <= bid1.expires_at, E_BID_EXPIRED);
-            assert!(current_time <= bid2.expires_at, E_BID_EXPIRED);
 
             // Validate different creators
             assert!(bid1.creator != bid2.creator, E_CANNOT_MATCH_OWN_BID);
@@ -536,40 +520,6 @@ module bullfy::match_escrow {
         });
     }
 
-    // Expire old bids and refund creators (can be called by anyone)
-    public entry fun expire_bid(
-        registry: &mut EscrowRegistry,
-        active_squad_registry: &mut ActiveSquadRegistry,
-        bid_id: ID,
-        clock: &Clock,
-        ctx: &mut TxContext
-    ) {
-        assert!(table::contains(&registry.bids, bid_id), E_BID_NOT_FOUND);
-        let bid = table::borrow_mut(&mut registry.bids, bid_id);
-        
-        // Check if bid is expired and still open
-        let current_time = clock::timestamp_ms(clock);
-        assert!(current_time > bid.expires_at, E_BID_NOT_FOUND);
-        assert!(bid.status == BidStatus::Open, E_BID_NOT_FOUND);
-
-        // Update status and refund
-        bid.status = BidStatus::Expired;
-        let refund_amount = balance::value(&bid.escrow);
-        let refund_balance = balance::withdraw_all(&mut bid.escrow);
-        let refund_coin = coin::from_balance(refund_balance, ctx);
-        transfer::public_transfer(refund_coin, bid.creator);
-
-        // Remove squad from active registry
-        squad_player_challenge::unregister_squad_active(active_squad_registry, bid.squad_id);
-
-        // Emit event
-        event::emit(BidExpired {
-            bid_id,
-            creator: bid.creator,
-            refund_amount,
-        });
-    }
-
     // View functions
     public fun get_bid(registry: &EscrowRegistry, bid_id: ID): &Bid {
         table::borrow(&registry.bids, bid_id)
@@ -588,8 +538,8 @@ module bullfy::match_escrow {
     }
 
     // Helper function to check if bid is still valid
-    public fun is_bid_valid(bid: &Bid, clock: &Clock): bool {
-        bid.status == BidStatus::Open && clock::timestamp_ms(clock) <= bid.expires_at
+    public fun is_bid_valid(bid: &Bid, _clock: &Clock): bool {
+        bid.status == BidStatus::Open
     }
 
     // Get all open bids (for frontend to display and match)
