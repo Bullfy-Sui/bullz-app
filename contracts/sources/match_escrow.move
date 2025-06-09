@@ -29,7 +29,7 @@ module bullfy::match_escrow {
 
     // Constants
     const MIN_BID_AMOUNT: u64 = 10_000_000; // 0.01 SUI in MIST
-    const PLATFORM_FEE_BPS: u64 = 250; // 2.5% platform fee
+    const PLATFORM_FEE_BPS: u64 = 500; // 5% platform fee (charged upfront on bid amount)
     const MATCH_TIMEOUT: u64 = 3600000; // 1 hour timeout in milliseconds
 
     // Status enums
@@ -50,7 +50,8 @@ module bullfy::match_escrow {
     public struct PendingEscrow has key, store {
         id: UID,
         player: address,
-        bid_amount: u64,
+        bid_amount: u64, // The actual bid amount (excluding fee)
+        total_paid: u64, // Total amount paid (bid + fee)
         funds: Balance<SUI>,
         game_duration: u64, // Preferred game duration in minutes
         created_at: u64,
@@ -62,7 +63,8 @@ module bullfy::match_escrow {
         id: UID,
         player1: address,
         player2: address,
-        total_pool: Balance<SUI>,
+        prize_pool: Balance<SUI>, // Only the bid amounts (prize pool)
+        platform_fees: Balance<SUI>, // Collected platform fees
         individual_bid: u64,
         game_duration: u64,
         created_at: u64,
@@ -87,6 +89,8 @@ module bullfy::match_escrow {
         escrow_id: u64,
         player: address,
         bid_amount: u64,
+        platform_fee: u64,
+        total_paid: u64,
         game_duration: u64,
     }
 
@@ -96,7 +100,8 @@ module bullfy::match_escrow {
         escrow2_id: u64,
         player1: address,
         player2: address,
-        total_pool: u64,
+        total_prize_pool: u64,
+        total_platform_fees: u64,
         game_duration: u64,
     }
 
@@ -105,7 +110,7 @@ module bullfy::match_escrow {
         winner: address,
         loser: address,
         prize_amount: u64,
-        platform_fee: u64,
+        platform_fees_collected: u64,
     }
 
     public struct EscrowCancelled has copy, drop {
@@ -118,7 +123,7 @@ module bullfy::match_escrow {
         match_id: u64,
         player1: address,
         player2: address,
-        refund_amount: u64,
+        refund_amount_each: u64,
     }
 
     // Initialize the registry
@@ -166,19 +171,25 @@ module bullfy::match_escrow {
     // Create escrow and attempt to find a match
     public entry fun create_escrow_and_match(
         registry: &mut MatchRegistry,
-        bid: Coin<SUI>,
+        payment: Coin<SUI>,
+        bid_amount: u64, // The actual bid amount (prize contribution)
         game_duration: u64, // in minutes
         clock: &Clock,
         ctx: &mut TxContext
     ) {
         let player = tx_context::sender(ctx);
-        let bid_amount = coin::value(&bid);
+        let payment_value = coin::value(&payment);
         let current_time = clock::timestamp_ms(clock);
         
-        // Validate bid amount
-        assert!(bid_amount >= MIN_BID_AMOUNT, EInsufficientBid);
+        // Calculate required payment (bid + platform fee)
+        let platform_fee = (bid_amount * PLATFORM_FEE_BPS) / 10000;
+        let required_payment = bid_amount + platform_fee;
         
-        // Create index key for matching
+        // Validate bid amount and payment
+        assert!(bid_amount >= MIN_BID_AMOUNT, EInsufficientBid);
+        assert!(payment_value >= required_payment, EInsufficientBid);
+        
+        // Create index key for matching (based on bid amount, not total payment)
         let index_key = create_index_key(bid_amount, game_duration);
         
         // Check if there's a matching opponent
@@ -203,7 +214,8 @@ module bullfy::match_escrow {
                     registry,
                     opponent_escrow,
                     player,
-                    bid,
+                    payment,
+                    bid_amount,
                     current_time,
                     ctx
                 );
@@ -220,7 +232,8 @@ module bullfy::match_escrow {
             id: object::new(ctx),
             player,
             bid_amount,
-            funds: coin::into_balance(bid),
+            total_paid: required_payment,
+            funds: coin::into_balance(payment),
             game_duration,
             created_at: current_time,
             status: EscrowStatus::WaitingForMatch,
@@ -241,6 +254,8 @@ module bullfy::match_escrow {
             escrow_id,
             player,
             bid_amount,
+            platform_fee,
+            total_paid: required_payment,
             game_duration,
         });
     }
@@ -250,34 +265,60 @@ module bullfy::match_escrow {
         registry: &mut MatchRegistry,
         mut opponent_escrow: PendingEscrow,
         new_player: address,
-        new_bid: Coin<SUI>,
+        new_payment: Coin<SUI>,
+        new_bid_amount: u64,
         current_time: u64,
         ctx: &mut TxContext
     ) {
         let match_id = registry.match_counter;
         registry.match_counter = match_id + 1;
         
-        // Extract funds from opponent's escrow
-        let opponent_funds = balance::withdraw_all(&mut opponent_escrow.funds);
-        let new_funds = coin::into_balance(new_bid);
+        // Extract values before moving opponent_escrow
+        let opponent_player = opponent_escrow.player;
+        let opponent_bid_amount = opponent_escrow.bid_amount;
+        let opponent_game_duration = opponent_escrow.game_duration;
         
-        // Combine funds
-        let mut total_pool = opponent_funds;
-        balance::join(&mut total_pool, new_funds);
+        // Extract funds from opponent's escrow
+        let mut opponent_total_funds = balance::withdraw_all(&mut opponent_escrow.funds);
+        let mut new_total_funds = coin::into_balance(new_payment);
+        
+        // Calculate platform fees from both players
+        let opponent_platform_fee = (opponent_bid_amount * PLATFORM_FEE_BPS) / 10000;
+        let new_platform_fee = (new_bid_amount * PLATFORM_FEE_BPS) / 10000;
+        
+        // Split funds into prize pool and platform fees
+        let mut prize_pool = balance::zero<SUI>();
+        let mut platform_fees = balance::zero<SUI>();
+        
+        // Add opponent's contribution
+        balance::join(&mut prize_pool, balance::split(&mut opponent_total_funds, opponent_bid_amount));
+        balance::join(&mut platform_fees, balance::split(&mut opponent_total_funds, opponent_platform_fee));
+        
+        // Add new player's contribution  
+        balance::join(&mut prize_pool, balance::split(&mut new_total_funds, new_bid_amount));
+        balance::join(&mut platform_fees, balance::split(&mut new_total_funds, new_platform_fee));
+        
+        // Destroy any remaining dust (should be zero)
+        balance::destroy_zero(opponent_total_funds);
+        balance::destroy_zero(new_total_funds);
         
         // Create active match
         let active_match = ActiveMatch {
             id: object::new(ctx),
-            player1: opponent_escrow.player,
+            player1: opponent_player,
             player2: new_player,
-            total_pool,
-            individual_bid: opponent_escrow.bid_amount,
-            game_duration: opponent_escrow.game_duration,
+            prize_pool,
+            platform_fees,
+            individual_bid: opponent_bid_amount,
+            game_duration: opponent_game_duration,
             created_at: current_time,
             expires_at: current_time + MATCH_TIMEOUT,
             status: MatchStatus::Active,
             winner: option::none(),
         };
+        
+        let total_prize_pool = balance::value(&active_match.prize_pool);
+        let total_platform_fees = balance::value(&active_match.platform_fees);
         
         // Store the match
         table::add(&mut registry.active_matches, match_id, active_match);
@@ -287,6 +328,7 @@ module bullfy::match_escrow {
             id, 
             player: _, 
             bid_amount: _, 
+            total_paid: _,
             funds, 
             game_duration: _, 
             created_at: _, 
@@ -300,10 +342,11 @@ module bullfy::match_escrow {
             match_id,
             escrow1_id: 0, // We don't track this anymore since escrow is consumed
             escrow2_id: 0,
-            player1: opponent_escrow.player,
+            player1: opponent_player,
             player2: new_player,
-            total_pool: balance::value(&active_match.total_pool),
-            game_duration: opponent_escrow.game_duration,
+            total_prize_pool,
+            total_platform_fees,
+            game_duration: opponent_game_duration,
         });
     }
 
@@ -327,11 +370,6 @@ module bullfy::match_escrow {
             EInvalidWinner
         );
         
-        // Calculate prize distribution
-        let total_pool = balance::value(&active_match.total_pool);
-        let platform_fee = (total_pool * PLATFORM_FEE_BPS) / 10000;
-        let winner_prize = total_pool - platform_fee;
-        
         // Update match status
         active_match.status = MatchStatus::Completed;
         active_match.winner = option::some(winner);
@@ -343,19 +381,22 @@ module bullfy::match_escrow {
             active_match.player1
         };
         
-        // Transfer prize to winner
-        if (winner_prize > 0) {
+        let prize_amount = balance::value(&active_match.prize_pool);
+        let platform_fees_collected = balance::value(&active_match.platform_fees);
+        
+        // Transfer entire prize pool to winner
+        if (prize_amount > 0) {
             let winner_coin = coin::from_balance(
-                balance::split(&mut active_match.total_pool, winner_prize),
+                balance::withdraw_all(&mut active_match.prize_pool),
                 ctx
             );
             transfer::public_transfer(winner_coin, winner);
         };
         
-        // Transfer platform fee (you can integrate with fee_collector here)
-        if (platform_fee > 0) {
+        // Transfer platform fees to admin (you can integrate with fee_collector here)
+        if (platform_fees_collected > 0) {
             let fee_coin = coin::from_balance(
-                balance::split(&mut active_match.total_pool, platform_fee),
+                balance::withdraw_all(&mut active_match.platform_fees),
                 ctx
             );
             // For now, send to admin - you can integrate with fee_collector
@@ -367,7 +408,8 @@ module bullfy::match_escrow {
             id, 
             player1: _, 
             player2: _, 
-            total_pool, 
+            prize_pool, 
+            platform_fees,
             individual_bid: _, 
             game_duration: _, 
             created_at: _, 
@@ -375,7 +417,8 @@ module bullfy::match_escrow {
             status: _, 
             winner: _ 
         } = active_match;
-        balance::destroy_zero(total_pool);
+        balance::destroy_zero(prize_pool);
+        balance::destroy_zero(platform_fees);
         object::delete(id);
         
         // Emit event
@@ -383,8 +426,8 @@ module bullfy::match_escrow {
             match_id,
             winner,
             loser,
-            prize_amount: winner_prize,
-            platform_fee,
+            prize_amount,
+            platform_fees_collected,
         });
     }
 
@@ -419,7 +462,7 @@ module bullfy::match_escrow {
             };
         };
         
-        // Refund player
+        // Refund player (full amount including platform fee since no match occurred)
         let refund_amount = balance::value(&pending_escrow.funds);
         let refund_coin = coin::from_balance(
             balance::withdraw_all(&mut pending_escrow.funds),
@@ -432,6 +475,7 @@ module bullfy::match_escrow {
             id, 
             player: _, 
             bid_amount: _, 
+            total_paid: _,
             funds, 
             game_duration: _, 
             created_at: _, 
@@ -467,27 +511,37 @@ module bullfy::match_escrow {
         // Update status
         active_match.status = MatchStatus::Expired;
         
-        // Refund both players equally
-        let total_pool = balance::value(&active_match.total_pool);
-        let refund_per_player = total_pool / 2;
+        // Refund both players their bid amounts (not platform fees since match was created)
+        let prize_pool_value = balance::value(&active_match.prize_pool);
+        let refund_per_player = prize_pool_value / 2;
         
         // Refund player1
         if (refund_per_player > 0) {
             let refund1 = coin::from_balance(
-                balance::split(&mut active_match.total_pool, refund_per_player),
+                balance::split(&mut active_match.prize_pool, refund_per_player),
                 ctx
             );
             transfer::public_transfer(refund1, active_match.player1);
         };
         
         // Refund player2 (remaining balance)
-        let remaining = balance::value(&active_match.total_pool);
+        let remaining = balance::value(&active_match.prize_pool);
         if (remaining > 0) {
             let refund2 = coin::from_balance(
-                balance::withdraw_all(&mut active_match.total_pool),
+                balance::withdraw_all(&mut active_match.prize_pool),
                 ctx
             );
             transfer::public_transfer(refund2, active_match.player2);
+        };
+        
+        // Platform keeps the fees even on expiry (since match was created)
+        let platform_fees_collected = balance::value(&active_match.platform_fees);
+        if (platform_fees_collected > 0) {
+            let fee_coin = coin::from_balance(
+                balance::withdraw_all(&mut active_match.platform_fees),
+                ctx
+            );
+            transfer::public_transfer(fee_coin, tx_context::sender(ctx));
         };
         
         // Clean up match
@@ -495,7 +549,8 @@ module bullfy::match_escrow {
             id, 
             player1, 
             player2, 
-            total_pool, 
+            prize_pool, 
+            platform_fees,
             individual_bid: _, 
             game_duration: _, 
             created_at: _, 
@@ -503,7 +558,8 @@ module bullfy::match_escrow {
             status: _, 
             winner: _ 
         } = active_match;
-        balance::destroy_zero(total_pool);
+        balance::destroy_zero(prize_pool);
+        balance::destroy_zero(platform_fees);
         object::delete(id);
         
         // Emit event
@@ -511,24 +567,25 @@ module bullfy::match_escrow {
             match_id,
             player1,
             player2,
-            refund_amount: total_pool,
+            refund_amount_each: refund_per_player,
         });
     }
 
     // View functions
-    public fun get_pending_escrow_info(registry: &MatchRegistry, escrow_id: u64): (address, u64, u64, u64) {
+    public fun get_pending_escrow_info(registry: &MatchRegistry, escrow_id: u64): (address, u64, u64, u64, u64) {
         assert!(table::contains(&registry.pending_escrows, escrow_id), EMatchNotFound);
         let escrow = table::borrow(&registry.pending_escrows, escrow_id);
-        (escrow.player, escrow.bid_amount, escrow.game_duration, escrow.created_at)
+        (escrow.player, escrow.bid_amount, escrow.total_paid, escrow.game_duration, escrow.created_at)
     }
 
-    public fun get_active_match_info(registry: &MatchRegistry, match_id: u64): (address, address, u64, u64, u64, u64) {
+    public fun get_active_match_info(registry: &MatchRegistry, match_id: u64): (address, address, u64, u64, u64, u64, u64) {
         assert!(table::contains(&registry.active_matches, match_id), EMatchNotFound);
         let match_obj = table::borrow(&registry.active_matches, match_id);
         (
             match_obj.player1,
             match_obj.player2,
-            balance::value(&match_obj.total_pool),
+            balance::value(&match_obj.prize_pool),
+            balance::value(&match_obj.platform_fees),
             match_obj.game_duration,
             match_obj.created_at,
             match_obj.expires_at
