@@ -251,7 +251,7 @@ module bullfy::match_escrow {
         });
     }
 
-    // Match two specific bids together (called by frontend)
+    // Match two specific bids together (called by frontend to match two bids together )
     public entry fun match_bids(
         registry: &mut EscrowRegistry,
         _squad_registry: &SquadRegistry,
@@ -431,7 +431,7 @@ module bullfy::match_escrow {
         });
     }
 
-    // Complete a match by declaring a winner (this would typically be called by an oracle or admin)
+    // Complete a match by declaring a winner this must be called by the oracle or a backend service)
     public entry fun complete_match(
         registry: &mut EscrowRegistry,
         squad_registry: &mut SquadRegistry,
@@ -504,7 +504,7 @@ module bullfy::match_escrow {
         assert!(table::contains(&registry.matches, match_id), E_MATCH_NOT_FOUND);
         let match_obj = table::borrow_mut(&mut registry.matches, match_id);
         
-        // Validate claim
+        // Validate claiming of the prize to avoid unathorized users
         assert!(match_obj.status == MatchStatus::Completed, E_MATCH_NOT_ACTIVE);
         assert!(!match_obj.prize_claimed, E_MATCH_ALREADY_COMPLETED);
         assert!(option::contains(&match_obj.winner, &sender), E_UNAUTHORIZED);
