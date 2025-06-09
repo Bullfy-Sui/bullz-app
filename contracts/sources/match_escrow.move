@@ -50,7 +50,7 @@ module bullfy::match_escrow {
     // Constants
     const MIN_BID_AMOUNT: u64 = 1_000_000; // 0.001 SUI in MIST
     const MIN_DURATION: u64 = 60_000; // 1 minute in milliseconds
-    const MAX_DURATION: u64 = 604_800_000; // 7 days in milliseconds
+    const MAX_DURATION: u64 = 1_800_000; // 30 minutes in milliseconds
     const PLATFORM_FEE_BPS: u64 = 250; // 2.5% platform fee
 
     // Bid status enum
