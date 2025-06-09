@@ -14,6 +14,7 @@ module bullfy::match_escrow {
     use bullfy::squad_manager::{Self, SquadRegistry};
     use bullfy::fee_collector::{Self, Fees};
     use bullfy::squad_player_challenge::{Self, ActiveSquadRegistry};
+    use bullfy::admin::AdminCap;
 
     // Error constants
     #[error]
@@ -266,6 +267,7 @@ module bullfy::match_escrow {
 
     // Match two specific bids together (called by frontend to match two bids together )
     public entry fun match_bids(
+        _: &AdminCap,
         registry: &mut EscrowRegistry,
         _squad_registry: &SquadRegistry,
         active_squad_registry: &mut ActiveSquadRegistry,
@@ -455,6 +457,7 @@ module bullfy::match_escrow {
 
     // Complete a match by declaring a winner this must be called by the oracle or a backend service)
     public entry fun complete_match(
+        _: &AdminCap,
         registry: &mut EscrowRegistry,
         squad_registry: &mut SquadRegistry,
         active_squad_registry: &mut ActiveSquadRegistry,
@@ -517,6 +520,7 @@ module bullfy::match_escrow {
 
     // Claim prize after winning a match
     public entry fun claim_prize(
+        _: &AdminCap,
         registry: &mut EscrowRegistry,
         fees: &mut Fees,
         match_id: ID,
