@@ -558,13 +558,4 @@ module bullfy::match_escrow {
         bid.status == BidStatus::Open
     }
 
-    // Get all open bids (for frontend to display and match)
-    public fun get_all_open_bids(_registry: &EscrowRegistry): vector<ID> {
-        // This is a simple implementation - in production you might want pagination
-        let open_bids = vector::empty<ID>();
-        // Note: This would require iterating through all bids, which is not efficient
-        // In practice, you'd want to maintain a separate index of open bids
-        // For now, frontend can query user bids and filter by status
-        open_bids
-    }
 }
