@@ -35,6 +35,10 @@ module bullfy::match_escrow {
     #[error]
     const E_INSUFFICIENT_PAYMENT: vector<u8> = b"Payment amount is insufficient";
     #[error]
+    const E_BID_AMOUNT_MISMATCH: vector<u8> = b"Bid amounts must match";
+    #[error]
+    const E_DURATION_MISMATCH: vector<u8> = b"Bid durations must match";
+    #[error]
     const E_MATCH_NOT_FOUND: vector<u8> = b"Match not found";
     #[error]
     const E_MATCH_NOT_ACTIVE: vector<u8> = b"Match is not in active state";
@@ -100,7 +104,7 @@ module bullfy::match_escrow {
         prize_claimed: bool,
     }
 
-    // Registry for bids and matches (no longer tracks active squads)
+    // Registry for bids and matches
     public struct EscrowRegistry has key {
         id: UID,
         bids: Table<ID, Bid>,
@@ -122,7 +126,7 @@ module bullfy::match_escrow {
         description: String,
     }
 
-    public struct BidMatched has copy, drop {
+    public struct BidsMatched has copy, drop {
         bid1_id: ID,
         bid2_id: ID,
         match_id: ID,
@@ -200,7 +204,7 @@ module bullfy::match_escrow {
         assert!(squad_manager::get_squad_owner(squad) == creator, E_SQUAD_NOT_OWNED);
         assert!(squad_manager::is_squad_alive(squad), E_SQUAD_NOT_ALIVE);
 
-        // Check if squad is already active using existing function
+        // Check if squad is already active
         assert!(!squad_player_challenge::is_squad_active(active_squad_registry, squad_id), E_SQUAD_ALREADY_ACTIVE);
 
         // Validate payment
@@ -235,7 +239,7 @@ module bullfy::match_escrow {
         // Add to registry
         table::add(&mut registry.bids, bid_id, bid);
 
-        // Register squad as active using existing registry
+        // Register squad as active
         squad_player_challenge::register_squad_active(active_squad_registry, squad_id, bid_id);
 
         // Track user's bids
@@ -257,70 +261,73 @@ module bullfy::match_escrow {
         });
     }
 
-    // Match an existing bid by creating a counter-bid
-    public entry fun match_bid(
+    // Match two specific bids together (called by frontend)
+    public entry fun match_bids(
         registry: &mut EscrowRegistry,
-        squad_registry: &mut SquadRegistry,
+        _squad_registry: &SquadRegistry,
         active_squad_registry: &mut ActiveSquadRegistry,
         fees: &mut Fees,
-        target_bid_id: ID,
-        squad_id: u64,
-        mut payment: Coin<SUI>,
+        bid1_id: ID,
+        bid2_id: ID,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
-        let matcher = tx_context::sender(ctx);
         let current_time = clock::timestamp_ms(clock);
 
-        // Get the target bid
-        assert!(table::contains(&registry.bids, target_bid_id), E_BID_NOT_FOUND);
-        let target_bid = table::borrow_mut(&mut registry.bids, target_bid_id);
+        // Validate both bids exist
+        assert!(table::contains(&registry.bids, bid1_id), E_BID_NOT_FOUND);
+        assert!(table::contains(&registry.bids, bid2_id), E_BID_NOT_FOUND);
 
-        // Validate bid status and expiry
-        assert!(target_bid.status == BidStatus::Open, E_BID_NOT_FOUND);
-        assert!(current_time <= target_bid.expires_at, E_BID_EXPIRED);
-        assert!(target_bid.creator != matcher, E_CANNOT_MATCH_OWN_BID);
+        // Get bid info (without mutable borrow first)
+        let (bid1_creator, bid1_squad_id, bid1_amount, bid1_duration);
+        let (bid2_creator, bid2_squad_id, _bid2_amount, _bid2_duration);
+        {
+            let bid1 = table::borrow(&registry.bids, bid1_id);
+            let bid2 = table::borrow(&registry.bids, bid2_id);
 
-        // Validate squad ownership and status
-        let squad = squad_manager::get_squad(squad_registry, squad_id);
-        assert!(squad_manager::get_squad_owner(squad) == matcher, E_SQUAD_NOT_OWNED);
-        assert!(squad_manager::is_squad_alive(squad), E_SQUAD_NOT_ALIVE);
+            // Validate bid status and expiry
+            assert!(bid1.status == BidStatus::Open, E_BID_NOT_FOUND);
+            assert!(bid2.status == BidStatus::Open, E_BID_NOT_FOUND);
+            assert!(current_time <= bid1.expires_at, E_BID_EXPIRED);
+            assert!(current_time <= bid2.expires_at, E_BID_EXPIRED);
 
-        // Check if squad is already active using existing function
-        assert!(!squad_player_challenge::is_squad_active(active_squad_registry, squad_id), E_SQUAD_ALREADY_ACTIVE);
+            // Validate different creators
+            assert!(bid1.creator != bid2.creator, E_CANNOT_MATCH_OWN_BID);
 
-        // Validate payment matches bid amount
-        let payment_amount = coin::value(&payment);
-        assert!(payment_amount >= target_bid.bid_amount, E_INSUFFICIENT_PAYMENT);
+            // Validate matching amounts and durations
+            assert!(bid1.bid_amount == bid2.bid_amount, E_BID_AMOUNT_MISMATCH);
+            assert!(bid1.duration == bid2.duration, E_DURATION_MISMATCH);
 
-        // Handle payment
-        let mut match_payment = if (payment_amount == target_bid.bid_amount) {
-            coin::into_balance(payment)
-        } else {
-            let match_coin = coin::split(&mut payment, target_bid.bid_amount, ctx);
-            transfer::public_transfer(payment, matcher); // Return change
-            coin::into_balance(match_coin)
+            bid1_creator = bid1.creator;
+            bid1_squad_id = bid1.squad_id;
+            bid1_amount = bid1.bid_amount;
+            bid1_duration = bid1.duration;
+
+            bid2_creator = bid2.creator;
+            bid2_squad_id = bid2.squad_id;
+            _bid2_amount = bid2.bid_amount;
+            _bid2_duration = bid2.duration;
         };
 
         // Calculate fees and prize
-        let total_bids = target_bid.bid_amount * 2;
+        let total_bids = bid1_amount * 2;
         let platform_fee = (total_bids * PLATFORM_FEE_BPS) / 10000;
         let total_prize = total_bids - platform_fee;
 
         // Create match
         let match_obj = Match {
             id: object::new(ctx),
-            bid1_id: target_bid_id,
-            bid2_id: object::id_from_address(@0x0), // Placeholder for second bid
-            player1: target_bid.creator,
-            player2: matcher,
-            squad1_id: target_bid.squad_id,
-            squad2_id: squad_id,
+            bid1_id,
+            bid2_id,
+            player1: bid1_creator,
+            player2: bid2_creator,
+            squad1_id: bid1_squad_id,
+            squad2_id: bid2_squad_id,
             total_prize,
             platform_fee,
-            duration: target_bid.duration,
+            duration: bid1_duration,
             started_at: current_time,
-            ends_at: current_time + target_bid.duration,
+            ends_at: current_time + bid1_duration,
             status: MatchStatus::Active,
             winner: option::none(),
             prize_claimed: false,
@@ -328,53 +335,74 @@ module bullfy::match_escrow {
 
         let match_id = object::id(&match_obj);
 
-        // Update target bid status
-        target_bid.status = BidStatus::Matched;
+        // Update both bids status and collect fees
+        {
+            let bid1 = table::borrow_mut(&mut registry.bids, bid1_id);
+            bid1.status = BidStatus::Matched;
+            
+            // Collect platform fees from bid1
+            let fee_balance1 = balance::split(&mut bid1.escrow, platform_fee / 2);
+            let fee_coin1 = coin::from_balance(fee_balance1, ctx);
+            fee_collector::collect(fees, fee_coin1, ctx);
+        };
 
-        // Update active squads registry - remove first squad from bid tracking, add both to match tracking
-        squad_player_challenge::unregister_squad_active(active_squad_registry, target_bid.squad_id);
-        squad_player_challenge::register_squad_active(active_squad_registry, target_bid.squad_id, match_id);
-        squad_player_challenge::register_squad_active(active_squad_registry, squad_id, match_id);
-
-        // Collect platform fees
-        let fee_balance1 = balance::split(&mut target_bid.escrow, platform_fee / 2);
-        let fee_balance2 = balance::split(&mut match_payment, platform_fee / 2);
-        let mut total_fee_balance = fee_balance1;
-        balance::join(&mut total_fee_balance, fee_balance2);
-        let fee_coin = coin::from_balance(total_fee_balance, ctx);
-        fee_collector::collect(fees, fee_coin, ctx);
+        {
+            let bid2 = table::borrow_mut(&mut registry.bids, bid2_id);
+            bid2.status = BidStatus::Matched;
+            
+            // Collect platform fees from bid2
+            let fee_balance2 = balance::split(&mut bid2.escrow, platform_fee / 2);
+            let fee_coin2 = coin::from_balance(fee_balance2, ctx);
+            fee_collector::collect(fees, fee_coin2, ctx);
+        };
 
         // Combine remaining balances for prize pool
-        balance::join(&mut target_bid.escrow, match_payment);
+        let bid2_remaining_balance = {
+            let bid2 = table::borrow_mut(&mut registry.bids, bid2_id);
+            balance::withdraw_all(&mut bid2.escrow)
+        };
+        
+        {
+            let bid1 = table::borrow_mut(&mut registry.bids, bid1_id);
+            balance::join(&mut bid1.escrow, bid2_remaining_balance);
+        };
 
         // Add match to registry
         table::add(&mut registry.matches, match_id, match_obj);
 
+        // Update active squads registry
+        squad_player_challenge::unregister_squad_active(active_squad_registry, bid1_squad_id);
+        squad_player_challenge::unregister_squad_active(active_squad_registry, bid2_squad_id);
+        squad_player_challenge::register_squad_active(active_squad_registry, bid1_squad_id, match_id);
+        squad_player_challenge::register_squad_active(active_squad_registry, bid2_squad_id, match_id);
+
         // Track user matches
-        let users = vector[target_bid.creator, matcher];
+        let users = vector[bid1_creator, bid2_creator];
         let mut i = 0;
         while (i < vector::length(&users)) {
             let user = *vector::borrow(&users, i);
+            
             if (!table::contains(&registry.user_matches, user)) {
                 table::add(&mut registry.user_matches, user, vector::empty<ID>());
             };
             let user_matches = table::borrow_mut(&mut registry.user_matches, user);
             vector::push_back(user_matches, match_id);
+            
             i = i + 1;
         };
 
         // Emit event
-        event::emit(BidMatched {
-            bid1_id: target_bid_id,
-            bid2_id: object::id_from_address(@0x0), // Placeholder
+        event::emit(BidsMatched {
+            bid1_id,
+            bid2_id,
             match_id,
-            player1: target_bid.creator,
-            player2: matcher,
-            squad1_id: target_bid.squad_id,
-            squad2_id: squad_id,
+            player1: bid1_creator,
+            player2: bid2_creator,
+            squad1_id: bid1_squad_id,
+            squad2_id: bid2_squad_id,
             total_prize,
-            duration: target_bid.duration,
-            ends_at: current_time + target_bid.duration,
+            duration: bid1_duration,
+            ends_at: current_time + bid1_duration,
         });
     }
 
@@ -420,7 +448,7 @@ module bullfy::match_escrow {
         match_id: ID,
         winner: address,
         clock: &Clock,
-        ctx: &mut TxContext
+        _ctx: &mut TxContext
     ) {
         assert!(table::contains(&registry.matches, match_id), E_MATCH_NOT_FOUND);
         let match_obj = table::borrow_mut(&mut registry.matches, match_id);
@@ -562,5 +590,15 @@ module bullfy::match_escrow {
     // Helper function to check if bid is still valid
     public fun is_bid_valid(bid: &Bid, clock: &Clock): bool {
         bid.status == BidStatus::Open && clock::timestamp_ms(clock) <= bid.expires_at
+    }
+
+    // Get all open bids (for frontend to display and match)
+    public fun get_all_open_bids(_registry: &EscrowRegistry): vector<ID> {
+        // This is a simple implementation - in production you might want pagination
+        let open_bids = vector::empty<ID>();
+        // Note: This would require iterating through all bids, which is not efficient
+        // In practice, you'd want to maintain a separate index of open bids
+        // For now, frontend can query user bids and filter by status
+        open_bids
     }
 }
