@@ -10,7 +10,7 @@ const Header = () => {
   const { address } = useAppStore();
 
   return (
-    <div className="flex items-center justify-between mt-[0.8125rem] mb-[1.62875rem]">
+    <div className="flex fixed px-[1.5rem] py-[0.5rem] max-w-[26.875rem] mx-auto w-full z-50 top-0 items-center bg-background justify-between mt-[0.8125rem] mb-[1.62875rem]">
       <div className="gap-[0.5rem] flex items-center">
         <DefaultDp className="size-[1.375rem] rounded-full" />
         <span className="font-[600] leading-[100%] text-sm w-[7.5625rem] truncate">

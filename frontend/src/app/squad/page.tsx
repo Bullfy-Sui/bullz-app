@@ -15,7 +15,7 @@ const SquadPage = () => {
   const [showInsufficientBalance, setShowInsufficientBalance] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const router = useRouter();
-    //joshua
+  //joshua
   // Simulate checking wallet balance (you can replace this with actual wallet integration)
   const checkWalletBalance = () => {
     // Simulate insufficient balance - you can replace this with actual balance check
@@ -44,16 +44,26 @@ const SquadPage = () => {
   return (
     <>
       <Header />
-      <div className="h-[60dvh] overflow-y-scroll">
-        <PriceList />
-      </div>
+      <div className="flex flex-col h-full justify-between relative pt-[4rem] ">
+        <div className="h-[70dvh] overflow-y-scroll px-[1.5rem]">
+          <PriceList />
+        </div>
 
-      <div className="bg-[#1E1E28] p-[1.5rem] border-t-[0.4px] border-white mt-1">
-        <div className="flex items-center">
-          <AddNewSquadButton onClick={handleAddButtonClick} />
+        <div
+          style={{
+            boxShadow: "0px 4px 0px 0px #FFFFFF29 inset",
+          }}
+          className="bg-gray-850 h-[9.5rem] w-full p-[1.5rem]"
+        >
+          <span className="text-modal-desc font-[700] block text-[0.875rem] leading-[100%] mb-[1rem]">
+            YOUR BULLZ
+          </span>
+          <div className="flex items-center">
+            <AddNewSquadButton onClick={handleAddButtonClick} />
+          </div>
         </div>
       </div>
-      
+
       <CreateBullModal
         isOpen={isOpen}
         onClose={onClose}
@@ -61,9 +71,9 @@ const SquadPage = () => {
         cost={1}
         isCreating={isCreating}
       />
-      
+
       <NotificationModal
-        type="success"
+        status="success"
         title="BULL CREATED"
         description="NOW CHOOSE TOKENS TO MAKE UP YOUR BULL, THEN LOCK HORNS WITH OTHER PLAYERS TO START WINNING"
         onClose={() => setShowBullCreated(false)}
@@ -73,18 +83,16 @@ const SquadPage = () => {
           router.push("/squad/new");
         }}
         isOpen={showBullCreated}
-        isLoading={false}
       />
-      
+
       <NotificationModal
-        type="error"
+        status="error"
         title="INSUFFICIENT BALANCE"
         description="YOU NEED AT LEAST 1 SUI IN YOUR WALLET TO CREATE A BULL. FUND YOUR WALLET AND TRY AGAIN"
         onClose={() => setShowInsufficientBalance(false)}
         buttonLabel="CLOSE"
         onButtonClick={() => setShowInsufficientBalance(false)}
         isOpen={showInsufficientBalance}
-        isLoading={false}
       />
     </>
   );

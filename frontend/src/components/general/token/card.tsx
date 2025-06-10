@@ -11,14 +11,14 @@ const TokenCard = (props: TokenCardProps) => {
   return (
     <div
       onClick={props.onClick}
-      className="bg-[#111111] border border-white/10 rounded-[0.625rem] flex items-center  justify-between px-[1rem] py-[0.5rem] cursor-pointer"
+      className="bg-gray-900 border border-white/10  flex items-center  justify-between px-[1rem] py-[0.5rem] cursor-pointer"
     >
       <div className="flex gap-[0.75rem]">
         {/* <SolanaLogo /> */}
         <SuiLogo className="size-[2.75rem] rounded-full" />
         <div>
           <p className="text-[1rem] leading-[1.375rem] font-[600] flex items-center gap-[0.25rem] capitalize">
-            {props?.name.split("/")[0].toLowerCase()} <CheckBadge />
+            {props?.name.split("/")[0].toLowerCase()}
           </p>
           <span className="text-sm leading-[1.125rem] text-[#9DA4AE] ">
             ${Number(props?.price_30s.toFixed(4)).toLocaleString()}

@@ -14,7 +14,7 @@ interface PitchProps {
 
 const Pitch = (props: PitchProps) => {
   return (
-    <main className="relative flex flex-col flex-1  items-center ">
+    <main className="relative flex flex-col flex-1 border  items-center ">
       <div className="absolute h-[33rem] w-[23.375rem] flex flex-col gap-[3rem] pt-[4rem] mx-auto">
         {props.layout?.map((row, rowIndex) => (
           <div key={rowIndex} className="flex justify-center gap-[3.125rem]">
@@ -43,7 +43,7 @@ const Pitch = (props: PitchProps) => {
       <div className=" h-[35.6rem]">
         <EmptyPitch />
       </div>
-      {props.ctaOnClick && (
+      {/* {props.ctaOnClick && (
         <div className="px-[1.5rem] w-full -mt-[2rem]">
           <Button
             type="button"
@@ -53,7 +53,7 @@ const Pitch = (props: PitchProps) => {
             {props.ctaLabel}
           </Button>
         </div>
-      )}
+      )} */}
     </main>
   );
 };
