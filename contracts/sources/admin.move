@@ -7,9 +7,13 @@ module bullfy::admin {
     const ENotOwner: vector<u8> = b"Only the owner can perform this action";
     #[error]
     const EInvalidFeePercentage: vector<u8> = b"Fee percentage must be between 0 and 1000 (0-10%)";
+    #[error]
+    const EInvalidSquadCreationFee: vector<u8> = b"Squad creation fee must be between 100000000 and 10000000000 MIST (0.1-10 SUI)";
 
     // Constants
     const MAX_FEE_BPS: u64 = 1000; // Maximum 10% fee
+    const MIN_SQUAD_CREATION_FEE: u64 = 100_000_000; // Minimum 0.1 SUI
+    const MAX_SQUAD_CREATION_FEE: u64 = 10_000_000_000; // Maximum 10 SUI
 
     // AdminCap to control admin-only functions
     public struct AdminCap has key {
@@ -25,6 +29,7 @@ module bullfy::admin {
     public struct FeeConfig has key {
         id: UID,
         upfront_fee_bps: u64, // Fee in basis points (e.g., 500 = 5%)
+        squad_creation_fee: u64, // Squad creation fee in MIST
     }
 
     // Events
@@ -39,6 +44,12 @@ module bullfy::admin {
     public struct FeePercentageUpdated has copy, drop {
         old_fee_bps: u64,
         new_fee_bps: u64,
+        updated_by: address,
+    }
+
+    public struct SquadCreationFeeUpdated has copy, drop {
+        old_fee: u64,
+        new_fee: u64,
         updated_by: address,
     }
 
@@ -58,10 +69,11 @@ module bullfy::admin {
         };
         transfer::transfer(admin_cap, sender);
 
-        // Create global fee configuration with 5% default fee
+        // Create global fee configuration with defaults
         let fee_config = FeeConfig {
             id: object::new(ctx),
             upfront_fee_bps: 500, // 5% default fee
+            squad_creation_fee: 1_000_000_000, // 1 SUI default fee
         };
         transfer::share_object(fee_config);
         
@@ -133,8 +145,36 @@ module bullfy::admin {
         });
     }
 
-    // Get current fee percentage
+    // Update the squad creation fee (admin only)
+    public entry fun update_squad_creation_fee(
+        _: &AdminCap,
+        fee_config: &mut FeeConfig,
+        new_fee: u64,
+        ctx: &mut TxContext
+    ) {
+        let sender = tx_context::sender(ctx);
+        
+        // Validate fee amount (0.1-10 SUI)
+        assert!(new_fee >= MIN_SQUAD_CREATION_FEE && new_fee <= MAX_SQUAD_CREATION_FEE, EInvalidSquadCreationFee);
+        
+        let old_fee = fee_config.squad_creation_fee;
+        fee_config.squad_creation_fee = new_fee;
+        
+        // Emit event
+        event::emit(SquadCreationFeeUpdated {
+            old_fee,
+            new_fee,
+            updated_by: sender,
+        });
+    }
+
+    // Get current upfront fee percentage
     public fun get_upfront_fee_bps(fee_config: &FeeConfig): u64 {
         fee_config.upfront_fee_bps
+    }
+
+    // Get current squad creation fee
+    public fun get_squad_creation_fee(fee_config: &FeeConfig): u64 {
+        fee_config.squad_creation_fee
     }
 } 

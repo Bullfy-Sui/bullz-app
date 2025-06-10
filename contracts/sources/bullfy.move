@@ -13,6 +13,7 @@ module bullfy::squad_manager {
     use sui::sui::SUI;
     use sui::clock::{Self, Clock};
     use bullfy::fee_collector;
+    use bullfy::admin::{Self, FeeConfig};
 
     // Error messages using Move 2024 #[error] attribute
     #[error]
@@ -32,9 +33,6 @@ module bullfy::squad_manager {
     #[error]
     const EMustAddExactlySevenPlayers: vector<u8> = b"Must add exactly 7 players";
 
-    // Fee amount in MIST (1 SUI = 10^9 MIST)
-    const SQUAD_CREATION_FEE: u64 = 1_000_000_000;
-    
     // Initial squad life points
     const INITIAL_SQUAD_LIFE: u64 = 5;
     
@@ -66,6 +64,7 @@ module bullfy::squad_manager {
         squad_id: u64,
         name: String,
         life: u64,
+        fee_paid: u64,
     }
 
     // Event emitted when squad loses life.
@@ -117,13 +116,16 @@ module bullfy::squad_manager {
     public entry fun create_squad(
         registry: &mut SquadRegistry,
         fees: &mut fee_collector::Fees,
+        fee_config: &FeeConfig,
         mut payment: Coin<SUI>,
         name: String,
         ctx: &mut TxContext
     ) {
+        let squad_creation_fee = admin::get_squad_creation_fee(fee_config);
+        
         // Verify payment amount
         let payment_amount = coin::value(&payment);
-        assert!(payment_amount >= SQUAD_CREATION_FEE, EInsufficientFee);
+        assert!(payment_amount >= squad_creation_fee, EInsufficientFee);
 
         let owner = tx_context::sender(ctx);
         let squad_id = registry.next_squad_id;
@@ -151,12 +153,12 @@ module bullfy::squad_manager {
         vector::push_back(owner_squads, squad_id);
 
         // Handle payment: take only the required fee, return the rest
-        if (payment_amount == SQUAD_CREATION_FEE) {
+        if (payment_amount == squad_creation_fee) {
             // Exact payment, use the whole coin
             fee_collector::collect(fees, payment, ctx);
         } else {
             // More than required, split and return change
-            let fee_coin = coin::split(&mut payment, SQUAD_CREATION_FEE, ctx);
+            let fee_coin = coin::split(&mut payment, squad_creation_fee, ctx);
             fee_collector::collect(fees, fee_coin, ctx);
             transfer::public_transfer(payment, owner);
         };
@@ -166,7 +168,13 @@ module bullfy::squad_manager {
             squad_id,
             name,
             life: INITIAL_SQUAD_LIFE,
+            fee_paid: squad_creation_fee,
         });
+    }
+
+    // Helper function to calculate required payment for squad creation
+    public fun calculate_squad_creation_payment(fee_config: &FeeConfig): u64 {
+        admin::get_squad_creation_fee(fee_config)
     }
 
     // Checks if an owner has any squads.
