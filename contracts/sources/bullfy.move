@@ -217,13 +217,16 @@ module bullfy::squad_manager {
         assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
         let squad = table::borrow_mut(&mut registry.squads, squad_id);
         
-        squad.life = squad.life + 1;
-        
-        event::emit(SquadLifeGained {
-            squad_id,
-            life_gained: 1,
-            new_life: squad.life,
-        });
+        // Only increase if life is below the cap (5)
+        if (squad.life < INITIAL_SQUAD_LIFE) {
+            squad.life = squad.life + 1;
+            
+            event::emit(SquadLifeGained {
+                squad_id,
+                life_gained: 1,
+                new_life: squad.life,
+            });
+        };
     }
 
     // Revives a dead squad after 24 hours, restoring it to 5 life points.
