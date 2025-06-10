@@ -51,7 +51,7 @@ const NotificationModal = (props: NotificationModalProps) => {
                 <h2 className=" text-[1.0625rem] font-[700] tracking-[0.04em] leading-[100%] mb-[1rem]">
                   {props.title}
                 </h2>
-                <p className="text-modal-desc text-[1.0625rem] tracking-[0.04em] text-center leading-[100%]">
+                <p className="text-modal-desc uppercase text-[1.0625rem] tracking-[0.04em] text-center leading-[100%]">
                   {props.description}
                 </p>
               </div>
