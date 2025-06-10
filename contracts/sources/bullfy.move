@@ -1,14 +1,9 @@
-#[allow(duplicate_alias,unused_use,unused_const)]
+
 module bullfy::squad_manager {
-    use sui::object::{Self, UID};
-    use sui::tx_context::{Self, TxContext};
     use sui::coin::{Self, Coin};
-    use sui::balance::{Self, Balance};
-    use std::option::{Self, Option};
-    use std::vector;
-    use std::string::{Self, String};
+    use std::string::{String};
     use sui::table::{Self, Table};
-    use sui::transfer;
+ 
     use sui::event;
     use sui::sui::SUI;
     use sui::clock::{Self, Clock};
@@ -18,8 +13,6 @@ module bullfy::squad_manager {
     // Error messages using Move 2024 #[error] attribute
     #[error]
     const EInsufficientFee: vector<u8> = b"Insufficient fee provided";
-    #[error]
-    const EOwnerAlreadyHasSquad: vector<u8> = b"Owner already has a squad";
     #[error]
     const EOwnerDoesNotHaveSquad: vector<u8> = b"Owner does not have a squad";
     #[error]
