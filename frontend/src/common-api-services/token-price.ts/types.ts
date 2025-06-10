@@ -5,6 +5,7 @@ export interface PriceListResponse {
 }
 
 export interface TokenResponse {
+  symbol: any;
   fluctuation_pct: number;
   name: string;
   price_1m: number;

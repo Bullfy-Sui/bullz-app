@@ -1,17 +1,20 @@
 export const TOTAL_BUDGET = 100_000;
 
 export enum SquadFormation {
-  OneThreeTwoOne = "1-3-2-1",
-  OneTwoThreeOne = "1-2-3-1",
-  OneTwoTwoTwo = "1-2-2-2",
-  OneThreeOneTwo = "1-3-1-2",
-  OneTwoOneThree = "1-2-1-3",
+  ThreeTwoOne = "3-2-1",
+  TwoThreeOne = "2-3-1",
+  OneThreeThree = "1-3-3",
+  TwoTwoThree = "2-2-3",
+  OneTwoFour = "1-2-4"
 }
 
+
+ 
 export const formationLayouts = {
-  OneThreeTwoOne: [[1], [2, 3, 4], [5, 6], [7]],
-  OneTwoThreeOne: [[1], [2, 3], [4, 5, 6], [7]],
-  OneTwoTwoTwo: [[1], [2, 3], [4, 5], [6, 7]],
-  OneThreeOneTwo: [[1], [2, 3, 4], [5], [6, 7]],
-  OneTwoOneThree: [[1], [2, 3], [4], [5, 6, 7]],
+
+  ThreeTwoOne : [[1], [2, 3], [4, 5, 6], [7]],
+  TwoThreeOne: [[1], [2, 3, 4], [5, 6], [7]],
+   OneThreeThree: [[1], [2, 3, 4], [5, 6, 7]],
+  TwoTwoThree: [[1], [2, 3], [4, 5], [6, 7]],
+  OneTwoFour: [[1], [2, 3], [4, 5, 6, 7]]
 };

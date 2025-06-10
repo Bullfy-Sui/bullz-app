@@ -16,6 +16,7 @@ import { useDisclosure } from "@/lib/hooks/use-diclosure";
 
 export interface HornForm {
   wager_amount: number;
+  time: number; // Add the time field as the design suggests
   squad: SquadResponseItem;
 }
 
@@ -23,7 +24,12 @@ export default function Home() {
   const { data: squadData, isPending: loading } = useGetUserSquads();
   const [squad, setSquad] = useState<SquadResponseItem>();
   const router = useRouter();
-  const form = useForm<HornForm>();
+  const form = useForm<HornForm>({
+    defaultValues: {
+      wager_amount: 0.1,
+      time: 60, // Set default time to 60 seconds
+    }
+  });
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   const onSubmit = form.handleSubmit((data) => {
@@ -47,11 +53,20 @@ export default function Home() {
           onPlayerClick={(player) => {
             console.log(player);
           }}
-          ctaLabel="Lock horns"
-          ctaOnClick={() => {
-            onOpen();
-          }}
         />
+        
+        {/* Lock Horns Button */}
+        <div className="p-4">
+          <button
+            type="button"
+            className="w-full h-12 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg transition-colors"
+            onClick={() => {
+              onOpen();
+            }}
+          >
+            Lock horns
+          </button>
+        </div>
         <div className="bg-[#1E1E28] p-[1.5rem] border-t-[0.4px] border-white mt-1">
           <div className="flex items-center gap-[0.5rem]">
             <div className="flex items-center gap-[0.5rem] w-min overflow-x-scroll">
