@@ -234,22 +234,6 @@ export default function LoginPage() {
 
   return (
     <>
-      <style jsx>{`
-        @import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
-
-        .offbit-font {
-          font-family: "Press Start 2P", monospace;
-          text-rendering: pixelated;
-          image-rendering: pixelated;
-          -webkit-font-smoothing: none;
-          // -moz-osx-font-smoothing: grayscale;
-        }
-
-        .bull-glow {
-          filter: drop-shadow(0 0 20px rgba(255, 92, 22, 0.5));
-        }
-      `}</style>
-
       <div className="h-screen flex flex-col justify-center items-center ">
         <div className="flex flex-col max-w-[19.25rem]">
           <div className="flex-1 flex flex-col items-center justify-center w-full text-center">

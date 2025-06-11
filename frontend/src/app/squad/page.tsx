@@ -10,11 +10,16 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import NavBar from "@/components/layout/navbar";
 import NavWrapper from "@/components/layout/nav-wrapper";
+import { NotificationStatus } from "@/lib/hooks/use-notifications-modal";
 
 const SquadPage = () => {
   const { onOpen, onClose, isOpen } = useDisclosure();
-  const [showBullCreated, setShowBullCreated] = useState(false);
-  const [showInsufficientBalance, setShowInsufficientBalance] = useState(false);
+  const {
+    onOpen: openNotification,
+    isOpen: notificationIsOpen,
+    onClose: closeNotification,
+    disclosedData: notificationStatus,
+  } = useDisclosure<NotificationStatus>();
   const [isCreating, setIsCreating] = useState(false);
   const router = useRouter();
   const {
@@ -22,7 +27,7 @@ const SquadPage = () => {
     onClose: closeGuide,
     onOpen: openGuide,
   } = useDisclosure();
-  //joshua
+
   // Simulate checking wallet balance (you can replace this with actual wallet integration)
   const checkWalletBalance = () => {
     // Simulate insufficient balance - you can replace this with actual balance check
@@ -31,21 +36,12 @@ const SquadPage = () => {
   };
 
   const handleAddButtonClick = () => {
+    onClose();
     if (checkWalletBalance()) {
-      setShowInsufficientBalance(true);
+      openNotification({ data: "error" });
     } else {
-      onOpen();
+      openNotification({ data: "success" });
     }
-  };
-
-  const handleCreateBull = () => {
-    setIsCreating(true);
-    // Simulate async creation
-    setTimeout(() => {
-      setIsCreating(false);
-      onClose();
-      setShowBullCreated(true);
-    }, 2000);
   };
 
   return (
@@ -66,7 +62,7 @@ const SquadPage = () => {
               YOUR BULLZ
             </span>
             <div className="flex items-center">
-              <AddNewSquadButton onClick={handleAddButtonClick} />
+              <AddNewSquadButton onClick={onOpen} />
             </div>
           </div>
         </div>
@@ -74,7 +70,7 @@ const SquadPage = () => {
         <CreateBullModal
           isOpen={isOpen}
           onClose={onClose}
-          onCreate={handleCreateBull}
+          onCreate={handleAddButtonClick}
           cost={1}
           isCreating={isCreating}
         />
@@ -89,26 +85,24 @@ const SquadPage = () => {
         />
 
         <NotificationModal
-          status="success"
-          title="BULL CREATED"
-          description="NOW CHOOSE TOKENS TO MAKE UP YOUR BULL, THEN LOCK HORNS WITH OTHER PLAYERS TO START WINNING"
-          onClose={() => setShowBullCreated(false)}
-          buttonLabel="LET'S GO!"
+          status={notificationStatus}
+          title={
+            notificationStatus === "success"
+              ? "BULL CREATED"
+              : "INSUFFICIENT BALANCE"
+          }
+          description={
+            notificationStatus === "success"
+              ? "NOW CHOOSE TOKENS TO MAKE UP YOUR BULL, THEN LOCK HORNS WITH OTHER PLAYERS TO START WINNING"
+              : "YOU NEED AT LEAST 1 SUI IN YOUR WALLET TO CREATE A BULL. FUND YOUR WALLET AND TRY AGAIN"
+          }
+          onClose={() => closeNotification()}
+          buttonLabel={notificationStatus === "success" ? "LET'S GO!" : "CLOSE"}
           onButtonClick={() => {
-            setShowBullCreated(false);
-            router.push("/squad/new");
+            closeNotification();
+            notificationStatus === "success" && router.push("/squad/new");
           }}
-          isOpen={showBullCreated}
-        />
-
-        <NotificationModal
-          status="error"
-          title="INSUFFICIENT BALANCE"
-          description="YOU NEED AT LEAST 1 SUI IN YOUR WALLET TO CREATE A BULL. FUND YOUR WALLET AND TRY AGAIN"
-          onClose={() => setShowInsufficientBalance(false)}
-          buttonLabel="CLOSE"
-          onButtonClick={() => setShowInsufficientBalance(false)}
-          isOpen={showInsufficientBalance}
+          isOpen={notificationIsOpen}
         />
       </>
     </NavWrapper>

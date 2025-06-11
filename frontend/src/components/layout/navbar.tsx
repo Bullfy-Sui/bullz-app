@@ -61,7 +61,17 @@ const NavItem = (props: NavItemProps) => {
       )}
     >
       <props.Icon />
-      <p className="text-white text-sm">{props.title}</p>
+      <p
+        className={cn(
+          "text-white text-sm font-[700] tracking-[0.04em] leading-[100%] uppercase",
+          {
+            "text-white": props.isActive,
+            "text-gray-400": !props.isActive,
+          }
+        )}
+      >
+        {props.title}
+      </p>
     </Link>
   );
 };
@@ -70,7 +80,7 @@ const NavBar = () => {
   const pathname = usePathname();
 
   return (
-    <div className="flex items-center h-[4rem] w-full max-w-[26.875rem] fixed bottom-0 bg-background">
+    <div className="flex items-center  h-[4rem] w-full max-w-[26.875rem] fixed bottom-0 bg-background">
       {NavItems.map((item) => (
         <NavItem
           isActive={pathname.includes(item.href)}

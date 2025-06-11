@@ -39,3 +39,17 @@
     background-color: #000019;
   }
 }
+
+@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
+
+.offbit-font {
+  font-family: "Press Start 2P", monospace;
+  text-rendering: pixelated;
+  image-rendering: pixelated;
+  -webkit-font-smoothing: none;
+  /* // -moz-osx-font-smoothing: grayscale; */
+}
+
+.bull-glow {
+  filter: drop-shadow(0 0 20px rgba(255, 92, 22, 0.5));
+}
