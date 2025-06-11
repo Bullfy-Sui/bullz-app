@@ -9,44 +9,25 @@ module bullfy::squad_player_challenge {
     use bullfy::squad_manager::{Self, SquadRegistry};
     use bullfy::fee_collector::{Self, Fees};
     use bullfy::admin::{Self, FeeConfig};
+    use bullfy::validators;
+    use bullfy::payment_utils;
+    use bullfy::fee_calculator;
 
-    // Error constants
-    #[error]
-    const E_UNAUTHORIZED: vector<u8> = b"Sender is not authorized to perform this action";
-    #[error]
-    const E_CHALLENGE_NOT_SCHEDULED: vector<u8> = b"Challenge is not in a scheduled state";
-    #[error]
-    const E_CHALLENGE_ALREADY_COMPLETED: vector<u8> = b"Challenge has already been completed or cancelled";
-    #[error]
-    const E_CHALLENGE_FULL: vector<u8> = b"Challenge has reached maximum participants";
-    #[error]
-    const E_ALREADY_JOINED: vector<u8> = b"Address has already joined this challenge";
-    #[error]
-    const E_INVALID_PARTICIPANT_COUNT: vector<u8> = b"Invalid number of participants specified";
-    #[error]
-    const E_INVALID_START_TIME: vector<u8> = b"Start time must be in the future";
-    #[error]
-    const E_CHALLENGE_NOT_STARTED: vector<u8> = b"Challenge has not started yet";
-    #[error]
-    const E_CHALLENGE_NOT_READY: vector<u8> = b"Challenge is not ready to start";
-    #[error]
-    const E_INVALID_BID_AMOUNT: vector<u8> = b"Bid amount must be greater than zero";
-    #[error]
-    const E_CHALLENGE_EXPIRED: vector<u8> = b"Challenge has expired";
-    #[error]
-    const E_INVALID_WINNER: vector<u8> = b"Winner is not a participant in this challenge";
-    #[error]
-    const E_INVALID_DURATION: vector<u8> = b"Challenge duration is invalid";
-    #[error]
-    const E_SQUAD_NOT_OWNED: vector<u8> = b"Player does not own the specified squad";
-    #[error]
-    const E_SQUAD_NOT_ALIVE: vector<u8> = b"Squad is not alive and cannot participate";
-    #[error]
-    const E_SQUAD_ALREADY_USED: vector<u8> = b"Squad is already being used in this challenge";
-    #[error]
-    const E_SQUAD_ACTIVE_IN_CHALLENGE: vector<u8> = b"Squad is already active in another challenge";
-    #[error]
-    const E_INSUFFICIENT_BID: vector<u8> = b"Bid amount is insufficient";
+    // Error constants (module-specific only)
+    const E_UNAUTHORIZED: u64 = 2001;
+    const E_CHALLENGE_NOT_SCHEDULED: u64 = 2002;
+    const E_CHALLENGE_ALREADY_COMPLETED: u64 = 2003;
+    const E_CHALLENGE_FULL: u64 = 2004;
+    const E_ALREADY_JOINED: u64 = 2005;
+    const E_INVALID_PARTICIPANT_COUNT: u64 = 2006;
+    const E_INVALID_START_TIME: u64 = 2007;
+    const E_CHALLENGE_NOT_STARTED: u64 = 2008;
+    const E_CHALLENGE_NOT_READY: u64 = 2009;
+    const E_CHALLENGE_EXPIRED: u64 = 2010;
+    const E_INVALID_WINNER: u64 = 2011;
+    const E_SQUAD_ALREADY_USED: u64 = 2012;
+    const E_SQUAD_ACTIVE_IN_CHALLENGE: u64 = 2013;
+    const E_INSUFFICIENT_BID: u64 = 2014;
 
     // Constants
     const MIN_PARTICIPANTS: u64 = 2;
@@ -183,46 +164,40 @@ module bullfy::squad_player_challenge {
         max_participants: u64,
         scheduled_start_time: u64,
         duration: u64,
-        mut creator_bid: Coin<SUI>,
+        creator_bid: Coin<SUI>,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
         let creator = tx_context::sender(ctx);
         let current_time = clock::timestamp_ms(clock);
 
-        // Validate squad ownership and status
-        let squad = squad_manager::get_squad(squad_registry, creator_squad_id);
-        assert!(squad_manager::get_squad_owner(squad) == creator, E_SQUAD_NOT_OWNED);
-        assert!(squad_manager::is_squad_alive(squad), E_SQUAD_NOT_ALIVE);
+        // Validate squad ownership and status using common validator
+        validators::validate_squad_ownership_and_life(squad_registry, creator_squad_id, creator);
 
         // Check if squad is already active in another challenge
         assert!(!table::contains(&active_squad_registry.active_squads, creator_squad_id), E_SQUAD_ACTIVE_IN_CHALLENGE);
 
-        // Validate inputs
-        assert!(bid_amount >= MIN_BID_AMOUNT, E_INVALID_BID_AMOUNT);
+        // Validate inputs using common validators
+        validators::validate_bid_amount(bid_amount, MIN_BID_AMOUNT);
         assert!(max_participants >= MIN_PARTICIPANTS, E_INVALID_PARTICIPANT_COUNT);
         assert!(scheduled_start_time > current_time, E_INVALID_START_TIME);
-        assert!(duration >= MIN_DURATION && duration <= MAX_DURATION, E_INVALID_DURATION);
+        validators::validate_duration(duration, MIN_DURATION, MAX_DURATION);
+        
+        // Calculate required payment using fee calculator
+        let (fee_amount, total_required) = fee_calculator::calculate_upfront_fee(bid_amount, fee_config);
         
         // Validate creator's bid
         let creator_bid_amount = coin::value(&creator_bid);
-        let fee_amount = (bid_amount * admin::get_upfront_fee_bps(fee_config)) / 10000;
-        let total_required = bid_amount + fee_amount;
         assert!(creator_bid_amount >= total_required, E_INSUFFICIENT_BID);
 
-        // Handle creator's payment (bid + fee)
-        let (actual_bid, fee_payment) = if (creator_bid_amount == total_required) {
-            // Exact amount - split into bid and fee
-            let fee_coin = coin::split(&mut creator_bid, fee_amount, ctx);
-            (creator_bid, fee_coin)
-        } else {
-            // Overpaid - split exact amounts and return change
-            let fee_coin = coin::split(&mut creator_bid, fee_amount, ctx);
-            let bid_coin = coin::split(&mut creator_bid, bid_amount, ctx);
-            // Return change
-            transfer::public_transfer(creator_bid, creator);
-            (bid_coin, fee_coin)
-        };
+        // Handle creator's payment using common payment utils
+        let (actual_bid, fee_payment) = payment_utils::handle_payment_with_fee(
+            creator_bid,
+            bid_amount,
+            fee_amount,
+            creator,
+            ctx
+        );
 
         // Create the challenge
         let mut challenge = Challenge {
@@ -295,17 +270,15 @@ module bullfy::squad_player_challenge {
         fee_config: &FeeConfig,
         challenge: &mut Challenge,
         participant_squad_id: u64,
-        mut participant_bid: Coin<SUI>,
+        participant_bid: Coin<SUI>,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
         let participant = tx_context::sender(ctx);
         let current_time = clock::timestamp_ms(clock);
 
-        // Validate squad ownership and status
-        let squad = squad_manager::get_squad(squad_registry, participant_squad_id);
-        assert!(squad_manager::get_squad_owner(squad) == participant, E_SQUAD_NOT_OWNED);
-        assert!(squad_manager::is_squad_alive(squad), E_SQUAD_NOT_ALIVE);
+        // Validate squad ownership and status using common validator
+        validators::validate_squad_ownership_and_life(squad_registry, participant_squad_id, participant);
 
         // Check if squad is already active in another challenge
         assert!(!table::contains(&active_squad_registry.active_squads, participant_squad_id), E_SQUAD_ACTIVE_IN_CHALLENGE);
@@ -325,25 +298,21 @@ module bullfy::squad_player_challenge {
         assert!(!vector::contains(&challenge.participants, &participant), E_ALREADY_JOINED);
         assert!(current_time < challenge.scheduled_start_time, E_CHALLENGE_EXPIRED);
 
+        // Calculate required payment using fee calculator
+        let (fee_amount, total_required) = fee_calculator::calculate_upfront_fee(challenge.bid_amount, fee_config);
+        
         // Validate bid amount
         let participant_bid_amount = coin::value(&participant_bid);
-        let fee_amount = (challenge.bid_amount * admin::get_upfront_fee_bps(fee_config)) / 10000;
-        let total_required = challenge.bid_amount + fee_amount;
         assert!(participant_bid_amount >= total_required, E_INSUFFICIENT_BID);
 
-        // Handle participant's payment (bid + fee)
-        let (actual_bid, fee_payment) = if (participant_bid_amount == total_required) {
-            // Exact amount - split into bid and fee
-            let fee_coin = coin::split(&mut participant_bid, fee_amount, ctx);
-            (participant_bid, fee_coin)
-        } else {
-            // Overpaid - split exact amounts and return change
-            let fee_coin = coin::split(&mut participant_bid, fee_amount, ctx);
-            let bid_coin = coin::split(&mut participant_bid, challenge.bid_amount, ctx);
-            // Return change
-            transfer::public_transfer(participant_bid, participant);
-            (bid_coin, fee_coin)
-        };
+        // Handle participant's payment using common payment utils
+        let (actual_bid, fee_payment) = payment_utils::handle_payment_with_fee(
+            participant_bid,
+            challenge.bid_amount,
+            fee_amount,
+            participant,
+            ctx
+        );
 
         // Add participant to challenge
         vector::push_back(&mut challenge.participants, participant);
