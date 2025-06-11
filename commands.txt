@@ -10,3 +10,11 @@ sui client call \
 sui client ptb \
   --move-call 0x226bc26a396add43dbd8f0b9ffaca41de1ad076ce797164a95431ec221f4c0ae::dashboard::create_proposal \
   '" Proosal 2 "' '" proposal description 2 "' 1774518152
+
+
+sui client call \
+  --package 0xa39fec41279f52abb7e91bcb5157492ce1da1b11817388ce9609099d2fa09ec7 \
+  --module fee_collector \
+  --function withdraw_all \
+  --args 0xd6473051cbe19d0876394ec31af1b099f5e0d377493d7f637230f8c3b3f728a0 0xee79201b857cd8826f9061e85301a4fe216abe13072a2fc85e33cbbfe495ffd2  \
+  --gas-budget 100000000

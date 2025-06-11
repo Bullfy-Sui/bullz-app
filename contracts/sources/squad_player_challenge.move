@@ -8,16 +8,15 @@ module bullfy::squad_player_challenge {
     use std::string::{Self, String};
     use bullfy::squad_manager::{Self, SquadRegistry};
     use bullfy::fee_collector::{Self, Fees};
+    use bullfy::admin::{Self, FeeConfig};
 
     // Error constants
     #[error]
     const E_UNAUTHORIZED: vector<u8> = b"Sender is not authorized to perform this action";
     #[error]
-    const E_CHALLENGE_NOT_PENDING: vector<u8> = b"Challenge is not in a pending state";
+    const E_CHALLENGE_NOT_SCHEDULED: vector<u8> = b"Challenge is not in a scheduled state";
     #[error]
     const E_CHALLENGE_ALREADY_COMPLETED: vector<u8> = b"Challenge has already been completed or cancelled";
-    #[error]
-    const E_INVALID_STATUS_TYPE: vector<u8> = b"Invalid status type for ChallengeStatus creation";
     #[error]
     const E_CHALLENGE_FULL: vector<u8> = b"Challenge has reached maximum participants";
     #[error]
@@ -51,20 +50,16 @@ module bullfy::squad_player_challenge {
 
     // Constants
     const MIN_PARTICIPANTS: u64 = 2;
-    const MAX_PARTICIPANTS: u64 = 20;
-    const MIN_BID_AMOUNT: u64 = 1000000; // 0.001 SUI (1 MIST = 1e-9 SUI, so 1e6 MIST = 0.001 SUI)
-    const UPFRONT_FEE_BPS: u64 = 500; // 5% upfront fee on bid amount
-    const PLATFORM_FEE_BPS: u64 = 250; // 2.5% platform fee (kept for backward compatibility)
-    const MIN_DURATION: u64 = 300000; // 5 minutes in milliseconds
-    const MAX_DURATION: u64 = 2592000000; // 30 days in milliseconds
+    const MIN_BID_AMOUNT: u64 = 1_000_000; // 0.001 SUI 
+    const MIN_DURATION: u64 = 300_000; // 5 minutes in milliseconds
+    const MAX_DURATION: u64 = 2_592_000_000; // 30 days in milliseconds
 
     // Challenge status enum
     public enum ChallengeStatus has copy, drop, store {
-        Scheduled,  // Future scheduled challenge
-        Pending,    // Waiting for participants (unused currently)
-        Active,     // Currently running
-        Completed,  // Finished with winner
-        Cancelled,  // Cancelled/refunded
+        Scheduled,  
+        Active,     
+        Completed,  
+        Cancelled, 
     }
 
     // Global registry to track which squads are active in challenges
@@ -129,7 +124,6 @@ module bullfy::squad_player_challenge {
         challenge_id: ID,
         winner: address,
         prize_amount: u64,
-        platform_fee: u64,
     }
 
     public struct ChallengeCancelled has copy, drop {
@@ -161,7 +155,6 @@ module bullfy::squad_player_challenge {
     public struct FeesTransferredToCollector has copy, drop {
         challenge_id: ID,
         total_fees: u64,
-        platform_fee: u64,
         upfront_fees: u64,
     }
 
@@ -184,6 +177,7 @@ module bullfy::squad_player_challenge {
     public entry fun create_challenge(
         squad_registry: &SquadRegistry,
         active_squad_registry: &mut ActiveSquadRegistry,
+        fee_config: &FeeConfig,
         creator_squad_id: u64,
         bid_amount: u64,
         max_participants: u64,
@@ -206,13 +200,13 @@ module bullfy::squad_player_challenge {
 
         // Validate inputs
         assert!(bid_amount >= MIN_BID_AMOUNT, E_INVALID_BID_AMOUNT);
-        assert!(max_participants >= MIN_PARTICIPANTS && max_participants <= MAX_PARTICIPANTS, E_INVALID_PARTICIPANT_COUNT);
+        assert!(max_participants >= MIN_PARTICIPANTS, E_INVALID_PARTICIPANT_COUNT);
         assert!(scheduled_start_time > current_time, E_INVALID_START_TIME);
         assert!(duration >= MIN_DURATION && duration <= MAX_DURATION, E_INVALID_DURATION);
         
         // Validate creator's bid
         let creator_bid_amount = coin::value(&creator_bid);
-        let fee_amount = (bid_amount * UPFRONT_FEE_BPS) / 10000; // 5% fee
+        let fee_amount = (bid_amount * admin::get_upfront_fee_bps(fee_config)) / 10000;
         let total_required = bid_amount + fee_amount;
         assert!(creator_bid_amount >= total_required, E_INSUFFICIENT_BID);
 
@@ -298,6 +292,7 @@ module bullfy::squad_player_challenge {
     public entry fun join_challenge(
         squad_registry: &SquadRegistry,
         active_squad_registry: &mut ActiveSquadRegistry,
+        fee_config: &FeeConfig,
         challenge: &mut Challenge,
         participant_squad_id: u64,
         mut participant_bid: Coin<SUI>,
@@ -325,14 +320,14 @@ module bullfy::squad_player_challenge {
         };
 
         // Validate challenge state
-        assert!(challenge.status == ChallengeStatus::Scheduled, E_CHALLENGE_NOT_PENDING);
+        assert!(challenge.status == ChallengeStatus::Scheduled, E_CHALLENGE_NOT_SCHEDULED);
         assert!(challenge.current_participants < challenge.max_participants, E_CHALLENGE_FULL);
         assert!(!vector::contains(&challenge.participants, &participant), E_ALREADY_JOINED);
         assert!(current_time < challenge.scheduled_start_time, E_CHALLENGE_EXPIRED);
 
         // Validate bid amount
         let participant_bid_amount = coin::value(&participant_bid);
-        let fee_amount = (challenge.bid_amount * UPFRONT_FEE_BPS) / 10000; // 5% fee
+        let fee_amount = (challenge.bid_amount * admin::get_upfront_fee_bps(fee_config)) / 10000;
         let total_required = challenge.bid_amount + fee_amount;
         assert!(participant_bid_amount >= total_required, E_INSUFFICIENT_BID);
 
@@ -409,7 +404,7 @@ module bullfy::squad_player_challenge {
         assert!(vector::contains(&challenge.participants, &sender), E_UNAUTHORIZED);
         
         // Validate challenge state
-        assert!(challenge.status == ChallengeStatus::Scheduled, E_CHALLENGE_NOT_PENDING);
+        assert!(challenge.status == ChallengeStatus::Scheduled, E_CHALLENGE_NOT_SCHEDULED);
         assert!(current_time >= challenge.scheduled_start_time, E_CHALLENGE_NOT_STARTED);
         assert!(challenge.current_participants >= MIN_PARTICIPANTS, E_CHALLENGE_NOT_READY);
 
@@ -471,8 +466,6 @@ module bullfy::squad_player_challenge {
 
         // Calculate prize distribution
         let total_pool = balance::value(&challenge.bid_pool);
-        let platform_fee = (total_pool * PLATFORM_FEE_BPS) / 10000;
-        let winner_prize = total_pool - platform_fee;
         let collected_fees = balance::value(&challenge.fee_vault);
 
         // Update challenge status
@@ -484,21 +477,12 @@ module bullfy::squad_player_challenge {
         remove_squads_from_active_registry(active_squad_registry, challenge);
 
         // Distribute prizes
-        if (winner_prize > 0) {
+        if (total_pool > 0) {
             let winner_coin = coin::from_balance(
-                balance::split(&mut challenge.bid_pool, winner_prize),
+                balance::split(&mut challenge.bid_pool, total_pool),
                 ctx
             );
             transfer::public_transfer(winner_coin, winner);
-        };
-
-        // Extract platform fee (send to fee collector)
-        if (platform_fee > 0) {
-            let fee_coin = coin::from_balance(
-                balance::split(&mut challenge.bid_pool, platform_fee),
-                ctx
-            );
-            fee_collector::collect(fees, fee_coin, ctx);
         };
 
         // Transfer collected upfront fees to fee collector
@@ -511,11 +495,10 @@ module bullfy::squad_player_challenge {
         };
         
         // Emit fees transferred event if any fees were collected
-        if (platform_fee > 0 || collected_fees > 0) {
+        if (collected_fees > 0) {
             event::emit(FeesTransferredToCollector {
                 challenge_id: object::id(challenge),
-                total_fees: platform_fee + collected_fees,
-                platform_fee,
+                total_fees: collected_fees,
                 upfront_fees: collected_fees,
             });
         };
@@ -524,8 +507,7 @@ module bullfy::squad_player_challenge {
         event::emit(ChallengeCompleted {
             challenge_id: object::id(challenge),
             winner,
-            prize_amount: winner_prize,
-            platform_fee,
+            prize_amount: total_pool,
         });
     }
 
@@ -638,7 +620,7 @@ module bullfy::squad_player_challenge {
         let current_time = clock::timestamp_ms(clock);
         let grace_period = 3600000; // 1 hour grace period
         
-        assert!(challenge.status == ChallengeStatus::Scheduled, E_CHALLENGE_NOT_PENDING);
+        assert!(challenge.status == ChallengeStatus::Scheduled, E_CHALLENGE_NOT_SCHEDULED);
         assert!(current_time > challenge.scheduled_start_time + grace_period, E_CHALLENGE_NOT_STARTED);
 
         // Calculate refund amount before processing refunds
@@ -660,17 +642,6 @@ module bullfy::squad_player_challenge {
         });
     }
 
-    // Helper function to convert enum to u8 for compatibility
-    public fun status_to_u8(status: &ChallengeStatus): u8 {
-        match (status) {
-            ChallengeStatus::Scheduled => 0,
-            ChallengeStatus::Pending => 1,
-            ChallengeStatus::Active => 2,
-            ChallengeStatus::Completed => 3,
-            ChallengeStatus::Cancelled => 4,
-        }
-    }
-
     // Getter functions
     public fun get_challenge_info(challenge: &Challenge): (
         address,           // creator
@@ -680,7 +651,7 @@ module bullfy::squad_player_challenge {
         u64,              // scheduled_start_time
         u64,              // duration
         Option<address>,  // winner
-        u8,               // status
+        ChallengeStatus,  // status
         u64,              // total_pool
         u64               // total_fees_collected
     ) {
@@ -692,7 +663,7 @@ module bullfy::squad_player_challenge {
             challenge.scheduled_start_time,
             challenge.duration,
             challenge.winner,
-            status_to_u8(&challenge.status),
+            challenge.status,
             balance::value(&challenge.bid_pool),
             balance::value(&challenge.fee_vault)
         )
@@ -723,8 +694,8 @@ module bullfy::squad_player_challenge {
     }
 
     // Helper function to calculate total required payment for a bid amount
-    public fun calculate_total_payment(bid_amount: u64): (u64, u64, u64) {
-        let fee_amount = (bid_amount * UPFRONT_FEE_BPS) / 10000;
+    public fun calculate_total_payment(fee_config: &FeeConfig, bid_amount: u64): (u64, u64, u64) {
+        let fee_amount = (bid_amount * admin::get_upfront_fee_bps(fee_config)) / 10000;
         let total_required = bid_amount + fee_amount;
         (bid_amount, fee_amount, total_required)
     }
@@ -767,7 +738,6 @@ module bullfy::squad_player_challenge {
     public fun status_to_string(status: &ChallengeStatus): String {
         match (status) {
             ChallengeStatus::Scheduled => string::utf8(b"Scheduled"),
-            ChallengeStatus::Pending => string::utf8(b"Pending"),
             ChallengeStatus::Active => string::utf8(b"Active"),
             ChallengeStatus::Completed => string::utf8(b"Completed"),
             ChallengeStatus::Cancelled => string::utf8(b"Cancelled"),
@@ -798,5 +768,25 @@ module bullfy::squad_player_challenge {
         } else {
             option::none()
         }
+    }
+
+    // Register a squad as active in a challenge/match (public function for other modules)
+    public fun register_squad_active(active_squad_registry: &mut ActiveSquadRegistry, squad_id: u64, challenge_id: ID) {
+        table::add(&mut active_squad_registry.active_squads, squad_id, challenge_id);
+    }
+
+    // Unregister a squad from active challenges/matches (public function for other modules)
+    public fun unregister_squad_active(active_squad_registry: &mut ActiveSquadRegistry, squad_id: u64) {
+        table::remove(&mut active_squad_registry.active_squads, squad_id);
+    }
+
+    // Update a squad's active challenge/match ID (public function for other modules)
+    public fun update_squad_active(active_squad_registry: &mut ActiveSquadRegistry, squad_id: u64, new_challenge_id: ID) {
+        if (table::contains(&active_squad_registry.active_squads, squad_id)) {
+            let active_id = table::borrow_mut(&mut active_squad_registry.active_squads, squad_id);
+            *active_id = new_challenge_id;
+        } else {
+            table::add(&mut active_squad_registry.active_squads, squad_id, new_challenge_id);
+        };
     }
 }

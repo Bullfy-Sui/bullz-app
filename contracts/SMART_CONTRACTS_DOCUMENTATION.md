@@ -104,18 +104,33 @@ Manages football squads, including creation, updating, retrieval, deletion, and 
   - Parameters:
     - `registry: &mut SquadRegistry` — Mutable reference to the squad registry.
     - `fees: &mut fee_collector::Fees` — Mutable reference to fee collector.
+    - `fee_config: &FeeConfig` — Reference to fee configuration.
     - `payment: Coin<SUI>` — Payment for squad creation.
     - `name: String` — Name of the squad.
     - `ctx: &mut TxContext` — Transaction context.
   - Description: Creates a new squad with the given name, an empty players vector, and 5 life points. Players will be added via a separate append function. Requires payment of 1 SUI.
 
-- **revive_squad**
+- **revive_squad_standard**
   - Parameters:
     - `registry: &mut SquadRegistry` — Mutable reference to the squad registry.
+    - `fees: &mut fee_collector::Fees` — Mutable reference to fee collector.
+    - `fee_config: &FeeConfig` — Reference to fee configuration.
     - `squad_id: u64` — ID of the squad to revive.
+    - `payment: Coin<SUI>` — Payment for revival (0.05 SUI).
     - `clock: &Clock` — Clock object for checking time.
     - `ctx: &mut TxContext` — Transaction context.
-  - Description: Revives a dead squad after 24 hours, restoring it to 5 life points. Only the squad owner can revive their squad.
+  - Description: Revives a dead squad after 24 hours waiting period, restoring it to 5 life points. Requires 0.05 SUI payment. Only the squad owner can revive their squad.
+
+- **revive_squad_instant**
+  - Parameters:
+    - `registry: &mut SquadRegistry` — Mutable reference to the squad registry.
+    - `fees: &mut fee_collector::Fees` — Mutable reference to fee collector.
+    - `fee_config: &FeeConfig` — Reference to fee configuration.
+    - `squad_id: u64` — ID of the squad to revive.
+    - `payment: Coin<SUI>` — Payment for revival (0.1 SUI).
+    - `clock: &Clock` — Clock object for timestamping.
+    - `ctx: &mut TxContext` — Transaction context.
+  - Description: Revives a dead squad instantly without waiting period, restoring it to 5 life points. Requires 0.1 SUI payment. Only the squad owner can revive their squad.
 
 - **delete_squad**
   - Parameters:
@@ -225,6 +240,31 @@ Manages football squads, including creation, updating, retrieval, deletion, and 
   - Returns: `u64` — Current life points.
   - Description: Gets the remaining life points of a squad.
 
+- **can_revive_squad_standard**
+  - Parameters:
+    - `squad: &Squad` — Reference to the squad.
+    - `clock: &Clock` — Clock object for checking current time.
+  - Returns: `bool` — True if squad can be revived with standard option (dead for 24+ hours).
+  - Description: Checks if a dead squad is eligible for standard revival (24hr wait period).
+
+- **can_revive_squad_instant**
+  - Parameters:
+    - `squad: &Squad` — Reference to the squad.
+  - Returns: `bool` — True if squad can be revived with instant option (any dead squad).
+  - Description: Checks if a dead squad is eligible for instant revival (no waiting period).
+
+- **calculate_standard_revival_payment**
+  - Parameters:
+    - `fee_config: &FeeConfig` — Reference to fee configuration.
+  - Returns: `u64` — Required payment amount for standard revival.
+  - Description: Helper function to get the standard revival fee amount.
+
+- **calculate_instant_revival_payment**
+  - Parameters:
+    - `fee_config: &FeeConfig` — Reference to fee configuration.
+  - Returns: `u64` — Required payment amount for instant revival.
+  - Description: Helper function to get the instant revival fee amount.
+
 ### Usage Example
 
 1. **Creating a Squad**: Call `create_squad` with payment and name. Squad starts with empty players vector and 5 life points.
@@ -232,10 +272,12 @@ Manages football squads, including creation, updating, retrieval, deletion, and 
 3. **Checking Squad Status**: Use `is_squad_alive` to check if squad still has life points.
 4. **Competition Loss**: When squad loses a competition, call `decrease_squad_life` to reduce life by 1.
 5. **Squad Death**: When life reaches 0, death time is automatically recorded.
-6. **Revival Check**: Use `can_revive_squad` to check if 24 hours have passed since death.
-7. **Squad Revival**: Call `revive_squad` after 24 hours to restore squad to 5 life points.
-8. **Competition Win**: When squad wins a competition, call `increase_squad_life` to add 1 life point.
-9. **Retrieving Squads**: Use `get_squad` or `get_owner_squads` to access squad data.
+6. **Revival Options**: Two revival options are available:
+   - **Standard Revival**: Use `can_revive_squad_standard` to check if 24 hours have passed, then call `revive_squad_standard` with 0.05 SUI payment.
+   - **Instant Revival**: Use `can_revive_squad_instant` to check eligibility, then call `revive_squad_instant` with 0.1 SUI payment (no waiting period).
+7. **Competition Win**: When squad wins a competition, call `increase_squad_life` to add 1 life point.
+8. **Retrieving Squads**: Use `get_squad` or `get_owner_squads` to access squad data.
+9. **Fee Calculation**: Use `calculate_standard_revival_payment` or `calculate_instant_revival_payment` to determine required payment amounts.
 10. **Deleting a Squad**: Call `delete_squad` with the squad ID to remove it permanently.
 
 ---
