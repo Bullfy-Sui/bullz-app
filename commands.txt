@@ -66,11 +66,11 @@ sui client call \
 
 # Create a new squad
 sui client call \
-  --package 0x47d4c73072e55cbe1413f8434b75f9f33ec54d739d77a2901236ed14c7b419af \
-  --module bullfy \
+  --package 0x92e1f97ec5d96fdc6c464849009c0de761c5f5554441367fe3b270e829a91244 \
+  --module squad_manager \
   --function create_squad \
-  --args 0x5a4d5f08257007a92325bbbc6ebe86a7530d532d141db7828257924365edffaf 0x0aacbf284e20f921f43b4245b88c70d2242842ad477b365492cc9a8a369ef5e0 0xaa70d6d407946f85e8f2e1924c89fa7294c0d6a87b787e26d8fd7fcb439f434b "My Squad Name" 0xcoin_object_id \
-  --gas-budget 100000000
+  --args 0xf9c4b440d13187264d1718c4da7f85a5bafbb89b2e835dfb92b7c963a1414342 0x9c8854bf04b43d85f5128482c010ce2501f8a2431aec0337f2e3ca51d33a94b4 0x0fd90ddfd71a4ec4efdf9bba2108f533656287d35c09cc46c813b790def08650 "My Squad Name" 0x25f13f6a0a90a115e2c699f4e55d21d22dbcc216522bb243e1badc380560ec22 \
+
 
 # Revive squad using standard method (after 24 hours)
 sui client call \
