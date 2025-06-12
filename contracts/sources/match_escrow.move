@@ -493,25 +493,24 @@ module bullfy::match_escrow {
         match_id: ID,
         ctx: &mut TxContext
     ) {
-        let sender = tx_context::sender(ctx);
-        
         assert!(table::contains(&registry.match_id_to_index, match_id), E_MATCH_NOT_FOUND);
         let match_index = *table::borrow(&registry.match_id_to_index, match_id);
         
         // Get all needed data before mutable borrow
-        let (bid1_id, total_prize, fees_collected, total_fees);
+        let (bid1_id, total_prize, fees_collected, total_fees, winner_addr);
         {
             let match_obj = vector::borrow(&registry.active_matches, match_index);
             
-            // Validate claiming of the prize to avoid unauthorized users
+            // Validate claiming of the prize
             assert!(match_obj.status == MatchStatus::Completed, E_MATCH_NOT_ACTIVE);
             assert!(!match_obj.prize_claimed, E_MATCH_ALREADY_COMPLETED);
-            assert!(option::contains(&match_obj.winner, &sender), common_errors::unauthorized());
+            assert!(option::is_some(&match_obj.winner), E_MATCH_NOT_ACTIVE);
 
             bid1_id = match_obj.bid1_id;
             total_prize = match_obj.total_prize;
             fees_collected = match_obj.fees_collected;
             total_fees = match_obj.total_fees;
+            winner_addr = *option::borrow(&match_obj.winner);
         };
 
         // Get the original bid to access escrow and fees
@@ -521,7 +520,7 @@ module bullfy::match_escrow {
         // Transfer prize to winner
         let prize_balance = balance::withdraw_all(&mut bid.escrow);
         let prize_coin = coin::from_balance(prize_balance, ctx);
-        transfer::public_transfer(prize_coin, sender);
+        transfer::public_transfer(prize_coin, winner_addr);
         
         // Send fees to collector (if any)
         if (!fees_collected && total_fees > 0) {
@@ -546,7 +545,7 @@ module bullfy::match_escrow {
         // Emit event
         event::emit(PrizeClaimed {
             match_id,
-            winner: sender,
+            winner: winner_addr,
             amount: total_prize,
         });
     }
