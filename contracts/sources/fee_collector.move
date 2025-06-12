@@ -21,7 +21,8 @@ module bullfy::fee_collector {
     // Event emitted when fees are collected
     public struct FeeCollected has copy, drop {
         amount: u64,
-        collector: address,
+        collector_id: ID,
+        payer: address,
     }
 
     // Event emitted when fees are withdrawn
@@ -46,10 +47,11 @@ module bullfy::fee_collector {
         let coin_balance = coin::into_balance(incoming);
         balance::join(&mut fees.total, coin_balance);
         
-        // Emit event
+        // Emit event with Fees object ID and payer address
         event::emit(FeeCollected {
             amount,
-            collector: tx_context::sender(ctx),
+            collector_id: object::id(fees),
+            payer: tx_context::sender(ctx),
         });
     }
 

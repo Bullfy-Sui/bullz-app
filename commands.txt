@@ -1,20 +1,288 @@
+# BULLFY SMART CONTRACT CLI COMMANDS
+# Package addresses (update these with actual deployed addresses)
+# BULLFY_PACKAGE=0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b
+# ADMIN_CAP=0xd6473051cbe19d0876394ec31af1b099f5e0d377493d7f637230f8c3b3f728a0
+# FEES_OBJECT=0xee79201b857cd8826f9061e85301a4fe216abe13072a2fc85e33cbbfe495ffd2
+# SQUAD_REGISTRY=0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355
+# FEE_CONFIG=0xfee_config_object_id
+# ESCROW_REGISTRY=0xescrow_registry_object_id
+# ACTIVE_SQUAD_REGISTRY=0xactive_squad_registry_object_id
 
+# =============================================================================
+# ADMIN MODULE COMMANDS
+# =============================================================================
+
+# Create a new admin capability
 sui client call \
   --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --module admin \
+  --function create_admin_cap \
+  --args 0xowner_cap_id 0xnew_admin_address \
+  --gas-budget 100000000
+
+# Revoke admin capability
+sui client call \
+  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --module admin \
+  --function revoke_admin_cap \
+  --args 0xowner_cap_id 0xadmin_cap_to_revoke 0xadmin_address \
+  --gas-budget 100000000
+
+# Transfer owner capability
+sui client call \
+  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --module admin \
+  --function transfer_owner_cap \
+  --args 0xowner_cap_id 0xnew_owner_address \
+  --gas-budget 100000000
+
+# Update fee percentage (0-1000 basis points, i.e., 0-10%)
+sui client call \
+  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --module admin \
+  --function update_fee_percentage \
+  --args 0xadmin_cap_id 0xfee_config_object_id 500 \
+  --gas-budget 100000000
+
+# Update squad creation fee (in MIST, 1 SUI = 1_000_000_000 MIST)
+sui client call \
+  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --module admin \
+  --function update_squad_creation_fee \
+  --args 0xadmin_cap_id 0xfee_config_object_id 1000000000 \
+  --gas-budget 100000000
+
+# Update revival fees (standard_fee, instant_fee in MIST)
+sui client call \
+  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --module admin \
+  --function update_revival_fees \
+  --args 0xadmin_cap_id 0xfee_config_object_id 50000000 100000000 \
+  --gas-budget 100000000
+
+# =============================================================================
+# BULLFY (SQUAD MANAGER) MODULE COMMANDS
+# =============================================================================
+
+# Create a new squad
+sui client call \
+  --package 0x92e1f97ec5d96fdc6c464849009c0de761c5f5554441367fe3b270e829a91244 \
   --module squad_manager \
   --function create_squad \
-  --args 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 "goalkeeper" "[defenders1, defender2]" "[midfielder1, midfielder2]" "[forward1, forward2]" 3 \
+  --args 0xf9c4b440d13187264d1718c4da7f85a5bafbb89b2e835dfb92b7c963a1414342 0x9c8854bf04b43d85f5128482c010ce2501f8a2431aec0337f2e3ca51d33a94b4 0x0fd90ddfd71a4ec4efdf9bba2108f533656287d35c09cc46c813b790def08650 "My Squad Name" 0x25f13f6a0a90a115e2c699f4e55d21d22dbcc216522bb243e1badc380560ec22 \
+
+
+# Revive squad using standard method (after 24 hours)
+sui client call \
+  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --module bullfy \
+  --function revive_squad_standard \
+  --args 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 0xfee_config_object_id 0xee79201b857cd8826f9061e85301a4fe216abe13072a2fc85e33cbbfe495ffd2 1 0xcoin_object_id 0xclock_object_id \
   --gas-budget 100000000
 
-
-sui client ptb \
-  --move-call 0x226bc26a396add43dbd8f0b9ffaca41de1ad076ce797164a95431ec221f4c0ae::dashboard::create_proposal \
-  '" Proosal 2 "' '" proposal description 2 "' 1774518152
-
-
+# Revive squad instantly (immediate)
 sui client call \
-  --package 0xa39fec41279f52abb7e91bcb5157492ce1da1b11817388ce9609099d2fa09ec7 \
+  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --module bullfy \
+  --function revive_squad_instant \
+  --args 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 0xfee_config_object_id 0xee79201b857cd8826f9061e85301a4fe216abe13072a2fc85e33cbbfe495ffd2 1 0xcoin_object_id 0xclock_object_id \
+  --gas-budget 100000000
+
+# Delete a squad
+sui client call \
+  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --module bullfy \
+  --function delete_squad \
+  --args 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 1 \
+  --gas-budget 100000000
+
+# Add players to existing squad
+sui client call \
+  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --module bullfy \
+  --function add_players_to_squad \
+  --args 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 1 "[\"new_player1\", \"new_player2\"]" \
+  --gas-budget 100000000
+
+# =============================================================================
+# MATCH ESCROW MODULE COMMANDS
+# =============================================================================
+
+# Create a bid for 1v1 match
+sui client call \
+  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --module match_escrow \
+  --function create_bid \
+  --args 0xescrow_registry_object_id 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 0xactive_squad_registry_object_id 0xfee_config_object_id 1 1000000000 3600000 0xcoin_object_id 0xclock_object_id \
+  --gas-budget 100000000
+
+# Match two bids together (admin only)
+sui client call \
+  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --module match_escrow \
+  --function match_bids \
+  --args 0xadmin_cap_id 0xescrow_registry_object_id 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 0xactive_squad_registry_object_id 0xbid1_id 0xbid2_id 0xclock_object_id \
+  --gas-budget 100000000
+
+# Cancel a bid
+sui client call \
+  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --module match_escrow \
+  --function cancel_bid \
+  --args 0xescrow_registry_object_id 0xactive_squad_registry_object_id 0xbid_id 0xclock_object_id \
+  --gas-budget 100000000
+
+# Complete a match (declare winner)
+sui client call \
+  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --module match_escrow \
+  --function complete_match \
+  --args 0xadmin_cap_id 0xescrow_registry_object_id 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 0xfee_collector_fees_object_id 0xmatch_id 0xwinner_address 0xclock_object_id \
+  --gas-budget 100000000
+
+# Claim prize from completed match
+sui client call \
+  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --module match_escrow \
+  --function claim_prize \
+  --args 0xescrow_registry_object_id 0xmatch_id \
+  --gas-budget 100000000
+
+# =============================================================================
+# SQUAD PLAYER CHALLENGE MODULE COMMANDS
+# =============================================================================
+
+# Create a new challenge (multiplayer tournament)
+sui client call \
+  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --module squad_player_challenge \
+  --function create_challenge \
+  --args 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 0xactive_squad_registry_object_id 0xfee_config_object_id 1 1000000000 4 1774518152000 3600000 0xcoin_object_id 0xclock_object_id \
+  --gas-budget 100000000
+
+# Join an existing challenge
+sui client call \
+  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --module squad_player_challenge \
+  --function join_challenge \
+  --args 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 0xactive_squad_registry_object_id 0xfee_config_object_id 0xchallenge_object_id 2 0xcoin_object_id 0xclock_object_id \
+  --gas-budget 100000000
+
+# Start a challenge (when scheduled time arrives)
+sui client call \
+  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --module squad_player_challenge \
+  --function start_challenge \
+  --args 0xchallenge_object_id 0xclock_object_id \
+  --gas-budget 100000000
+
+# Complete a challenge (declare winner)
+sui client call \
+  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --module squad_player_challenge \
+  --function complete_challenge \
+  --args 0xadmin_cap_id 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 0xactive_squad_registry_object_id 0xfee_collector_fees_object_id 0xchallenge_object_id 0xwinner_address 0xclock_object_id \
+  --gas-budget 100000000
+
+# Cancel a challenge (before it starts)
+sui client call \
+  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --module squad_player_challenge \
+  --function cancel_challenge \
+  --args 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 0xactive_squad_registry_object_id 0xfee_collector_fees_object_id 0xchallenge_object_id 0xclock_object_id \
+  --gas-budget 100000000
+
+# Expire a challenge (after scheduled start time with insufficient participants)
+sui client call \
+  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --module squad_player_challenge \
+  --function expire_challenge \
+  --args 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 0xactive_squad_registry_object_id 0xfee_collector_fees_object_id 0xchallenge_object_id 0xclock_object_id \
+  --gas-budget 100000000
+
+# =============================================================================
+# FEE COLLECTOR MODULE COMMANDS
+# =============================================================================
+
+# Withdraw specific amount from fees (admin only)
+sui client call \
+  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --module fee_collector \
+  --function withdraw \
+  --args 0xadmin_cap_id 0xee79201b857cd8826f9061e85301a4fe216abe13072a2fc85e33cbbfe495ffd2 1000000000 0xrecipient_address \
+  --gas-budget 100000000
+
+# Withdraw all fees (admin only)
+sui client call \
+  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
   --module fee_collector \
   --function withdraw_all \
-  --args 0xd6473051cbe19d0876394ec31af1b099f5e0d377493d7f637230f8c3b3f728a0 0xee79201b857cd8826f9061e85301a4fe216abe13072a2fc85e33cbbfe495ffd2  \
+  --args 0xd6473051cbe19d0876394ec31af1b099f5e0d377493d7f637230f8c3b3f728a0 0xee79201b857cd8826f9061e85301a4fe216abe13072a2fc85e33cbbfe495ffd2 \
   --gas-budget 100000000
+
+# =============================================================================
+# READ-ONLY QUERY EXAMPLES (using sui client call for public view functions)
+# =============================================================================
+
+# Get squad information
+sui client call \
+  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --module bullfy \
+  --function get_squad \
+  --args 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 1 \
+  --gas-budget 100000000
+
+# Check if owner has squads
+sui client call \
+  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --module bullfy \
+  --function has_squads \
+  --args 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 0xowner_address \
+  --gas-budget 100000000
+
+# Get owner's squad IDs
+sui client call \
+  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --module bullfy \
+  --function get_owner_squads \
+  --args 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 0xowner_address \
+  --gas-budget 100000000
+
+# Get fee configuration values
+sui client call \
+  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --module admin \
+  --function get_upfront_fee_bps \
+  --args 0xfee_config_object_id \
+  --gas-budget 100000000
+
+# Get total fees collected
+sui client call \
+  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --module fee_collector \
+  --function get_total \
+  --args 0xee79201b857cd8826f9061e85301a4fe216abe13072a2fc85e33cbbfe495ffd2 \
+  --gas-budget 100000000
+
+# =============================================================================
+# NOTES AND PARAMETER EXPLANATIONS
+# =============================================================================
+# 
+# COMMON PARAMETERS:
+# - squad_id: Numeric ID of the squad (e.g., 1, 2, 3...)
+# - bid_amount: Amount in MIST (1 SUI = 1_000_000_000 MIST)
+# - duration: Duration in milliseconds (e.g., 3600000 = 1 hour)
+# - scheduled_start_time: Unix timestamp in milliseconds
+# - max_participants: Maximum number of participants in challenge
+# - coin_object_id: ID of SUI coin object for payment
+# - clock_object_id: Sui system clock object ID (usually 0x6)
+#
+# OBJECT IDs TO UPDATE:
+# - Replace all 0x... placeholders with actual deployed object IDs
+# - Get these IDs from deployment or network explorer
+# - Common objects: AdminCap, OwnerCap, SquadRegistry, FeeConfig, etc.
+#
+# PERMISSIONS:
+# - Admin functions require AdminCap ownership
+# - Owner functions require OwnerCap ownership  
+# - Regular functions require squad ownership or participation rights

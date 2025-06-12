@@ -1,34 +1,31 @@
 module bullfy::squad_manager {
-    use sui::coin::{Self, Coin};
-    use std::string::{Self, String};
-    use sui::table::{Self, Table};
- 
-    use sui::event;
-    use sui::sui::SUI;
     use sui::clock::{Self, Clock};
+    use sui::event;
+    use sui::coin::{Self, Coin};
+    use sui::sui::SUI;
+    use sui::table::{Self, Table};
+    use std::string::{Self, String};
     use bullfy::fee_collector;
     use bullfy::admin::{Self, FeeConfig};
+    use bullfy::common_errors;
+    use bullfy::payment_utils;
 
-    // Error messages using Move 2024 #[error] attribute
-    #[error]
-    const EInsufficientFee: vector<u8> = b"Insufficient fee provided";
-    #[error]
-    const EOwnerDoesNotHaveSquad: vector<u8> = b"Owner does not have a squad";
-    #[error]
-    const ESquadHasNoLife: vector<u8> = b"Squad has no life remaining";
-    #[error]
-    const ESquadNotDead: vector<u8> = b"Squad is not dead, cannot revive";
-    #[error]
-    const ERevivalNotReady: vector<u8> = b"Squad cannot be revived yet, wait 24 hours";
-    #[error]
-    const EPlayerAlreadyInSquad: vector<u8> = b"Player is already in this squad";
-    #[error]
-    const EMustAddExactlySevenPlayers: vector<u8> = b"Must add exactly 7 players";
+    // Error constants (module-specific only)
+    const E_SQUAD_NOT_FOUND: u64 = 4001;
+    const E_CANNOT_REVIVE_YET: u64 = 4003;
+    const E_REVIVAL_NOT_NEEDED: u64 = 4004;
+    const E_INVALID_SQUAD_NAME: u64 = 4005;
 
-    // Initial squad life points
+    // Error constants kept for backward compatibility
+    const EOwnerDoesNotHaveSquad: u64 = 4008;
+    const ESquadNotDead: u64 = 4009;
+    const EMustAddExactlySevenPlayers: u64 = 4011;
+    const EPlayerAlreadyInSquad: u64 = 4012;
+
+    // Constants
+    const MIN_SQUAD_NAME_LENGTH: u64 = 1;
+    const MAX_SQUAD_NAME_LENGTH: u64 = 50;
     const INITIAL_SQUAD_LIFE: u64 = 5;
-    
-    // Revival wait time in milliseconds (24 hours)
     const REVIVAL_WAIT_TIME_MS: u64 = 864_00_000; // 24 * 60 * 60 * 1000
 
     // Represents a football squad.
@@ -108,61 +105,63 @@ module bullfy::squad_manager {
 
     // Creates a new squad with empty players vector and 5 life points.
     public entry fun create_squad(
-        registry: &mut SquadRegistry,
-        fees: &mut fee_collector::Fees,
+        squad_registry: &mut SquadRegistry,
         fee_config: &FeeConfig,
+        fees: &mut fee_collector::Fees,
+        squad_name: String,
         mut payment: Coin<SUI>,
-        name: String,
         ctx: &mut TxContext
     ) {
-        let squad_creation_fee = admin::get_squad_creation_fee(fee_config);
-        
-        // Verify payment amount
-        let payment_amount = coin::value(&payment);
-        assert!(payment_amount >= squad_creation_fee, EInsufficientFee);
-
         let owner = tx_context::sender(ctx);
-        let squad_id = registry.next_squad_id;
-        registry.next_squad_id = squad_id + 1;
+        
+        // Validate inputs
+        assert!(string::length(&squad_name) >= MIN_SQUAD_NAME_LENGTH, E_INVALID_SQUAD_NAME);
+        assert!(string::length(&squad_name) <= MAX_SQUAD_NAME_LENGTH, E_INVALID_SQUAD_NAME);
+
+        // Calculate and handle squad creation fee using payment utils
+        let creation_fee = admin::get_squad_creation_fee(fee_config);
+        payment_utils::validate_payment_amount(coin::value(&payment), creation_fee);
+        
+        // Handle exact payment (no change expected for creation fee)
+        if (coin::value(&payment) > creation_fee) {
+            let change_amount = coin::value(&payment) - creation_fee;
+            let change = coin::split(&mut payment, change_amount, ctx);
+            sui::transfer::public_transfer(change, owner);
+        };
+
+        // Send fee to collector
+        fee_collector::collect(fees, payment, ctx);
+
+        let squad_id = squad_registry.next_squad_id;
+        squad_registry.next_squad_id = squad_id + 1;
 
         let squad = Squad {
             id: object::new(ctx),
             owner,
             squad_id,
-            name,
-            players: vector::empty<String>(), // Initialize with empty vector
+            name: squad_name,
+            players: vector::empty<String>(),  // Create with empty players vector
             life: INITIAL_SQUAD_LIFE,         // Start with 5 life points
             death_time: option::none(),       // Not dead initially
         };
 
         // Add the squad to the registry
-        table::add(&mut registry.squads, squad_id, squad);
+        table::add(&mut squad_registry.squads, squad_id, squad);
 
         // Add the squad to the owner's list of squads
-        if (!table::contains(&registry.owner_squads, owner)) {
-            table::add(&mut registry.owner_squads, owner, vector::empty<u64>());
+        if (!table::contains(&squad_registry.owner_squads, owner)) {
+            table::add(&mut squad_registry.owner_squads, owner, vector::empty<u64>());
         };
         
-        let owner_squads = table::borrow_mut(&mut registry.owner_squads, owner);
+        let owner_squads = table::borrow_mut(&mut squad_registry.owner_squads, owner);
         vector::push_back(owner_squads, squad_id);
-
-        // Handle payment: take only the required fee, return the rest
-        if (payment_amount == squad_creation_fee) {
-            // Exact payment, use the whole coin
-            fee_collector::collect(fees, payment, ctx);
-        } else {
-            // More than required, split and return change
-            let fee_coin = coin::split(&mut payment, squad_creation_fee, ctx);
-            fee_collector::collect(fees, fee_coin, ctx);
-            transfer::public_transfer(payment, owner);
-        };
 
         event::emit(SquadCreated { 
             owner,
             squad_id,
-            name,
+            name: squad_name,
             life: INITIAL_SQUAD_LIFE,
-            fee_paid: squad_creation_fee,
+            fee_paid: creation_fee,
         });
     }
 
@@ -185,7 +184,7 @@ module bullfy::squad_manager {
     public fun decrease_squad_life(registry: &mut SquadRegistry, squad_id: u64, clock: &Clock) {
         assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
         let squad = table::borrow_mut(&mut registry.squads, squad_id);
-        assert!(squad.life > 0, ESquadHasNoLife);
+        assert!(squad.life > 0, ESquadNotDead);
         
         squad.life = squad.life - 1;
         
@@ -225,46 +224,44 @@ module bullfy::squad_manager {
 
     // Revives a dead squad after 24 hours with standard fee (0.05 SUI)
     public entry fun revive_squad_standard(
-        registry: &mut SquadRegistry,
-        fees: &mut fee_collector::Fees,
+        squad_registry: &mut SquadRegistry,
         fee_config: &FeeConfig,
+        fees: &mut fee_collector::Fees,
         squad_id: u64,
         mut payment: Coin<SUI>,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
-        assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
-        let squad = table::borrow_mut(&mut registry.squads, squad_id);
-        
-        // Only squad owner can revive
-        assert!(squad.owner == tx_context::sender(ctx), EOwnerDoesNotHaveSquad);
-        
-        // Squad must be dead (life = 0 and has death_time)
-        assert!(squad.life == 0, ESquadNotDead);
-        assert!(option::is_some(&squad.death_time), ESquadNotDead);
-        
-        // Check if 24 hours have passed
+        let owner = tx_context::sender(ctx);
         let current_time = clock::timestamp_ms(clock);
+
+        // Validate squad exists and is owned by sender
+        assert!(table::contains(&squad_registry.squads, squad_id), E_SQUAD_NOT_FOUND);
+        let squad = table::borrow_mut(&mut squad_registry.squads, squad_id);
+        assert!(squad.owner == owner, common_errors::unauthorized());
+        
+        // Check if squad needs revival
+        assert!(squad.life == 0, E_REVIVAL_NOT_NEEDED);
+        assert!(option::is_some(&squad.death_time), E_REVIVAL_NOT_NEEDED);
+        
+        // Check 24-hour waiting period
         let death_time = *option::borrow(&squad.death_time);
-        assert!(current_time >= death_time + REVIVAL_WAIT_TIME_MS, ERevivalNotReady);
+        assert!(current_time >= death_time + REVIVAL_WAIT_TIME_MS, E_CANNOT_REVIVE_YET);
+
+        // Calculate and handle standard revival fee using payment utils
+        let revival_fee = admin::get_standard_revival_fee(fee_config);
+        payment_utils::validate_payment_amount(coin::value(&payment), revival_fee);
         
-        // Verify payment amount
-        let standard_revival_fee = admin::get_standard_revival_fee(fee_config);
-        let payment_amount = coin::value(&payment);
-        assert!(payment_amount >= standard_revival_fee, EInsufficientFee);
-        
-        // Handle payment: take only the required fee, return the rest
-        let owner = squad.owner;
-        if (payment_amount == standard_revival_fee) {
-            // Exact payment, use the whole coin
-            fee_collector::collect(fees, payment, ctx);
-        } else {
-            // More than required, split and return change
-            let fee_coin = coin::split(&mut payment, standard_revival_fee, ctx);
-            fee_collector::collect(fees, fee_coin, ctx);
-            transfer::public_transfer(payment, owner);
+        // Handle payment with change return
+        if (coin::value(&payment) > revival_fee) {
+            let change_amount = coin::value(&payment) - revival_fee;
+            let change = coin::split(&mut payment, change_amount, ctx);
+            sui::transfer::public_transfer(change, owner);
         };
-        
+
+        // Send fee to collector
+        fee_collector::collect(fees, payment, ctx);
+
         // Revive the squad
         squad.life = INITIAL_SQUAD_LIFE;
         squad.death_time = option::none();
@@ -273,59 +270,54 @@ module bullfy::squad_manager {
             squad_id,
             revived_at: current_time,
             revival_type: string::utf8(b"standard"),
-            fee_paid: standard_revival_fee,
+            fee_paid: revival_fee,
         });
     }
 
     // Revives a dead squad instantly with higher fee (0.1 SUI)
     public entry fun revive_squad_instant(
-        registry: &mut SquadRegistry,
-        fees: &mut fee_collector::Fees,
+        squad_registry: &mut SquadRegistry,
         fee_config: &FeeConfig,
+        fees: &mut fee_collector::Fees,
         squad_id: u64,
         mut payment: Coin<SUI>,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
-        assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
-        let squad = table::borrow_mut(&mut registry.squads, squad_id);
+        let owner = tx_context::sender(ctx);
+
+        // Validate squad exists and is owned by sender
+        assert!(table::contains(&squad_registry.squads, squad_id), E_SQUAD_NOT_FOUND);
+        let squad = table::borrow_mut(&mut squad_registry.squads, squad_id);
+        assert!(squad.owner == owner, common_errors::unauthorized());
         
-        // Only squad owner can revive
-        assert!(squad.owner == tx_context::sender(ctx), EOwnerDoesNotHaveSquad);
+        // Check if squad needs revival
+        assert!(squad.life == 0, E_REVIVAL_NOT_NEEDED);
+        assert!(option::is_some(&squad.death_time), E_REVIVAL_NOT_NEEDED);
+
+        // Calculate and handle instant revival fee using payment utils
+        let revival_fee = admin::get_instant_revival_fee(fee_config);
+        payment_utils::validate_payment_amount(coin::value(&payment), revival_fee);
         
-        // Squad must be dead (life = 0 and has death_time)
-        assert!(squad.life == 0, ESquadNotDead);
-        assert!(option::is_some(&squad.death_time), ESquadNotDead);
-        
-        // No time restriction for instant revival
-        let current_time = clock::timestamp_ms(clock);
-        
-        // Verify payment amount
-        let instant_revival_fee = admin::get_instant_revival_fee(fee_config);
-        let payment_amount = coin::value(&payment);
-        assert!(payment_amount >= instant_revival_fee, EInsufficientFee);
-        
-        // Handle payment: take only the required fee, return the rest
-        let owner = squad.owner;
-        if (payment_amount == instant_revival_fee) {
-            // Exact payment, use the whole coin
-            fee_collector::collect(fees, payment, ctx);
-        } else {
-            // More than required, split and return change
-            let fee_coin = coin::split(&mut payment, instant_revival_fee, ctx);
-            fee_collector::collect(fees, fee_coin, ctx);
-            transfer::public_transfer(payment, owner);
+        // Handle payment with change return
+        if (coin::value(&payment) > revival_fee) {
+            let change_amount = coin::value(&payment) - revival_fee;
+            let change = coin::split(&mut payment, change_amount, ctx);
+            sui::transfer::public_transfer(change, owner);
         };
-        
+
+        // Send fee to collector
+        fee_collector::collect(fees, payment, ctx);
+
         // Revive the squad
         squad.life = INITIAL_SQUAD_LIFE;
         squad.death_time = option::none();
         
         event::emit(SquadRevived {
             squad_id,
-            revived_at: current_time,
+            revived_at: clock::timestamp_ms(clock),
             revival_type: string::utf8(b"instant"),
-            fee_paid: instant_revival_fee,
+            fee_paid: revival_fee,
         });
     }
 

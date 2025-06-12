@@ -8,39 +8,21 @@ module bullfy::match_escrow {
     use bullfy::squad_manager::{Self, SquadRegistry};
     use bullfy::fee_collector::{Self, Fees};
     use bullfy::squad_player_challenge::{Self, ActiveSquadRegistry};
-    use bullfy::admin::{Self, AdminCap, FeeConfig};
+    use bullfy::admin::{AdminCap, FeeConfig};
+    use bullfy::common_errors;
+    use bullfy::validators;
+    use bullfy::payment_utils;
+    use bullfy::fee_calculator;
 
-    // Error constants
-    #[error]
-    const E_UNAUTHORIZED: vector<u8> = b"Sender is not authorized to perform this action";
-    #[error]
-    const E_INVALID_BID_AMOUNT: vector<u8> = b"Bid amount must be greater than zero";
-    #[error]
-    const E_INVALID_DURATION: vector<u8> = b"Duration must be between 5 minutes and 7 days";
-    #[error]
-    const E_SQUAD_NOT_OWNED: vector<u8> = b"Player does not own the specified squad";
-    #[error]
-    const E_SQUAD_NOT_ALIVE: vector<u8> = b"Squad is not alive and cannot participate";
-    #[error]
-    const E_BID_NOT_FOUND: vector<u8> = b"Bid not found";
-    #[error]
-    const E_CANNOT_MATCH_OWN_BID: vector<u8> = b"Cannot match your own bid";
-    #[error]
-    const E_INSUFFICIENT_PAYMENT: vector<u8> = b"Payment amount is insufficient";
-    #[error]
-    const E_BID_AMOUNT_MISMATCH: vector<u8> = b"Bid amounts must match";
-    #[error]
-    const E_DURATION_MISMATCH: vector<u8> = b"Bid durations must match";
-    #[error]
-    const E_MATCH_NOT_FOUND: vector<u8> = b"Match not found";
-    #[error]
-    const E_MATCH_NOT_ACTIVE: vector<u8> = b"Match is not in active state";
-    #[error]
-    const E_MATCH_ALREADY_COMPLETED: vector<u8> = b"Match has already been completed";
-    #[error]
-    const E_INVALID_WINNER: vector<u8> = b"Winner must be one of the match participants";
-    #[error]
-    const E_SQUAD_ALREADY_ACTIVE: vector<u8> = b"Squad is already active in another match or bid";
+    // Error constants (module-specific only)
+    const E_BID_NOT_FOUND: u64 = 3001;
+    const E_CANNOT_MATCH_OWN_BID: u64 = 3002;
+    const E_BID_AMOUNT_MISMATCH: u64 = 3003;
+    const E_DURATION_MISMATCH: u64 = 3004;
+    const E_MATCH_NOT_FOUND: u64 = 3005;
+    const E_MATCH_NOT_ACTIVE: u64 = 3006;
+    const E_MATCH_ALREADY_COMPLETED: u64 = 3007;
+    const E_INVALID_WINNER: u64 = 3008;
 
     // Constants
     const MIN_BID_AMOUNT: u64 = 1_000_000; // 0.001 SUI in MIST
@@ -182,43 +164,34 @@ module bullfy::match_escrow {
         squad_id: u64,
         bid_amount: u64,
         duration: u64, // Match duration in milliseconds
-        mut payment: Coin<SUI>,
+        payment: Coin<SUI>,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
         let creator = tx_context::sender(ctx);
         let current_time = clock::timestamp_ms(clock);
 
-        // Validate inputs
-        assert!(bid_amount >= MIN_BID_AMOUNT, E_INVALID_BID_AMOUNT);
-        assert!(duration >= MIN_DURATION && duration <= MAX_DURATION, E_INVALID_DURATION);
+        // Validate inputs using common validators
+        validators::validate_bid_amount(bid_amount, MIN_BID_AMOUNT);
+        validators::validate_duration(duration, MIN_DURATION, MAX_DURATION);
 
-        // Validate squad ownership and status
-        let squad = squad_manager::get_squad(squad_registry, squad_id);
-        assert!(squad_manager::get_squad_owner(squad) == creator, E_SQUAD_NOT_OWNED);
-        assert!(squad_manager::is_squad_alive(squad), E_SQUAD_NOT_ALIVE);
+        // Validate squad ownership and status using common validator
+        validators::validate_squad_ownership_and_life(squad_registry, squad_id, creator);
 
         // Check if squad is already active
-        assert!(!squad_player_challenge::is_squad_active(active_squad_registry, squad_id), E_SQUAD_ALREADY_ACTIVE);
+        assert!(!squad_player_challenge::is_squad_active(active_squad_registry, squad_id), common_errors::squad_already_active());
 
-        // Calculate required payment (bid + upfront fee)
-        let fee_amount = (bid_amount * admin::get_upfront_fee_bps(fee_config)) / 10000;
-        let total_required = bid_amount + fee_amount;
-        let payment_amount = coin::value(&payment);
-        assert!(payment_amount >= total_required, E_INSUFFICIENT_PAYMENT);
+        // Calculate required payment using fee calculator
+        let (fee_amount, _total_required) = fee_calculator::calculate_upfront_fee(bid_amount, fee_config);
 
-        // Handle payment - split into bid and fee, return change if any
-        let (escrow_balance, fee_balance) = if (payment_amount == total_required) {
-            // Exact amount - split into bid and fee
-            let fee_coin = coin::split(&mut payment, fee_amount, ctx);
-            (coin::into_balance(payment), coin::into_balance(fee_coin))
-        } else {
-            // Overpaid - split exact amounts and return change
-            let fee_coin = coin::split(&mut payment, fee_amount, ctx);
-            let bid_coin = coin::split(&mut payment, bid_amount, ctx);
-            transfer::public_transfer(payment, creator); // Return change
-            (coin::into_balance(bid_coin), coin::into_balance(fee_coin))
-        };
+        // Handle payment using common payment utils
+        let (bid_coin, fee_coin) = payment_utils::handle_payment_with_fee(
+            payment, 
+            bid_amount, 
+            fee_amount, 
+            creator, 
+            ctx
+        );
 
         // Create the bid (store fee, don't send to collector yet)
         let bid = Bid {
@@ -227,8 +200,8 @@ module bullfy::match_escrow {
             squad_id,
             bid_amount,
             duration,
-            escrow: escrow_balance,
-            fee_balance,
+            escrow: coin::into_balance(bid_coin),
+            fee_balance: coin::into_balance(fee_coin),
             created_at: current_time,
             status: BidStatus::Open,
         };
@@ -413,7 +386,7 @@ module bullfy::match_escrow {
         let bid_index = *table::borrow(&registry.bid_id_to_index, bid_id);
         
         // Validate authorization and status
-        assert!(vector::borrow(&registry.active_bids, bid_index).creator == sender, E_UNAUTHORIZED);
+        assert!(vector::borrow(&registry.active_bids, bid_index).creator == sender, common_errors::unauthorized());
         assert!(vector::borrow(&registry.active_bids, bid_index).status == BidStatus::Open, E_BID_NOT_FOUND);
 
         // Update status and refund both bid and fee amounts
@@ -533,7 +506,7 @@ module bullfy::match_escrow {
             // Validate claiming of the prize to avoid unauthorized users
             assert!(match_obj.status == MatchStatus::Completed, E_MATCH_NOT_ACTIVE);
             assert!(!match_obj.prize_claimed, E_MATCH_ALREADY_COMPLETED);
-            assert!(option::contains(&match_obj.winner, &sender), E_UNAUTHORIZED);
+            assert!(option::contains(&match_obj.winner, &sender), common_errors::unauthorized());
 
             bid1_id = match_obj.bid1_id;
             total_prize = match_obj.total_prize;
