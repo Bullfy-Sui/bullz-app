@@ -12,24 +12,19 @@ module bullfy::squad_manager {
 
     // Error constants (module-specific only)
     const E_SQUAD_NOT_FOUND: u64 = 4001;
-    const E_SQUAD_ALREADY_DEAD: u64 = 4002;
     const E_CANNOT_REVIVE_YET: u64 = 4003;
     const E_REVIVAL_NOT_NEEDED: u64 = 4004;
     const E_INVALID_SQUAD_NAME: u64 = 4005;
-    const E_INVALID_PLAYERS: u64 = 4006;
 
     // Error constants kept for backward compatibility
-    const EInsufficientFee: u64 = 4007;
     const EOwnerDoesNotHaveSquad: u64 = 4008;
     const ESquadNotDead: u64 = 4009;
-    const ERevivalNotReady: u64 = 4010;
     const EMustAddExactlySevenPlayers: u64 = 4011;
     const EPlayerAlreadyInSquad: u64 = 4012;
 
     // Constants
     const MIN_SQUAD_NAME_LENGTH: u64 = 1;
     const MAX_SQUAD_NAME_LENGTH: u64 = 50;
-    const REVIVAL_DELAY_MS: u64 = 86_400_000; // 24 hours in milliseconds
     const INITIAL_SQUAD_LIFE: u64 = 5;
     const REVIVAL_WAIT_TIME_MS: u64 = 864_00_000; // 24 * 60 * 60 * 1000
 
@@ -114,7 +109,6 @@ module bullfy::squad_manager {
         fee_config: &FeeConfig,
         fees: &mut fee_collector::Fees,
         squad_name: String,
-        players: vector<String>,
         mut payment: Coin<SUI>,
         ctx: &mut TxContext
     ) {
@@ -123,7 +117,6 @@ module bullfy::squad_manager {
         // Validate inputs
         assert!(string::length(&squad_name) >= MIN_SQUAD_NAME_LENGTH, E_INVALID_SQUAD_NAME);
         assert!(string::length(&squad_name) <= MAX_SQUAD_NAME_LENGTH, E_INVALID_SQUAD_NAME);
-        assert!(vector::length(&players) > 0, E_INVALID_PLAYERS);
 
         // Calculate and handle squad creation fee using payment utils
         let creation_fee = admin::get_squad_creation_fee(fee_config);
@@ -147,7 +140,7 @@ module bullfy::squad_manager {
             owner,
             squad_id,
             name: squad_name,
-            players: players,
+            players: vector::empty<String>(),  // Create with empty players vector
             life: INITIAL_SQUAD_LIFE,         // Start with 5 life points
             death_time: option::none(),       // Not dead initially
         };
