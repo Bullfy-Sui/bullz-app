@@ -6,7 +6,7 @@ module bullfy::squad_player_challenge {
     use sui::sui::SUI;
     use sui::table::{Self, Table};
     use std::string::{Self, String};
-    use bullfy::squad_manager::{Self, SquadRegistry};
+    use bullfy::squad_manager::SquadRegistry;
     use bullfy::fee_collector::{Self, Fees};
     use bullfy::admin::{Self, FeeConfig};
     use bullfy::validators;
