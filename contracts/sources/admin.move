@@ -1,10 +1,8 @@
-#[allow(unused_const,lint(custom_state_change),duplicate_alias)]
+
 module bullfy::admin {
     use sui::event;
 
     // Error codes with descriptive messages
-    #[error]
-    const ENotOwner: vector<u8> = b"Only the owner can perform this action";
     #[error]
     const EInvalidFeePercentage: vector<u8> = b"Fee percentage must be between 0 and 1000 (0-10%)";
     #[error]
@@ -100,30 +98,6 @@ module bullfy::admin {
         event::emit(AdminCapCreated { admin: sender });
     }
 
-
-    //setter functions for fees 
-    public fun set_squad_creation_fee(
-        _admin_cap:&AdminCap,
-        fee_config:&mut FeeConfig,  
-        new_fee: u64,
-    ){
-        fee_config.squad_creation_fee = new_fee;
-    }
-    public fun set_standard_revival_fee(
-        _admin_cap:&AdminCap,
-        fee_config:&mut FeeConfig,
-        new_fee: u64,
-    ){
-        fee_config.standard_revival_fee = new_fee;
-    }
-
-    public fun set_instant_revival_fee(
-        _admin_cap:&AdminCap,
-        fee_config:&mut FeeConfig,
-        new_fee: u64,
-    ){
-        fee_config.instant_revival_fee = new_fee;
-    }
 
 
     // Create a new AdminCap and transfer it to the specified address
