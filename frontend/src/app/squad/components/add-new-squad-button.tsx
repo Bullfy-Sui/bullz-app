@@ -1,4 +1,5 @@
 import PlusCircle from "@/components/icons/plus-circle.icon";
+import PlusIcon from "@/components/icons/plus.icon";
 
 interface AddNewSquadButtonProps {
   onClick: () => void;
@@ -9,13 +10,16 @@ const AddNewSquadButton = (props: AddNewSquadButtonProps) => {
     <>
       <div
         onClick={props.onClick}
-        className="bg-[#000019] cursor-pointer border-[0.81px] border-white flex flex-col items-center gap-[1rem] px-[0.9375rem] rounded-[0.403125rem] py-[1.70875rem] w-[8.0625rem]"
+        className="bg-gray-800 cursor-pointer border-[0.5px] border-dashed  border-gray-300 flex flex-col items-center justify-center gap-[0.79rem] p-[0.5rem] w-[5.25rem] h-[5.25rem]"
         style={{
-          boxShadow: "1.61px 1.61px 6.45px 0px #FEBF1899 inset",
+          boxShadow:
+            "0px -8px 0px 0px #0000003D inset, 0px 8px 0px 0px #FFFFFF29 inset",
         }}
       >
-        <PlusCircle />
-        <span className="text-[#D2CACA]">Add new</span>
+        <PlusIcon color="#9898B3" />
+        <span className="text-modal-desc font-[700] text-[0.875rem] leading-[100%]">
+          ADD
+        </span>
       </div>
     </>
   );

@@ -21,6 +21,9 @@ import AllocateFunds from "../components/allocate-funds";
 import Pitch from "../components/pitch";
 import { formationLayouts, SquadFormation, TOTAL_BUDGET } from "../constants";
 import { FormationLayoutKey, SquadForm } from "../types";
+import InfoBulbIcon from "@/components/icons/info-bulb.icon";
+import { Button } from "@/components/ui/button";
+import SelectSquadPlayers from "../components/select-squad.players";
 
 const NewSquadPage = () => {
   const [layout, setLayout] = useState(formationLayouts.OneThreeOneTwo);
@@ -88,14 +91,11 @@ const NewSquadPage = () => {
   });
 
   const modalContent = useNotificationsModal({
-    isSuccess: creationSuccess,
-    isError: creationError,
-    isLoading: creating,
+    status: creationSuccess ? "success" : creationError ? "error" : "loading",
     successContent: {
       title: "Bullish !!!",
       description: "You just created a team.",
       buttonLabel: "Go Back Home",
-      type: "success",
       onButtonClick: () => {
         router.push("/");
         closeNotification();
@@ -105,7 +105,6 @@ const NewSquadPage = () => {
       title: "Error",
       description: "Sorry, we couldn’t create your team.",
       buttonLabel: "Try Again",
-      type: "error",
       onButtonClick: () => createSquad(form.getValues()),
     },
     loadingContent: { description: "Creating your squad", type: "loading" },
@@ -116,16 +115,22 @@ const NewSquadPage = () => {
       <FormProvider {...form}>
         <form id="create-squad-form" onSubmit={onSubmit}>
           <TitleBar title="Create a team" onClick={onClose} />
-          <div>
-            <div className="bg-[#121219] flex gap-[0.625rem] items-center justify-center mb-[1.625rem] mt-[1rem] h-[1.5rem]">
+          <div className=" flex flex-col justify-between h-full">
+            <div className=" border border-gray-800 bg-background flex gap-[0.625rem] items-center justify-between mb-[1.625rem] mt-[1rem] h-[2.5rem]">
               {Object.values(SquadFormation).map((value) => (
                 <span
                   className={cn(
-                    "w-[4.25rem] text-white h-full text-center rounded-full text-[0.75rem] leading-[120%] font-bold flex items-center justify-center cursor-pointer",
+                    "w-[4.25rem] text-white h-full text-center  text-[0.875rem] leading-[100%] tracking-[0.04em] font-bold offbit-font flex items-center justify-center cursor-pointer",
                     {
-                      "bg-button-bg ": formation === value,
+                      "bg-gray-800 ": formation === value,
                     }
                   )}
+                  style={{
+                    boxShadow:
+                      formation === value
+                        ? "0px -4px 0px 0px #0000003D inset, 0px 4px 0px 0px #FFFFFF29 inset"
+                        : "",
+                  }}
                   key={value}
                   onClick={() => {
                     const formation = Object.keys(SquadFormation).find(
@@ -142,6 +147,16 @@ const NewSquadPage = () => {
                   {value}
                 </span>
               ))}
+            </div>
+            <div className="flex flex-col items-center justify-center w-[17.5rem] mx-auto gap-[1rem] mb-[1.5rem]">
+              <InfoBulbIcon />
+              <p className="offbit-font w-[17.5rem] font-[700] tracking-[0.04em] leading-[100%] text-center text-[1.0625rem] text-modal-desc uppercase">
+                Choose a formation above, then tap a position below to add or
+                change a token. When all positions are set, click Continue.
+              </p>
+              <Button variant="secondary" className="w-full">
+                Continue
+              </Button>
             </div>
             <Pitch
               layout={layout}
@@ -162,17 +177,21 @@ const NewSquadPage = () => {
           <Sheet open={isOpen}>
             <SheetContent side="bottom" className="border-none h-screen">
               <div className="w-[24.375rem] mx-auto px-[1.25rem] overflow-y-scroll">
-                <PriceList
+                {/* <PriceList
                   onClickBack={onClose}
                   onSelect={(token) => handlePlayerSelect(token)}
-                />
+                /> */}
+                <SelectSquadPlayers onClose={onClose} list={layout.flat()} />
               </div>
             </SheetContent>
           </Sheet>
 
           <AllocateFunds
             isOpen={allocationDrawerIsOpen}
-            onClose={closeAllocationDrawer}
+            onCloseAction={function (): void {
+              throw new Error("Function not implemented.");
+            }}
+            totalBudget={0}
           />
         </form>
       </FormProvider>

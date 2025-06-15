@@ -1,10 +1,16 @@
 import { useMemo } from "react";
 
+export type NotificationStatus =
+  | "loading"
+  | "warning"
+  | "success"
+  | "error"
+  | "info";
+
 type ModalContent = {
   title: string;
   description: string;
   buttonLabel: string;
-  type: "success" | "error";
   onButtonClick: () => void;
 };
 
@@ -14,19 +20,16 @@ type LoadingContent = {
 };
 
 interface Args {
-  //   dependencies: boolean[];
   successContent?: ModalContent;
   errorContent?: ModalContent;
   loadingContent: LoadingContent;
-  isSuccess: boolean;
-  isError: boolean;
-  isLoading: boolean;
+  status: NotificationStatus;
 }
 
 export const useNotificationsModal = (args: Args) => {
   return useMemo(() => {
-    if (args.isSuccess) return args.successContent;
-    if (args.isLoading) return args.loadingContent;
-    if (args.isError) return args.errorContent;
-  }, [args.isError, args.isSuccess, args.isLoading]);
+    if (args.status === "success") return args.successContent;
+    if (args.status === "loading") return args.loadingContent;
+    if (args.status === "error") return args.errorContent;
+  }, [args.status]);
 };
