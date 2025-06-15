@@ -100,11 +100,6 @@ module bullfy::admin {
         event::emit(AdminCapCreated { admin: sender });
     }
 
-    // Test-only initialization function
-    #[test_only]
-    public fun init_for_testing(ctx: &mut TxContext) {
-        init(ctx);
-    }
 
     //setter functions for fees 
     public fun set_squad_creation_fee(
@@ -267,5 +262,12 @@ module bullfy::admin {
     // Get instant revival fee
     public fun get_instant_revival_fee(fee_config: &FeeConfig): u64 {
         fee_config.instant_revival_fee
+    }
+
+
+      // Test-only initialization function
+    #[test_only]
+    public fun init_for_testing(ctx: &mut TxContext) {
+        init(ctx);
     }
 }
