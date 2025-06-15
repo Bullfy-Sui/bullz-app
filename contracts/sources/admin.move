@@ -38,6 +38,9 @@ module bullfy::admin {
         instant_revival_fee: u64, // Instant revival fee in MIST
     }
 
+    //Initializing the admin module 
+    
+
     // Events
     public struct AdminCapCreated has copy, drop {
         admin: address
@@ -96,6 +99,37 @@ module bullfy::admin {
         // Emit event for the first admin
         event::emit(AdminCapCreated { admin: sender });
     }
+
+    // Test-only initialization function
+    #[test_only]
+    public fun init_for_testing(ctx: &mut TxContext) {
+        init(ctx);
+    }
+
+    //setter functions for fees 
+    public fun set_squad_creation_fee(
+        _admin_cap:&AdminCap,
+        fee_config:&mut FeeConfig,  
+        new_fee: u64,
+    ){
+        fee_config.squad_creation_fee = new_fee;
+    }
+    public fun set_standard_revival_fee(
+        _admin_cap:&AdminCap,
+        fee_config:&mut FeeConfig,
+        new_fee: u64,
+    ){
+        fee_config.standard_revival_fee = new_fee;
+    }
+
+    public fun set_instant_revival_fee(
+        _admin_cap:&AdminCap,
+        fee_config:&mut FeeConfig,
+        new_fee: u64,
+    ){
+        fee_config.instant_revival_fee = new_fee;
+    }
+
 
     // Create a new AdminCap and transfer it to the specified address
     public entry fun create_admin_cap(
@@ -234,4 +268,4 @@ module bullfy::admin {
     public fun get_instant_revival_fee(fee_config: &FeeConfig): u64 {
         fee_config.instant_revival_fee
     }
-} 
+}

@@ -154,6 +154,12 @@ module bullfy::match_escrow {
         };
         transfer::share_object(registry);
     }
+    #[test_only]
+
+    public fun init_for_testing(ctx:&mut TxContext){
+        init(ctx);
+
+    }
 
     // Create a new bid for a two-player challenge
     public entry fun create_bid(

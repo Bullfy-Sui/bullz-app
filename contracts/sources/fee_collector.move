@@ -41,6 +41,11 @@ module bullfy::fee_collector {
         // Share object so it can be accessed by other transactions
         transfer::share_object(fees);
     }
+    #[test_only]
+    public fun init_for_testing(ctx: &mut TxContext) {
+        init(ctx);
+    }
+
 
     public fun collect(fees: &mut Fees, incoming: Coin<SUI>, ctx: &mut TxContext) {
         let amount = coin::value(&incoming);
