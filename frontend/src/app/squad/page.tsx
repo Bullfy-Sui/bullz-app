@@ -1,40 +1,106 @@
 "use client";
 
-import PriceList from "@/components/general/token/price-list";
-import Header from "@/components/layout/header";
-import AddNewSquadButton from "./components/add-new-squad-button";
+import CreateBullModal from "@/components/general/modals/create-bull-modal";
 import NotificationModal from "@/components/general/modals/notify";
+import PriceList from "@/components/general/token/price-list";
+import NavWrapper from "@/components/layout/nav-wrapper";
 import { useDisclosure } from "@/lib/hooks/use-diclosure";
+import { NotificationStatus } from "@/lib/hooks/use-notifications-modal";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
+import AddNewSquadButton from "./components/add-new-squad-button";
 
 const SquadPage = () => {
   const { onOpen, onClose, isOpen } = useDisclosure();
+  const {
+    onOpen: openNotification,
+    isOpen: notificationIsOpen,
+    onClose: closeNotification,
+    disclosedData: notificationStatus,
+  } = useDisclosure<NotificationStatus>();
+  const [isCreating] = useState(false);
   const router = useRouter();
-  return (
-    <>
-      <Header />
-      <div className="h-[60dvh] overflow-y-scroll">
-        <PriceList />
-      </div>
+  const { isOpen: guideIsOpen, onClose: closeGuide } = useDisclosure();
 
-      <div className="bg-[#1E1E28] p-[1.5rem] border-t-[0.4px] border-white mt-1">
-        <div className="flex items-center">
-          <AddNewSquadButton onClick={onOpen} />
+  // Simulate checking wallet balance (you can replace this with actual wallet integration)
+  const checkWalletBalance = () => {
+    // Simulate insufficient balance - you can replace this with actual balance check
+    const hasInsufficientBalance = Math.random() > 0.5; // 50% chance for demo
+    return hasInsufficientBalance;
+  };
+
+  const handleAddButtonClick = () => {
+    onClose();
+    if (checkWalletBalance()) {
+      openNotification({ data: "error" });
+    } else {
+      openNotification({ data: "success" });
+    }
+  };
+
+  return (
+    <NavWrapper>
+      <>
+        <div className="flex flex-col h-full justify-between relative pt-[4rem] ">
+          <div className="h-[70dvh] overflow-y-scroll px-[1.5rem]">
+            <PriceList />
+          </div>
+
+          <div
+            style={{
+              boxShadow: "0px 4px 0px 0px #FFFFFF29 inset",
+            }}
+            className="bg-gray-850 h-[9.5rem] w-full p-[1.5rem]"
+          >
+            <span className="text-modal-desc font-[700] block text-[0.875rem] leading-[100%] mb-[1rem]">
+              YOUR BULLZ
+            </span>
+            <div className="flex items-center">
+              <AddNewSquadButton onClick={onOpen} />
+            </div>
+          </div>
         </div>
-      </div>
-      <NotificationModal
-        title="This will cost you 1 Sui"
-        description="To create a team you need to have 1 sui"
-        buttonLabel="Proceed"
-        isLoading={false}
-        isOpen={isOpen}
-        onButtonClick={() => {
-          router.push("/squad/new");
-        }}
-        onClose={onClose}
-        type="warning"
-      />
-    </>
+
+        <CreateBullModal
+          isOpen={isOpen}
+          onClose={onClose}
+          onCreate={handleAddButtonClick}
+          cost={1}
+          isCreating={isCreating}
+        />
+
+        <NotificationModal
+          status="info"
+          title="HOW TO PLAY"
+          description="Pick tokens to build your Bull and lock horns with other players. The BULL with the better token difference wins. START BY ADDING A BULL BELOW."
+          buttonLabel="I UNDERSTAND"
+          isOpen={guideIsOpen}
+          onClose={closeGuide}
+        />
+
+        <NotificationModal
+          // @ts-expect-error - -
+          status={notificationStatus}
+          title={
+            notificationStatus === "success"
+              ? "BULL CREATED"
+              : "INSUFFICIENT BALANCE"
+          }
+          description={
+            notificationStatus === "success"
+              ? "NOW CHOOSE TOKENS TO MAKE UP YOUR BULL, THEN LOCK HORNS WITH OTHER PLAYERS TO START WINNING"
+              : "YOU NEED AT LEAST 1 SUI IN YOUR WALLET TO CREATE A BULL. FUND YOUR WALLET AND TRY AGAIN"
+          }
+          onClose={() => closeNotification()}
+          buttonLabel={notificationStatus === "success" ? "LET'S GO!" : "CLOSE"}
+          onButtonClick={() => {
+            closeNotification();
+            if (notificationStatus === "success") router.push("/squad/new");
+          }}
+          isOpen={notificationIsOpen}
+        />
+      </>
+    </NavWrapper>
   );
 };
 

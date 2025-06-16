@@ -1,12 +1,9 @@
-import { useRegister } from "@/app/login/api-services";
-import NotificationModal from "@/components/general/modals/notify";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useDisclosure } from "@/lib/hooks/use-diclosure";
 import { useAppStore } from "@/lib/store/app-store";
 import { useConnectWallet, useWallets } from "@mysten/dapp-kit";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
 
 interface ConnectDrawerProps {
   isOpen: boolean;
@@ -17,48 +14,49 @@ const ConnectDrawer = (props: ConnectDrawerProps) => {
   const wallets = useWallets();
   const {
     mutate: connect,
-    isPending: connectingWallet,
-    isSuccess: connectionSuccess,
-    isError: connectionError,
+    // isPending: connectingWallet,
+    // isSuccess: connectionSuccess,
+    // isError: connectionError,
   } = useConnectWallet();
-  const {
-    mutate: registerUser,
-    isPending: registering,
-    isSuccess: registrationSuccess,
-    isError: registrationError,
-  } = useRegister();
+  // const {
+  //   // mutate: registerUser,
+  //   isPending: registering,
+  //   isSuccess: registrationSuccess,
+  //   isError: registrationError,
+  // } = useRegister();
   const { setAddress } = useAppStore();
   const router = useRouter();
   const {
     onOpen: openNotificationDrawer,
-    onClose: closeNotificationDrawer,
-    isOpen: notificationIsOpen,
+    // onClose: closeNotificationDrawer,
+    // isOpen: notificationIsOpen,
   } = useDisclosure();
 
-  const modalContent = useMemo(() => {
-    if (registrationSuccess || connectionSuccess) {
-      return {
-        title: "Connection Successful",
-        description: "You have successfully connected your wallet",
-        buttonLabel: "Proceed home",
-        type: "success",
-      };
-    }
-    if (registrationError || connectionError) {
-      return {
-        title: "Error connecting wallet",
-        description: "Sorry, we couldn’t connect your wallet",
-        buttonLabel: "Try Again",
-        type: "error",
-      };
-    }
-  }, [
-    registrationSuccess,
-    connectionSuccess,
-    registrationError,
-    connectionError,
-  ]);
+  // const modalContent = useMemo(() => {
+  //   if (registrationSuccess || connectionSuccess) {
+  //     return {
+  //       title: "Connection Successful",
+  //       description: "You have successfully connected your wallet",
+  //       buttonLabel: "Proceed home",
+  //       type: "success",
+  //     };
+  //   }
+  //   if (registrationError || connectionError) {
+  //     return {
+  //       title: "Error connecting wallet",
+  //       description: "Sorry, we couldn’t connect your wallet",
+  //       buttonLabel: "Try Again",
+  //       type: "error",
+  //     };
+  //   }
+  // }, [
+  //   registrationSuccess,
+  //   connectionSuccess,
+  //   registrationError,
+  //   connectionError,
+  // ]);
 
+  // @ts-expect-error - -
   const onConnect = (res) => {
     console.log(res);
     console.log("connected");
@@ -103,18 +101,17 @@ const ConnectDrawer = (props: ConnectDrawerProps) => {
         </DialogContent>
       </Dialog>
 
-      <NotificationModal
+      {/* <NotificationModal
         isOpen={notificationIsOpen}
         onClose={closeNotificationDrawer}
         onButtonClick={closeNotificationDrawer}
         buttonLabel={modalContent?.buttonLabel}
-        // @ts-expect-error - -
         type={modalContent?.type}
         isLoading={registering || connectingWallet}
         title={modalContent?.title}
-        // @ts-expect-error - -
+
         description={modalContent?.description}
-      />
+      /> */}
     </>
   );
 };

@@ -9,20 +9,15 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default:
-          "bg-button-bg text-button-foreground shadow-xs hover:bg-button-bg/90",
-        destructive:
-          "bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
-        outline:
-          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
-        secondary:
-          "bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80",
-        ghost:
-          "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
-        link: "text-primary underline-offset-4 hover:underline",
+        default: "border border-[#992100] rounded-none  bg-[#FF5324]",
+        secondary: "border border-[#161626] rounded-none  bg-[#32324D] ",
+        destructive: "",
+        outline: "",
+        ghost: "",
+        link: "",
       },
       size: {
-        default: "h-[4rem] px-4 py-2 has-[>svg]:px-3",
+        default: "h-[3rem] px-4 py-2 has-[>svg]:px-3",
         sm: "h-8 rounded-full gap-1.5 px-3 has-[>svg]:px-2.5",
         lg: "h-10 rounded-full px-6 has-[>svg]:px-4",
         icon: "size-9",
@@ -34,6 +29,12 @@ const buttonVariants = cva(
     },
   }
 );
+
+const textShadow = (variant: "default" | "secondary") =>
+  ({
+    secondary: "1px 1px 2px #1A1A1AB2, 0px 1px 1px #1A1A1AB2",
+    default: "1px 1px 2px #661600, 0px 1px 1px #661600",
+  }[variant]);
 
 function Button({
   className,
@@ -52,6 +53,13 @@ function Button({
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
+      style={{
+        textShadow: textShadow(
+          variant ? (variant as "default" | "secondary") : "default"
+        ),
+        boxShadow:
+          "0px 3.82px 2.55px 0px #00000040, 0px -8px 0px 0px #0000003D inset, 0px 8px 0px 0px #FFFFFF3D inset",
+      }}
     />
   );
 }
