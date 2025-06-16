@@ -4,13 +4,12 @@
 @theme {
   --color-background: #000019;
   --color-foreground: #ffffff;
-  --font-inter: Inter, sans-serif;
-  --font-geist: "Geist", sans-serif;
+  --font-offbit: var(--font-offbit);
   --color-waitlist-form-border: #404040;
   --color-button-foreground: #ffff;
   --color-button-bg: #ff5c16;
   --color-modal-bg: #1e1e28;
-  --color-modal-desc: #9898b3;
+  --color-gray-300: #9898b3;
   --color-gray-100: #dadae6;
   --color-gray-400: #7a7a99;
   --color-gray-700: #32324d;
@@ -38,16 +37,6 @@
   html {
     background-color: #000019;
   }
-}
-
-@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
-
-.offbit-font {
-  font-family: "Press Start 2P", monospace;
-  text-rendering: pixelated;
-  image-rendering: pixelated;
-  -webkit-font-smoothing: none;
-  /* // -moz-osx-font-smoothing: grayscale; */
 }
 
 .bull-glow {

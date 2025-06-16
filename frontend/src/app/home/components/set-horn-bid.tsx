@@ -121,12 +121,12 @@ const SetHornBid = (props: SetHornBidProps) => {
                     {address}
                   </span>
                 </div>
-                <span className="text-modal-desc text-[1rem] leading-[150%] font-[400]">
+                <span className="text-gray-300 text-[1rem] leading-[150%] font-[400]">
                   Connecting..
                 </span>
                 <div>
                   <DefaultDp />
-                  <span className="text-[0.625rem] text-center block leading-[150%] font-[600] text-modal-desc">
+                  <span className="text-[0.625rem] text-center block leading-[150%] font-[600] text-gray-300">
                     waiting..
                   </span>
                 </div>

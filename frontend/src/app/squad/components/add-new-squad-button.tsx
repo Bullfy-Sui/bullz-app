@@ -16,7 +16,7 @@ const AddNewSquadButton = (props: AddNewSquadButtonProps) => {
         }}
       >
         <PlusIcon color="#9898B3" />
-        <span className="text-modal-desc font-[700] text-[0.875rem] leading-[100%]">
+        <span className="text-gray-300 font-[700] text-[0.875rem] leading-[100%]">
           ADD
         </span>
       </div>

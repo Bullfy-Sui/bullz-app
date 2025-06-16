@@ -52,7 +52,7 @@ const SquadPage = () => {
             }}
             className="bg-gray-850 h-[9.5rem] w-full p-[1.5rem]"
           >
-            <span className="text-modal-desc font-[700] block text-[0.875rem] leading-[100%] mb-[1rem]">
+            <span className="text-gray-300 font-[700] block text-[0.875rem] leading-[100%] mb-[1rem]">
               YOUR BULLZ
             </span>
             <div className="flex items-center">

@@ -71,7 +71,7 @@ const DefaultPlayerDp = () => {
           fill="#0C092A"
         />
         <path
-          fill-rule="evenodd"
+          fillRule="evenodd"
           clip-rule="evenodd"
           d="M18.2617 24.5251C18.2617 24.8683 18.6822 25.1465 19.2008 25.1465C19.7195 25.1465 20.14 24.8683 20.14 24.5251"
           fill="black"

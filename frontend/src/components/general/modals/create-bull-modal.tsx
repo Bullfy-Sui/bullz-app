@@ -33,12 +33,14 @@ const CreateBullModal = ({
       }}
     >
       <div className="text-center space-y-[1rem]">
-        <h2 className="text-xl font-bold offbit-font">CREATE BULL</h2>
+        <h2 className="text-xl font-bold font-offbit">CREATE BULL</h2>
         <div className="flex items-center justify-center gap-[0.5rem]">
           <SuiLogo className="size-[2rem] rounded-full" />
-          <span className="block offbit-font text-[1.6875rem]">{cost}</span>
+          <span className="block font-offbit font-[700] text-[1.6875rem]">
+            {cost}
+          </span>
         </div>
-        <p className="text-gray-100 text-sm leading-[1.5rem] offbit-font">
+        <p className="text-gray-300 font-[700] leading-[1.0625rem] tracking-[0.04em] font-offbit">
           CREATING A BULL WILL <br /> COST YOU {cost} SUI
         </p>
       </div>

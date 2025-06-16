@@ -144,7 +144,7 @@ export default function LoginPage() {
           <div className="flex-1 flex flex-col items-center justify-center w-full text-center">
             <Bullfy width={"6.75rem"} height={"6.75rem"} />
 
-            <div className="text-4xl offbit-font text-white mb-10 tracking-wider mt-[1.5rem]">
+            <div className="text-4xl font-offbit text-white mb-10 tracking-wider mt-[1.5rem]">
               <BullzTextLogo />
             </div>
 

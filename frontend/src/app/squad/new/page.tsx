@@ -111,7 +111,7 @@ const NewSquadPage = () => {
               {Object.values(SquadFormation).map((value) => (
                 <span
                   className={cn(
-                    "w-[4.25rem] text-white h-full text-center  text-[0.875rem] leading-[100%] tracking-[0.04em] font-bold offbit-font flex items-center justify-center cursor-pointer",
+                    "w-[4.25rem] text-white h-full text-center  text-[0.875rem] leading-[100%] tracking-[0.04em] font-bold font-offbit flex items-center justify-center cursor-pointer",
                     {
                       "bg-gray-800 ": formation === value,
                     }
@@ -141,7 +141,7 @@ const NewSquadPage = () => {
             </div>
             <div className="flex flex-col items-center justify-center w-[17.5rem] mx-auto gap-[1rem] mb-[1.5rem]">
               <InfoBulbIcon />
-              <p className="offbit-font w-[17.5rem] font-[700] tracking-[0.04em] leading-[100%] text-center text-[1.0625rem] text-modal-desc uppercase">
+              <p className="font-offbit w-[17.5rem] font-[700] tracking-[0.04em] leading-[100%] text-center text-[1.0625rem] text-gray-300 uppercase">
                 Choose a formation above, then tap a position below to add or
                 change a token. When all positions are set, click Continue.
               </p>

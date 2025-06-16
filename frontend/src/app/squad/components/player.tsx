@@ -12,7 +12,7 @@ const Player = ({
 }) => {
   return (
     <div className="flex flex-col items-center justify-center">
-      <div className="border-[0.5px] mb-[-1.25rem] z-10 border-modal-desc w-[3.1875rem] text-center rounded-full offbit-font text-black font-[700] leading-[100%] tracking-[0.04em] bg-white p-[0.5rem] h-[1.75rem] flex items-center justify-center">
+      <div className="border-[0.5px] mb-[-1.25rem] z-10 border-gray-300 w-[3.1875rem] text-center rounded-full font-offbit text-black font-[700] leading-[100%] tracking-[0.04em] bg-white p-[0.5rem] h-[1.75rem] flex items-center justify-center">
         {multiplier}x
       </div>
       <div
@@ -23,7 +23,7 @@ const Player = ({
       </div>
 
       <div className="w-full h-[1.9375rem] bg-white rounded-full flex items-center justify-center -mt-[1.5rem]">
-        <span className=" text-black w-full text-[1.375rem]  font-[700] offbit-font leading-[100%] tracking-[0.04em] text-center">
+        <span className=" text-black w-full text-[1.375rem]  font-[700] font-offbit leading-[100%] tracking-[0.04em] text-center">
           {player.name}
         </span>
       </div>

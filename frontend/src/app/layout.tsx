@@ -1,16 +1,22 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
 import RootProvider from "@/components/providers/root-provider";
+import type { Metadata } from "next";
+import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+import localFont from "next/font/local";
+const offbit = localFont({
+  src: [
+    {
+      path: "../../public/assets/fonts/offbit/OffBit-Regular.ttf",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "../../public/assets/fonts/offbit/OffBit-Bold.ttf",
+      weight: "700",
+      style: "normal",
+    },
+  ],
+  variable: "--font-offbit",
 });
 
 export const metadata: Metadata = {
@@ -25,9 +31,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${offbit.variable} font-offbit antialiased`}>
         <RootProvider>
           <div className="max-w-[26.875rem] w-full mx-auto">{children}</div>
         </RootProvider>
