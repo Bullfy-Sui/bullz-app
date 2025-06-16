@@ -21,7 +21,7 @@ module bullfy::match_escrow_tests {
     const MIN_BID_AMOUNT: u64 = 1_000_000; // 0.001 SUI
     const TEST_BID_AMOUNT: u64 = 10_000_000; // 0.01 SUI
     const TEST_DURATION: u64 = 300_000; // 5 minutes
-    const TEST_FEE_RATE: u64 = 500; // 5% in basis points
+    const TEST_FEE_RATE: u64 = 5; // 5% in actual percentage
 
     // Helper function to create a test scenario
     fun create_test_scenario(): Scenario {
@@ -108,7 +108,7 @@ module bullfy::match_escrow_tests {
             let fee_config = test_scenario::take_shared<FeeConfig>(&scenario);
             let clock = clock::create_for_testing(test_scenario::ctx(&mut scenario));
             
-            let payment = create_test_coin(TEST_BID_AMOUNT + (TEST_BID_AMOUNT * TEST_FEE_RATE / 10000), test_scenario::ctx(&mut scenario));
+            let payment = create_test_coin(TEST_BID_AMOUNT + (TEST_BID_AMOUNT * TEST_FEE_RATE / 100), test_scenario::ctx(&mut scenario));
             
             match_escrow::create_bid(
                 &mut registry,
@@ -207,7 +207,7 @@ module bullfy::match_escrow_tests {
             let fee_config = test_scenario::take_shared<FeeConfig>(&scenario);
             let clock = clock::create_for_testing(test_scenario::ctx(&mut scenario));
             
-            let payment = create_test_coin(TEST_BID_AMOUNT + (TEST_BID_AMOUNT * TEST_FEE_RATE / 10000), test_scenario::ctx(&mut scenario));
+            let payment = create_test_coin(TEST_BID_AMOUNT + (TEST_BID_AMOUNT * TEST_FEE_RATE / 100), test_scenario::ctx(&mut scenario));
             
             match_escrow::create_bid(
                 &mut registry,
@@ -242,7 +242,7 @@ module bullfy::match_escrow_tests {
             let fee_config = test_scenario::take_shared<FeeConfig>(&scenario);
             let clock = clock::create_for_testing(test_scenario::ctx(&mut scenario));
             
-            let payment = create_test_coin(TEST_BID_AMOUNT + (TEST_BID_AMOUNT * TEST_FEE_RATE / 10000), test_scenario::ctx(&mut scenario));
+            let payment = create_test_coin(TEST_BID_AMOUNT + (TEST_BID_AMOUNT * TEST_FEE_RATE / 100), test_scenario::ctx(&mut scenario));
             
             match_escrow::create_bid(
                 &mut registry,
@@ -332,7 +332,7 @@ module bullfy::match_escrow_tests {
             let fee_config = test_scenario::take_shared<FeeConfig>(&scenario);
             let clock = clock::create_for_testing(test_scenario::ctx(&mut scenario));
             
-            let payment = create_test_coin(TEST_BID_AMOUNT + (TEST_BID_AMOUNT * TEST_FEE_RATE / 10000), test_scenario::ctx(&mut scenario));
+            let payment = create_test_coin(TEST_BID_AMOUNT + (TEST_BID_AMOUNT * TEST_FEE_RATE / 100), test_scenario::ctx(&mut scenario));
             
             match_escrow::create_bid(
                 &mut registry,

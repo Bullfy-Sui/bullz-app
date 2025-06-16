@@ -38,7 +38,7 @@ module bullfy::admin_tests {
             let fee_config = test::take_shared<FeeConfig>(&scenario);
             
             // Verify default values
-            assert!(admin::get_upfront_fee_bps(&fee_config) == 500, 2); // 5%
+            assert!(admin::get_upfront_fee_bps(&fee_config) == 5, 2); // 5%
             assert!(admin::get_squad_creation_fee(&fee_config) == 1_000_000_000, 3); // 1 SUI
             assert!(admin::get_standard_revival_fee(&fee_config) == 50_000_000, 4); // 0.05 SUI
             assert!(admin::get_instant_revival_fee(&fee_config) == 100_000_000, 5); // 0.1 SUI
@@ -140,9 +140,9 @@ module bullfy::admin_tests {
             let admin_cap = test::take_from_address<AdminCap>(&scenario, OWNER);
             let mut fee_config = test::take_shared<FeeConfig>(&scenario);
             
-            admin::update_fee_percentage(&admin_cap, &mut fee_config, 750, ctx(&mut scenario)); // 7.5%
+            admin::update_fee_percentage(&admin_cap, &mut fee_config, 7, ctx(&mut scenario)); // 7%
             
-            assert!(admin::get_upfront_fee_bps(&fee_config) == 750, 0);
+            assert!(admin::get_upfront_fee_bps(&fee_config) == 7, 0);
             
             test::return_to_address(OWNER, admin_cap);
             test::return_shared(fee_config);
@@ -163,7 +163,7 @@ module bullfy::admin_tests {
             let admin_cap = test::take_from_address<AdminCap>(&scenario, OWNER);
             let mut fee_config = test::take_shared<FeeConfig>(&scenario);
             
-            admin::update_fee_percentage(&admin_cap, &mut fee_config, 1001, ctx(&mut scenario)); // 10.01%
+            admin::update_fee_percentage(&admin_cap, &mut fee_config, 11, ctx(&mut scenario)); // 11% - above maximum
             
             test::return_to_address(OWNER, admin_cap);
             test::return_shared(fee_config);
@@ -345,7 +345,7 @@ module bullfy::admin_tests {
             let admin_cap = test::take_from_address<AdminCap>(&scenario, ADMIN1);
             let mut fee_config = test::take_shared<FeeConfig>(&scenario);
             
-            admin::update_fee_percentage(&admin_cap, &mut fee_config, 600, ctx(&mut scenario)); // 6%
+            admin::update_fee_percentage(&admin_cap, &mut fee_config, 6, ctx(&mut scenario)); // 6%
             
             test::return_to_address(ADMIN1, admin_cap);
             test::return_shared(fee_config);
@@ -358,7 +358,7 @@ module bullfy::admin_tests {
             
             admin::update_squad_creation_fee(&admin_cap, &mut fee_config, 2_000_000_000, ctx(&mut scenario)); // 2 SUI
             
-            assert!(admin::get_upfront_fee_bps(&fee_config) == 600, 0); // Should still be 6% from ADMIN1
+            assert!(admin::get_upfront_fee_bps(&fee_config) == 6, 0); // Should still be 6% from ADMIN1
             assert!(admin::get_squad_creation_fee(&fee_config) == 2_000_000_000, 1); // Should be 2 SUI from ADMIN2
             
             test::return_to_address(ADMIN2, admin_cap);
@@ -382,8 +382,8 @@ module bullfy::admin_tests {
             admin::update_fee_percentage(&admin_cap, &mut fee_config, 0, ctx(&mut scenario)); // 0%
             assert!(admin::get_upfront_fee_bps(&fee_config) == 0, 0);
             
-            admin::update_fee_percentage(&admin_cap, &mut fee_config, 1000, ctx(&mut scenario)); // 10%
-            assert!(admin::get_upfront_fee_bps(&fee_config) == 1000, 1);
+            admin::update_fee_percentage(&admin_cap, &mut fee_config, 10, ctx(&mut scenario)); // 10%
+            assert!(admin::get_upfront_fee_bps(&fee_config) == 10, 1);
             
             // Test squad creation fee boundaries
             admin::update_squad_creation_fee(&admin_cap, &mut fee_config, 100_000_000, ctx(&mut scenario)); // 0.1 SUI (min)
@@ -414,7 +414,7 @@ module bullfy::admin_tests {
             let fee_config = test::take_shared<FeeConfig>(&scenario);
             
             // Test all getter functions return correct default values
-            assert!(admin::get_upfront_fee_bps(&fee_config) == 500, 0);
+            assert!(admin::get_upfront_fee_bps(&fee_config) == 5, 0);
             assert!(admin::get_squad_creation_fee(&fee_config) == 1_000_000_000, 1);
             assert!(admin::get_standard_revival_fee(&fee_config) == 50_000_000, 2);
             assert!(admin::get_instant_revival_fee(&fee_config) == 100_000_000, 3);
