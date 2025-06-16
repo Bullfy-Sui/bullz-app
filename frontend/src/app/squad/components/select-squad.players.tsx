@@ -1,8 +1,7 @@
 import { useGetPriceList } from "@/common-api-services/token-price.ts";
 import TokenCard from "@/components/general/token/card";
-import { Button } from "@/components/ui/button";
-import EmptyPlayerButton from "./empty-player-button";
 import PlusIcon from "@/components/icons/plus.icon";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface Props {
