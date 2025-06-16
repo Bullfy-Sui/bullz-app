@@ -10,7 +10,7 @@ module bullfy::admin {
     const EInvalidRevivalFee: vector<u8> = b"Revival fee must be between 10000000 and 1000000000 MIST (0.01-1 SUI)";
 
     // Constants
-    const MAX_FEE_PERCENTAGE: u64 = 10; // Maximum 10% fee
+    const MAX_FEE_BPS: u64 = 1000; // Maximum 10% fee (1000 basis points)
     const MIN_SQUAD_CREATION_FEE: u64 = 100_000_000; // Minimum 0.1 SUI
     const MAX_SQUAD_CREATION_FEE: u64 = 10_000_000_000; // Maximum 10 SUI
     const MIN_REVIVAL_FEE: u64 = 10_000_000; // Minimum 0.01 SUI
@@ -29,7 +29,7 @@ module bullfy::admin {
     // Global fee configuration
     public struct FeeConfig has key {
         id: UID,
-        upfront_fee_percentage: u64, // Fee as percentage (e.g., 5 = 5%)
+        upfront_fee_bps: u64, // Fee in basis points (e.g., 500 = 5%)
         squad_creation_fee: u64, // Squad creation fee in MIST
         standard_revival_fee: u64, // Standard revival fee after 24hr wait in MIST
         instant_revival_fee: u64, // Instant revival fee in MIST
@@ -45,8 +45,8 @@ module bullfy::admin {
     }
 
     public struct FeePercentageUpdated has copy, drop {
-        old_fee_percentage: u64,
-        new_fee_percentage: u64,
+        old_fee_bps: u64,
+        new_fee_bps: u64,
         updated_by: address,
     }
 
@@ -83,7 +83,7 @@ module bullfy::admin {
         // Create global fee configuration with defaults
         let fee_config = FeeConfig {
             id: object::new(ctx),
-            upfront_fee_percentage: 5, // 5% default fee
+            upfront_fee_bps: 500, // 5% default fee (500 basis points)
             squad_creation_fee: 1_000_000_000, // 1 SUI default fee
             standard_revival_fee: 50_000_000, // 0.05 SUI default fee
             instant_revival_fee: 100_000_000, // 0.1 SUI default fee
@@ -137,25 +137,25 @@ module bullfy::admin {
         transfer::transfer(owner_cap, new_owner);
     }
 
-    // Update the upfront fee percentage (admin only)
+    // Update the upfront fee in basis points (admin only)
     public entry fun update_fee_percentage(
         _: &AdminCap,
         fee_config: &mut FeeConfig,
-        new_fee_percentage: u64,
+        new_fee_bps: u64,
         ctx: &mut TxContext
     ) {
         let sender = tx_context::sender(ctx);
         
-        // Validate fee percentage (0-10%)
-        assert!(new_fee_percentage <= MAX_FEE_PERCENTAGE, EInvalidFeePercentage);
+        // Validate fee in basis points (0-1000 = 0-10%)
+        assert!(new_fee_bps <= MAX_FEE_BPS, EInvalidFeePercentage);
         
-        let old_fee_percentage = fee_config.upfront_fee_percentage;
-        fee_config.upfront_fee_percentage = new_fee_percentage;
+        let old_fee_bps = fee_config.upfront_fee_bps;
+        fee_config.upfront_fee_bps = new_fee_bps;
         
         // Emit event
         event::emit(FeePercentageUpdated {
-            old_fee_percentage,
-            new_fee_percentage,
+            old_fee_bps,
+            new_fee_bps,
             updated_by: sender,
         });
     }
@@ -214,9 +214,9 @@ module bullfy::admin {
         });
     }
 
-    // Get current upfront fee percentage
+    // Get current upfront fee in basis points
     public fun get_upfront_fee_bps(fee_config: &FeeConfig): u64 {
-        fee_config.upfront_fee_percentage
+        fee_config.upfront_fee_bps
     }
 
     // Get current squad creation fee

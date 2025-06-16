@@ -6,7 +6,7 @@ module bullfy::fee_calculator {
         base_amount: u64,
         fee_config: &FeeConfig
     ): (u64, u64) {
-        let fee_amount = (base_amount * admin::get_upfront_fee_bps(fee_config)) / 100;
+        let fee_amount = (base_amount * admin::get_upfront_fee_bps(fee_config)) / 10000;
         let total_required = base_amount + fee_amount;
         (fee_amount, total_required)
     }
@@ -16,7 +16,7 @@ module bullfy::fee_calculator {
         base_amount: u64,
         fee_config: &FeeConfig
     ): u64 {
-        (base_amount * admin::get_upfront_fee_bps(fee_config)) / 100
+        (base_amount * admin::get_upfront_fee_bps(fee_config)) / 10000
     }
 
     // Calculate total required payment (base + fee)
