@@ -1,29 +1,22 @@
 "use client";
 
-import { TokenResponse } from "@/common-api-services/token-price.ts/types";
 import NotificationModal from "@/components/general/modals/notify";
 import TitleBar from "@/components/general/title-bar";
-import PriceList from "@/components/general/token/price-list";
+import InfoBulbIcon from "@/components/icons/info-bulb.icon";
+import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useDisclosure } from "@/lib/hooks/use-diclosure";
 import { useNotificationsModal } from "@/lib/hooks/use-notifications-modal";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import {
-  FormProvider,
-  useFieldArray,
-  useForm,
-  useWatch,
-} from "react-hook-form";
+import { FormProvider, useFieldArray, useForm } from "react-hook-form";
 import { useCreateSquad } from "../api-services";
 import AllocateFunds from "../components/allocate-funds";
 import Pitch from "../components/pitch";
-import { formationLayouts, SquadFormation, TOTAL_BUDGET } from "../constants";
-import { FormationLayoutKey, SquadForm } from "../types";
-import InfoBulbIcon from "@/components/icons/info-bulb.icon";
-import { Button } from "@/components/ui/button";
 import SelectSquadPlayers from "../components/select-squad.players";
+import { formationLayouts, SquadFormation } from "../constants";
+import { FormationLayoutKey, SquadForm } from "../types";
 
 const NewSquadPage = () => {
   const [layout, setLayout] = useState(formationLayouts.OneThreeOneTwo);
@@ -42,47 +35,45 @@ const NewSquadPage = () => {
     isError: creationError,
   } = useCreateSquad();
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null); // Add this state for focused index
-  const {
-    isOpen: allocationDrawerIsOpen,
-    onClose: closeAllocationDrawer,
-    onOpen: openAllocationDrawer,
-  } = useDisclosure();
+  const { isOpen: allocationDrawerIsOpen, onOpen: openAllocationDrawer } =
+    useDisclosure();
   const form = useForm<SquadForm>({
     defaultValues: { formation: "OneThreeOneTwo" },
   });
   const playerArray = useFieldArray({ control: form.control, name: "players" });
-  const playerArrayWatch = useWatch({ control: form.control, name: "players" });
+  // const playerArrayWatch = useWatch({ control: form.control, name: "players" });
 
-  const handlePlayerSelect = (token: TokenResponse) => {
-    const foundPlayer = playerArrayWatch?.find(
-      (player) => player.position === focusedIndex
-    );
-    console.log(
-      foundPlayer,
-      focusedIndex,
-      token,
-      playerArray.fields,
-      playerArray.fields.length
-    );
+  console.log(focusedIndex);
+  // const handlePlayerSelect = (token: TokenResponse) => {
+  //   const foundPlayer = playerArrayWatch?.find(
+  //     (player) => player.position === focusedIndex
+  //   );
+  //   console.log(
+  //     foundPlayer,
+  //     focusedIndex,
+  //     token,
+  //     playerArray.fields,
+  //     playerArray.fields.length
+  //   );
 
-    if (foundPlayer)
-      playerArray.update(playerArrayWatch.indexOf(foundPlayer), {
-        ...foundPlayer,
-        name: token.token_symbol,
-        token_price_id: token.token_id,
-      });
+  //   if (foundPlayer)
+  //     playerArray.update(playerArrayWatch.indexOf(foundPlayer), {
+  //       ...foundPlayer,
+  //       name: token.token_symbol,
+  //       token_price_id: token.token_id,
+  //     });
 
-    if (playerArray.fields.length < 7 && !foundPlayer) {
-      playerArray.append({
-        position: focusedIndex as number,
-        name: token.token_symbol,
-        allocated_value: (1 / 100) * TOTAL_BUDGET,
-        token_price_id: token.token_id,
-      });
-      console.log(playerArray.fields);
-    }
-    onClose();
-  };
+  //   if (playerArray.fields.length < 7 && !foundPlayer) {
+  //     playerArray.append({
+  //       position: focusedIndex as number,
+  //       name: token.token_symbol,
+  //       allocated_value: (1 / 100) * TOTAL_BUDGET,
+  //       token_price_id: token.token_id,
+  //     });
+  //     console.log(playerArray.fields);
+  //   }
+  //   onClose();
+  // };
 
   const onSubmit = form.handleSubmit((values) => {
     console.log(values);
@@ -208,7 +199,6 @@ const NewSquadPage = () => {
         isLoading={creating}
         // @ts-expect-error - -
         title={modalContent?.title}
-        // @ts-expect-error - -
         description={modalContent?.description}
       />
     </>

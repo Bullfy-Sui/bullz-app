@@ -1,122 +1,27 @@
 "use client";
 
+import NotificationModal from "@/components/general/modals/notify";
+import Bullfy from "@/components/svg/bullfy";
+import BullzTextLogo from "@/components/svg/bullz-text.logo";
 import { Button } from "@/components/ui/button";
 import { useDisclosure } from "@/lib/hooks/use-diclosure";
-import ConnectDrawer from "../home/components/connect-drawer";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import NotificationModal from "@/components/general/modals/notify";
 import {
   NotificationStatus,
   useNotificationsModal,
 } from "@/lib/hooks/use-notifications-modal";
-import BullzTextLogo from "@/components/svg/bullz-text.logo";
-import Bullfy from "@/components/svg/bullfy";
+import { useRouter } from "next/navigation";
+import ConnectDrawer from "../home/components/connect-drawer";
 
-declare global {
-  interface Window {
-    suiWallet?: any;
-    SlushWallet?: { sui?: any };
-    eternl?: any;
-  }
-}
-
-type WalletModalProps = {
-  isOpen: boolean;
-  onClose: () => void;
-  status: "connecting" | "failed" | "success";
-  onRetry: () => void;
-  connectedAccount?: { address: string } | null;
-};
-
-const WalletModal = ({
-  isOpen,
-  onClose,
-  status,
-  onRetry,
-  connectedAccount,
-}: WalletModalProps) => {
-  if (!isOpen) return null;
-
-  const getStatusContent = () => {
-    switch (status) {
-      case "connecting":
-        return {
-          icon: "⏳",
-          title: "CONNECTING WALLET...",
-          message: null,
-          buttonText: "CANCEL",
-          buttonAction: onClose,
-          buttonStyle: "bg-orange-500 hover:bg-orange-600",
-        };
-      case "failed":
-        return {
-          icon: "❗",
-          title: "FAILED",
-          message:
-            "WE COULDN'T CONNECT YOUR WALLET. TRY AGAIN OR USE A DIFFERENT WALLET",
-          buttonText: "CLOSE",
-          buttonAction: onClose,
-          buttonStyle: "bg-orange-500 hover:bg-orange-600",
-        };
-      case "success":
-        return {
-          icon: "✓",
-          title: "CONNECTED",
-          message: "YOUR WALLET HAS BEEN CONNECTED. YOU CAN START PLAYING NOW.",
-          buttonText: "CONTINUE",
-          buttonAction: onClose,
-          buttonStyle: "bg-orange-500 hover:bg-orange-600",
-        };
-      default:
-        return null;
-    }
-  };
-
-  const content = getStatusContent();
-  if (!content) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 px-4">
-      <div className="bg-slate-800 rounded-lg p-6 w-full max-w-sm text-center border border-slate-600">
-        <div className="flex justify-center mb-4">
-          <Bullfy />
-        </div>
-
-        <div className="text-3xl mb-4">{content.icon}</div>
-
-        <h3 className="text-white font-bold text-lg mb-4 offbit-font text-sm">
-          {content.title}
-        </h3>
-
-        {content.message && (
-          <p className="text-gray-300 text-sm mb-6 leading-relaxed">
-            {content.message}
-          </p>
-        )}
-
-        {status === "success" && connectedAccount?.address && (
-          <div className="mb-4 p-3 bg-slate-700 rounded-lg">
-            <p className="text-xs text-gray-400 mb-1">Connected Account:</p>
-            <p className="text-white text-xs font-mono break-all">
-              {connectedAccount.address}
-            </p>
-          </div>
-        )}
-
-        <Button
-          onClick={content.buttonAction}
-          className={`w-full h-12 text-white font-bold text-sm rounded-lg transition-colors ${content.buttonStyle}`}
-        >
-          {content.buttonText}
-        </Button>
-      </div>
-    </div>
-  );
-};
+// declare global {
+//   interface Window {
+//     suiWallet?: any;
+//     SlushWallet?: { sui?: any };
+//     eternl?: any;
+//   }
+// }
 
 export default function LoginPage() {
-  const { onOpen, onClose, isOpen } = useDisclosure();
+  const { onClose, isOpen } = useDisclosure();
   const router = useRouter();
 
   const {
@@ -124,87 +29,86 @@ export default function LoginPage() {
     onClose: closeWalletModal,
     onOpen: openWalletModal,
     disclosedData: notificationModalStatus,
-    updateData,
   } = useDisclosure<NotificationStatus>();
   // const [walletStatus, setWalletStatus] = useState<
   //   "connecting" | "failed" | "success"
   // >("connecting");
-  const [suiWallet, setSuiWallet] = useState<any>(null);
-  const [connectedAccount, setConnectedAccount] = useState<{
-    address: string;
-  } | null>(null);
+  // const [suiWallet, setSuiWallet] = useState<any>(null);
+  // const [connectedAccount, setConnectedAccount] = useState<{
+  //   address: string;
+  // } | null>(null);
 
-  useEffect(() => {
-    const checkWallet = () => {
-      if (typeof window !== "undefined") {
-        if (window.suiWallet) setSuiWallet(window.suiWallet);
-        else if (window.SlushWallet?.sui) setSuiWallet(window.SlushWallet.sui);
-        else if (window.eternl) setSuiWallet(window.eternl);
-      }
-    };
+  // useEffect(() => {
+  //   const checkWallet = () => {
+  //     if (typeof window !== "undefined") {
+  //       if (window.suiWallet) setSuiWallet(window.suiWallet);
+  //       else if (window.SlushWallet?.sui) setSuiWallet(window.SlushWallet.sui);
+  //       else if (window.eternl) setSuiWallet(window.eternl);
+  //     }
+  //   };
 
-    checkWallet();
-    const interval = setInterval(checkWallet, 1000);
-    return () => clearInterval(interval);
-  }, []);
+  //   checkWallet();
+  //   const interval = setInterval(checkWallet, 1000);
+  //   return () => clearInterval(interval);
+  // }, []);
 
-  const handleSuiWalletConnect = async () => {
-    // setWalletStatus("connecting");
-    openWalletModal();
+  // const handleSuiWalletConnect = async () => {
+  //   // setWalletStatus("connecting");
+  //   openWalletModal();
 
-    try {
-      const wallet =
-        suiWallet ??
-        window?.suiWallet ??
-        window?.SlushWallet?.sui ??
-        window?.eternl;
+  //   try {
+  //     const wallet =
+  //       suiWallet ??
+  //       window?.suiWallet ??
+  //       window?.SlushWallet?.sui ??
+  //       window?.eternl;
 
-      if (!wallet) throw new Error("No SUI-compatible wallet found.");
+  //     if (!wallet) throw new Error("No SUI-compatible wallet found.");
 
-      const response = await wallet.requestPermissions({
-        permissions: ["viewAccount"],
-      });
+  //     const response = await wallet.requestPermissions({
+  //       permissions: ["viewAccount"],
+  //     });
 
-      if (response?.accounts?.length > 0) {
-        const account = response.accounts[0];
-        setConnectedAccount(account);
-        // setWalletStatus("success");
+  //     if (response?.accounts?.length > 0) {
+  //       const account = response.accounts[0];
+  //       setConnectedAccount(account);
+  //       // setWalletStatus("success");
 
-        // Redirect to /squad after slight delay
-        setTimeout(() => {
-          closeWalletModal();
-          router.push("/squad");
-        }, 1500);
-      } else {
-        throw new Error("No accounts found.");
-      }
-    } catch (error) {
-      console.error("Wallet connection failed:", error);
-      // setWalletStatus("failed");
-    }
-  };
+  //       // Redirect to /squad after slight delay
+  //       setTimeout(() => {
+  //         closeWalletModal();
+  //         router.push("/squad");
+  //       }, 1500);
+  //     } else {
+  //       throw new Error("No accounts found.");
+  //     }
+  //   } catch (error) {
+  //     console.error("Wallet connection failed:", error);
+  //     // setWalletStatus("failed");
+  //   }
+  // };
 
-  const handleSlushConnect = () => {
-    // setWalletStatus("connecting");
-    openWalletModal();
+  // const handleSlushConnect = () => {
+  //   // setWalletStatus("connecting");
+  //   openWalletModal();
 
-    // Simulated Slush Wallet connection
-    setTimeout(() => {
-      const success = true;
-      if (success) {
-        // setWalletStatus("success");
-        setConnectedAccount({ address: "slush_demo_address" });
+  //   // Simulated Slush Wallet connection
+  //   setTimeout(() => {
+  //     const success = true;
+  //     if (success) {
+  //       // setWalletStatus("success");
+  //       setConnectedAccount({ address: "slush_demo_address" });
 
-        setTimeout(() => {
-          closeWalletModal();
-          router.push("/squad");
-        }, 1500);
-      } else {
-        updateData("error");
-        // setWalletStatus("failed");
-      }
-    }, 2000);
-  };
+  //       setTimeout(() => {
+  //         closeWalletModal();
+  //         router.push("/squad");
+  //       }, 1500);
+  //     } else {
+  //       updateData("error");
+  //       // setWalletStatus("failed");
+  //     }
+  //   }, 2000);
+  // };
 
   // const closeWalletModal = () => {
   //   closeWalletModal();
@@ -229,6 +133,7 @@ export default function LoginPage() {
       onButtonClick: () => closeWalletModal(),
     },
     loadingContent: { description: "Connecting wallet...", type: "loading" },
+    // @ts-expect-error - -
     status: notificationModalStatus,
   });
 
@@ -279,11 +184,14 @@ export default function LoginPage() {
       <NotificationModal
         isOpen={walletModalIsOpen}
         onClose={closeWalletModal}
-        onButtonClick={modalContent?.onButtonClick}
+        // @ts-expect-error - -
+        status={notificationModalStatus}
         // @ts-expect-error - -
         buttonLabel={modalContent?.buttonLabel}
-        status={notificationModalStatus}
+        // @ts-expect-error - -
         title={modalContent?.title}
+        // @ts-expect-error - -
+        onButtonClick={modalContent?.onButtonClick}
         description={modalContent?.description}
       />
     </>

@@ -10,12 +10,12 @@ import { NotificationStatus } from "@/lib/hooks/use-notifications-modal";
 
 interface NotificationModalProps {
   status: NotificationStatus;
-  title?: string;
-  description: string;
+  description?: string;
   onClose: () => void;
+  isOpen: boolean;
+  title?: string;
   buttonLabel?: string;
   onButtonClick?: () => void;
-  isOpen: boolean;
 }
 
 const NotificationModal = (props: NotificationModalProps) => {

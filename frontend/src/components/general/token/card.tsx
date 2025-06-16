@@ -1,5 +1,4 @@
 import { TokenResponse } from "@/common-api-services/token-price.ts/types";
-import CheckBadge from "@/components/icons/check-badge";
 import SuiLogo from "@/components/svg/sui.logo";
 import { cn } from "@/lib/utils";
 

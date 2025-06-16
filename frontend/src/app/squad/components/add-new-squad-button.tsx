@@ -1,4 +1,3 @@
-import PlusCircle from "@/components/icons/plus-circle.icon";
 import PlusIcon from "@/components/icons/plus.icon";
 
 interface AddNewSquadButtonProps {
