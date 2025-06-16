@@ -1,16 +1,14 @@
 "use client";
 
-import PriceList from "@/components/general/token/price-list";
-import Header from "@/components/layout/header";
-import AddNewSquadButton from "./components/add-new-squad-button";
 import CreateBullModal from "@/components/general/modals/create-bull-modal";
 import NotificationModal from "@/components/general/modals/notify";
+import PriceList from "@/components/general/token/price-list";
+import NavWrapper from "@/components/layout/nav-wrapper";
 import { useDisclosure } from "@/lib/hooks/use-diclosure";
+import { NotificationStatus } from "@/lib/hooks/use-notifications-modal";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import NavBar from "@/components/layout/navbar";
-import NavWrapper from "@/components/layout/nav-wrapper";
-import { NotificationStatus } from "@/lib/hooks/use-notifications-modal";
+import AddNewSquadButton from "./components/add-new-squad-button";
 
 const SquadPage = () => {
   const { onOpen, onClose, isOpen } = useDisclosure();
@@ -20,13 +18,9 @@ const SquadPage = () => {
     onClose: closeNotification,
     disclosedData: notificationStatus,
   } = useDisclosure<NotificationStatus>();
-  const [isCreating, setIsCreating] = useState(false);
+  const [isCreating] = useState(false);
   const router = useRouter();
-  const {
-    isOpen: guideIsOpen,
-    onClose: closeGuide,
-    onOpen: openGuide,
-  } = useDisclosure();
+  const { isOpen: guideIsOpen, onClose: closeGuide } = useDisclosure();
 
   // Simulate checking wallet balance (you can replace this with actual wallet integration)
   const checkWalletBalance = () => {
@@ -85,6 +79,7 @@ const SquadPage = () => {
         />
 
         <NotificationModal
+          // @ts-expect-error - -
           status={notificationStatus}
           title={
             notificationStatus === "success"
@@ -100,7 +95,7 @@ const SquadPage = () => {
           buttonLabel={notificationStatus === "success" ? "LET'S GO!" : "CLOSE"}
           onButtonClick={() => {
             closeNotification();
-            notificationStatus === "success" && router.push("/squad/new");
+            if (notificationStatus === "success") router.push("/squad/new");
           }}
           isOpen={notificationIsOpen}
         />

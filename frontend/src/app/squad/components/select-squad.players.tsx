@@ -2,8 +2,6 @@ import { useGetPriceList } from "@/common-api-services/token-price.ts";
 import TokenCard from "@/components/general/token/card";
 import { Button } from "@/components/ui/button";
 import EmptyPlayerButton from "./empty-player-button";
-import { useFormContext } from "react-hook-form";
-import { SquadForm } from "../types";
 
 interface Props {
   list: number[][];
@@ -13,8 +11,8 @@ interface Props {
 const SelectSquadPlayers = (props: Props) => {
   console.log(props);
   const { data: priceListResponse } = useGetPriceList();
-  const { getValues } = useFormContext<SquadForm>();
-  const formation = getValues("formation");
+  // const { getValues } = useFormContext<SquadForm>();
+  // const formation = getValues("formation");
   return (
     <>
       <div className="flex items-center justify-between mb-[1.5rem] mt-[3rem]">
@@ -32,7 +30,10 @@ const SelectSquadPlayers = (props: Props) => {
       <div className="flex gap-[1rem]">
         <div className="flex flex-col h-[50rem] w-max overflow-y-scroll">
           {props.list.map(([position, multiplier]) => (
-            <div className="w-max h-max bg-gray-700 p-[0.75rem] border border-gray-700">
+            <div
+              key={position}
+              className="w-max h-max bg-gray-700 p-[0.75rem] border border-gray-700"
+            >
               <EmptyPlayerButton
                 multiplier={multiplier}
                 onClick={() => {}}

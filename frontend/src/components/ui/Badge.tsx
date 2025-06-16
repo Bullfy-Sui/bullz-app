@@ -6,8 +6,14 @@ interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   children: React.ReactNode;
 }
 
-export const Badge: React.FC<BadgeProps> = ({ variant = "primary", className = "", children, ...props }) => {
-  let baseClasses = "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium";
+export const Badge: React.FC<BadgeProps> = ({
+  variant = "primary",
+  className = "",
+  children,
+  ...props
+}) => {
+  const baseClasses =
+    "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium";
   let variantClasses = "";
 
   switch (variant) {
@@ -25,7 +31,10 @@ export const Badge: React.FC<BadgeProps> = ({ variant = "primary", className = "
   }
 
   return (
-    <span className={`${baseClasses} ${variantClasses} ${className}`} {...props}>
+    <span
+      className={`${baseClasses} ${variantClasses} ${className}`}
+      {...props}
+    >
       {children}
     </span>
   );

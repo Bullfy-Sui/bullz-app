@@ -1,9 +1,7 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import ActionModal from "./action-modal";
 import SuiLogo from "@/components/svg/sui.logo";
+import ActionModal from "./action-modal";
 
 interface CreateBullModalProps {
   isOpen: boolean;
