@@ -10,7 +10,7 @@ const InfoBulbIcon = (props: SVGProps<SVGSVGElement>) => {
       {...props}
       xmlns="http://www.w3.org/2000/svg"
     >
-      <g clip-path="url(#clip0_8267_71546)">
+      <g clipPath="url(#clip0_8267_71546)">
         <path
           d="M15.5023 19.0039V22.0046H14.5021V23.0048H13.5019V24.005H11.5014V23.0048H10.5012V22.0046H9.50098V19.0039H15.5023Z"
           fill="#FFFF00"

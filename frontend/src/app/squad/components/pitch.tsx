@@ -3,11 +3,14 @@ import { IPlayer } from "../types";
 import Player from "./player";
 import EmptyPlayerButton from "./empty-player-button";
 
+export type Postition = number;
+export type Multiplier = number;
+
 interface PitchProps {
   layout: number[][][];
   players?: IPlayer[];
   onPlayerClick: (player: IPlayer) => void;
-  onEmptyPlayerClick?: (position: number) => void;
+  onEmptyPlayerClick?: (pos: [Postition, Multiplier]) => void;
   ctaLabel: string;
   ctaOnClick?: () => void;
 }
@@ -29,10 +32,12 @@ const Pitch = (props: PitchProps) => {
                 />
               ) : (
                 <EmptyPlayerButton
+                  key={pos}
                   pos={pos}
                   multiplier={multiplier}
                   onClick={() =>
-                    props.onEmptyPlayerClick && props.onEmptyPlayerClick(pos)
+                    props.onEmptyPlayerClick &&
+                    props.onEmptyPlayerClick([pos, multiplier])
                   }
                 />
               );

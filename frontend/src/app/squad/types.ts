@@ -1,7 +1,7 @@
 import { formationLayouts } from "./constants";
 
 export interface IPlayer {
-  allocated_value: number;
+  multiplier: number;
   name: string;
   position: number;
   token_price_id: string;

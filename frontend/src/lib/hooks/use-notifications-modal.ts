@@ -22,7 +22,7 @@ type LoadingContent = {
 interface Args {
   successContent?: ModalContent;
   errorContent?: ModalContent;
-  loadingContent: LoadingContent;
+  loadingContent?: LoadingContent;
   status: NotificationStatus;
 }
 

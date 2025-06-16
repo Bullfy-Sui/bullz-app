@@ -6,79 +6,73 @@ import InfoBulbIcon from "@/components/icons/info-bulb.icon";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useDisclosure } from "@/lib/hooks/use-diclosure";
-import { useNotificationsModal } from "@/lib/hooks/use-notifications-modal";
+import {
+  NotificationStatus,
+  useNotificationsModal,
+} from "@/lib/hooks/use-notifications-modal";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { FormProvider, useFieldArray, useForm } from "react-hook-form";
+import {
+  FormProvider,
+  useFieldArray,
+  useForm,
+  useWatch,
+} from "react-hook-form";
 import { useCreateSquad } from "../api-services";
-import AllocateFunds from "../components/allocate-funds";
-import Pitch from "../components/pitch";
+import Pitch, { Multiplier, Postition } from "../components/pitch";
 import SelectSquadPlayers from "../components/select-squad.players";
 import { formationLayouts, SquadFormation } from "../constants";
 import { FormationLayoutKey, SquadForm } from "../types";
+import SquadNameForm from "../components/squad-name.form";
 
 const NewSquadPage = () => {
   const [layout, setLayout] = useState(formationLayouts.OneThreeOneTwo);
   const [formation, setFormation] = useState(SquadFormation.OneThreeOneTwo);
-  const { onClose, onOpen, isOpen } = useDisclosure();
+  const {
+    onClose,
+    onOpen,
+    isOpen,
+    disclosedData: selectionDrawerData,
+  } = useDisclosure<{ focusedPosition: [Postition, Multiplier] }>();
   const router = useRouter();
   const {
     onClose: closeNotification,
     onOpen: openNotification,
     isOpen: notificationIsOpen,
-  } = useDisclosure();
+  } = useDisclosure<NotificationStatus>();
   const {
     mutate: createSquad,
     isPending: creating,
     isSuccess: creationSuccess,
     isError: creationError,
   } = useCreateSquad();
-  const [focusedIndex, setFocusedIndex] = useState<number | null>(null); // Add this state for focused index
-  const { isOpen: allocationDrawerIsOpen, onOpen: openAllocationDrawer } =
-    useDisclosure();
+  const {
+    isOpen: nameFormIsOpen,
+    onClose: closeNameForm,
+    onOpen: openNameForm,
+  } = useDisclosure();
+
   const form = useForm<SquadForm>({
     defaultValues: { formation: "OneThreeOneTwo" },
   });
   const playerArray = useFieldArray({ control: form.control, name: "players" });
-  // const playerArrayWatch = useWatch({ control: form.control, name: "players" });
+  const playerArrayWatch = useWatch({ control: form.control, name: "players" });
 
-  console.log(focusedIndex);
-  // const handlePlayerSelect = (token: TokenResponse) => {
-  //   const foundPlayer = playerArrayWatch?.find(
-  //     (player) => player.position === focusedIndex
-  //   );
-  //   console.log(
-  //     foundPlayer,
-  //     focusedIndex,
-  //     token,
-  //     playerArray.fields,
-  //     playerArray.fields.length
-  //   );
-
-  //   if (foundPlayer)
-  //     playerArray.update(playerArrayWatch.indexOf(foundPlayer), {
-  //       ...foundPlayer,
-  //       name: token.token_symbol,
-  //       token_price_id: token.token_id,
-  //     });
-
-  //   if (playerArray.fields.length < 7 && !foundPlayer) {
-  //     playerArray.append({
-  //       position: focusedIndex as number,
-  //       name: token.token_symbol,
-  //       allocated_value: (1 / 100) * TOTAL_BUDGET,
-  //       token_price_id: token.token_id,
-  //     });
-  //     console.log(playerArray.fields);
-  //   }
-  //   onClose();
-  // };
+  console.log(playerArray.fields, playerArrayWatch);
 
   const onSubmit = form.handleSubmit((values) => {
     console.log(values);
-    openNotification();
-    createSquad(values);
+    createSquad(values, {
+      onSuccess: () => {
+        closeNameForm();
+        openNotification({ data: "success" });
+      },
+      onError: () => {
+        closeNameForm();
+        openNotification({ data: "error" });
+      },
+    });
   });
 
   const modalContent = useNotificationsModal({
@@ -98,7 +92,6 @@ const NewSquadPage = () => {
       buttonLabel: "Try Again",
       onButtonClick: () => createSquad(form.getValues()),
     },
-    loadingContent: { description: "Creating your squad", type: "loading" },
   });
 
   return (
@@ -145,44 +138,50 @@ const NewSquadPage = () => {
                 Choose a formation above, then tap a position below to add or
                 change a token. When all positions are set, click Continue.
               </p>
-              <Button variant="secondary" className="w-full">
+              <Button
+                type="button"
+                onClick={() => openNameForm()}
+                variant={
+                  playerArrayWatch?.length == 7 ? "default" : "secondary"
+                }
+                className="w-full"
+                disabled={!playerArrayWatch || playerArrayWatch?.length < 7}
+              >
                 Continue
               </Button>
             </div>
             <Pitch
               layout={layout}
-              players={playerArray.fields}
+              players={playerArrayWatch}
               onPlayerClick={(player) => {
-                setFocusedIndex(player.position);
-                onOpen();
+                onOpen({
+                  data: {
+                    focusedPosition: [player.position, player.multiplier],
+                  },
+                });
               }}
               onEmptyPlayerClick={(pos) => {
-                setFocusedIndex(pos);
-                onOpen();
+                onOpen({ data: { focusedPosition: pos } });
               }}
               ctaLabel="Proceed"
-              ctaOnClick={() => openAllocationDrawer()}
             />
           </div>
 
           <Sheet open={isOpen}>
             <SheetContent side="bottom" className="border-none h-screen">
               <div className="w-[24.375rem] mx-auto px-[1.25rem] overflow-y-scroll">
-                {/* <PriceList
-                  onClickBack={onClose}
-                  onSelect={(token) => handlePlayerSelect(token)}
-                /> */}
-                <SelectSquadPlayers onClose={onClose} list={layout.flat()} />
+                <SelectSquadPlayers
+                  initialFocusedPosition={selectionDrawerData?.focusedPosition}
+                  onClose={onClose}
+                  list={layout.flat()}
+                />
               </div>
             </SheetContent>
           </Sheet>
-
-          <AllocateFunds
-            isOpen={allocationDrawerIsOpen}
-            onCloseAction={function (): void {
-              throw new Error("Function not implemented.");
-            }}
-            totalBudget={0}
+          <SquadNameForm
+            isLoading={creating}
+            isOpen={nameFormIsOpen}
+            onClose={closeNameForm}
           />
         </form>
       </FormProvider>
@@ -196,7 +195,7 @@ const NewSquadPage = () => {
         buttonLabel={modalContent?.buttonLabel}
         // @ts-expect-error - -
         type={modalContent?.type}
-        isLoading={creating}
+        // isLoading={creating}
         // @ts-expect-error - -
         title={modalContent?.title}
         description={modalContent?.description}

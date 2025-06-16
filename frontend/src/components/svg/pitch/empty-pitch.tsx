@@ -132,27 +132,27 @@ const EmptyPitch = () => {
             rx="554"
             ry="267.5"
             fill="url(#paint5_radial_8799_14446)"
-            fill-opacity="0.5"
+            fillOpacity="0.5"
           />
           <path
             d="M207 29.144H270L282 618.667H195L207 29.144Z"
             fill="black"
-            fill-opacity="0.1"
+            fillOpacity="0.1"
           />
           <path
             d="M323 29.144H386L438 618.667H351L323 29.144Z"
             fill="black"
-            fill-opacity="0.1"
+            fillOpacity="0.1"
           />
           <path
             d="M87 29.144H150L130 618.667H43L87 29.144Z"
             fill="black"
-            fill-opacity="0.1"
+            fillOpacity="0.1"
           />
           <path
             d="M-37 29.144H26L-18 618.667H-105L-37 29.144Z"
             fill="black"
-            fill-opacity="0.1"
+            fillOpacity="0.1"
           />
         </g>
       </g>
@@ -209,8 +209,8 @@ const EmptyPitch = () => {
           y2="70.6339"
           gradientUnits="userSpaceOnUse"
         >
-          <stop offset="0.413462" stop-color="#006BC7" />
-          <stop offset="0.586538" stop-color="#003766" />
+          <stop offset="0.413462" stopColor="#006BC7" />
+          <stop offset="0.586538" stopColor="#003766" />
         </linearGradient>
         <linearGradient
           id="paint1_linear_8799_14446"
@@ -220,8 +220,8 @@ const EmptyPitch = () => {
           y2="40"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stop-color="#006ECC" />
-          <stop offset="1" stop-color="#003766" />
+          <stop stopColor="#006ECC" />
+          <stop offset="1" stopColor="#003766" />
         </linearGradient>
         <linearGradient
           id="paint2_linear_8799_14446"
@@ -231,8 +231,8 @@ const EmptyPitch = () => {
           y2="40"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stop-color="#006ECC" />
-          <stop offset="1" stop-color="#003766" />
+          <stop stopColor="#006ECC" />
+          <stop offset="1" stopColor="#003766" />
         </linearGradient>
         <linearGradient
           id="paint3_linear_8799_14446"
@@ -242,8 +242,8 @@ const EmptyPitch = () => {
           y2="40"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stop-color="#006ECC" />
-          <stop offset="1" stop-color="#003766" />
+          <stop stopColor="#006ECC" />
+          <stop offset="1" stopColor="#003766" />
         </linearGradient>
         <linearGradient
           id="paint4_linear_8799_14446"
@@ -253,8 +253,8 @@ const EmptyPitch = () => {
           y2="40"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stop-color="#006ECC" />
-          <stop offset="1" stop-color="#003766" />
+          <stop stopColor="#006ECC" />
+          <stop offset="1" stopColor="#003766" />
         </linearGradient>
         <radialGradient
           id="paint5_radial_8799_14446"
@@ -264,7 +264,7 @@ const EmptyPitch = () => {
           gradientUnits="userSpaceOnUse"
           gradientTransform="translate(239 323.901) rotate(90) scale(267.5 554)"
         >
-          <stop stop-opacity="0" />
+          <stop stopOpacity="0" />
           <stop offset="1" />
         </radialGradient>
         <clipPath id="clip0_8799_14446">

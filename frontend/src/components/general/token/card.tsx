@@ -25,11 +25,9 @@ const TokenCard = (props: TokenCardProps) => {
         </div>
       </div>
       <div
-        className={cn("  text-sm rounded-[0.25rem] p-[0.125rem]", {
-          "bg-loss-foreground/30 text-loss-foreground":
-            props.fluctuation_pct < 0,
-          "bg-success-opacity1 text-success-foreground":
-            props.fluctuation_pct > 0,
+        className={cn(" font-[700] text-[1.0625rem] tracking-[0.04em]", {
+          " text-loss-foreground": props.fluctuation_pct < 0,
+          " text-success-foreground": props.fluctuation_pct > 0,
         })}
       >
         {props.fluctuation_pct.toFixed(2)}%
