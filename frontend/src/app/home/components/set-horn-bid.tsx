@@ -87,7 +87,7 @@ const SetHornBid = (props: SetHornBidProps) => {
                 </div>
               </>
             )}
-            {isLocked && <LockedHorns />}
+            {isLocked && <LockedHorns onCancel={() => props.onClose()} />}
           </div>
         </SheetContent>
       </Sheet>

@@ -4,7 +4,11 @@ import EmptyPlayerDp from "@/components/svg/empty-player-dp";
 import UserPlayer from "@/components/svg/user-player";
 import { Button } from "@/components/ui/button";
 
-const LockedHorns = () => {
+interface Props {
+  onCancel: () => void;
+}
+
+const LockedHorns = (props: Props) => {
   return (
     <div>
       <p className="text-center text-gray-300 font-[700] font-offbit text-[1.0625rem] leading-[100%] tracking-[0.04em] my-[1rem]">
@@ -41,6 +45,7 @@ const LockedHorns = () => {
         type="button"
         className="w-full text-[1.0625rem]"
         variant={"secondary"}
+        onClick={props.onCancel}
       >
         CANCEL REQUEST
       </Button>
