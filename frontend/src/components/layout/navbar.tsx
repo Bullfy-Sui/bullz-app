@@ -80,7 +80,7 @@ const NavBar = () => {
   const pathname = usePathname();
 
   return (
-    <div className="flex items-center  h-[4rem] w-full max-w-[26.875rem] fixed bottom-0 bg-background">
+    <div className="flex items-center border-t border-gray-600  h-[4rem] w-full max-w-[26.875rem] fixed bottom-0 bg-background">
       {NavItems.map((item) => (
         <NavItem
           isActive={pathname.includes(item.href)}

@@ -11,7 +11,8 @@ interface AppStore {
 export const useAppStore = create<AppStore>()(
   persist(
     (set) => ({
-      address: null,
+      address:
+        "0x9f3b93e6a2ab44b7e8f0a4fba0cbb97bb3a3d38d49cf6f6c6db43a2a93c9f1c1",
       setAddress: (address: string | null) => set(() => ({ address })),
       // google_id: null,
       // setGoogleId: (google_id: string | null) => set(() => ({ google_id })),

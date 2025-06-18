@@ -29,7 +29,7 @@ const NotificationModal = (props: NotificationModalProps) => {
     info: <InfoBulbIcon className="size-[1.5rem]" />,
   }[props.status];
   return (
-    <Dialog onOpenChange={props.onClose} open={props.isOpen}>
+    <Dialog open={props.isOpen}>
       <DialogContent
         style={{
           boxShadow:

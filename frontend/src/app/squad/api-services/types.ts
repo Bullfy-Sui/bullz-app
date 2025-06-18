@@ -21,7 +21,7 @@ interface Squad {
 }
 
 export interface PlayerResponse {
-  allocated_value: number;
+  multiplier: number;
   id: string;
   name: string;
   position: number;

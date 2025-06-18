@@ -22,8 +22,7 @@ const SelectSquadPlayers = (props: Props) => {
   const [focusedPosition, setFocusedPosition] = useState<
     [Postition, Multiplier]
   >(props.initialFocusedPosition ?? [1, 2.0]);
-  const { getValues, control } = useFormContext<SquadForm>();
-  // const formation = getValues("formation");
+  const { control } = useFormContext<SquadForm>();
   const playerArray = useFieldArray({ control: control, name: "players" });
   const playerArrayWatch = useWatch({ control: control, name: "players" });
 

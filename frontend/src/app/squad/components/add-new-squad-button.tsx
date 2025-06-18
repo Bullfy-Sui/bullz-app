@@ -1,7 +1,9 @@
 import PlusIcon from "@/components/icons/plus.icon";
+import { cn } from "@/lib/utils";
 
 interface AddNewSquadButtonProps {
   onClick: () => void;
+  classNames?: string;
 }
 
 const AddNewSquadButton = (props: AddNewSquadButtonProps) => {
@@ -9,7 +11,10 @@ const AddNewSquadButton = (props: AddNewSquadButtonProps) => {
     <>
       <div
         onClick={props.onClick}
-        className="bg-gray-800 cursor-pointer border-[0.5px] border-dashed  border-gray-300 flex flex-col items-center justify-center gap-[0.79rem] p-[0.5rem] w-[5.25rem] h-[5.25rem]"
+        className={cn(
+          "bg-gray-800 cursor-pointer border-[0.5px] border-dashed  border-gray-300 flex flex-col items-center justify-center gap-[0.79rem] p-[0.5rem] w-[5.25rem] h-[5.25rem]",
+          props.classNames
+        )}
         style={{
           boxShadow:
             "0px -8px 0px 0px #0000003D inset, 0px 8px 0px 0px #FFFFFF29 inset",

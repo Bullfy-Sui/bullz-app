@@ -41,7 +41,7 @@ const SquadNameForm = (props: SquadNameFormProps) => {
           </div>
           <FormField
             control={form.control}
-            name="username"
+            name="name"
             render={({ field }) => (
               <FormItem className="w-full">
                 <FormControl>

@@ -1,7 +1,5 @@
-import SuiLogo from "@/components/svg/sui.logo";
+import Bullfy from "@/components/svg/bullfy";
 import { SquadResponseItem } from "../api-services/types";
-import { cn } from "@/lib/utils";
-import CirclePlusIcon from "@/components/icons/circle-plus.icon";
 
 interface SquadItemProps {
   onClick: () => void;
@@ -13,34 +11,32 @@ const SquadItem = (props: SquadItemProps) => {
     <>
       <div
         onClick={props.onClick}
-        className="bg-[#000019] cursor-pointer border-[0.81px] border-white flex flex-col  gap-[1rem] px-[0.9375rem] rounded-[0.403125rem] py-[0.638125rem] pb-[1.70875rem] w-[8.0625rem]"
         style={{
-          boxShadow: "1.61px 1.61px 6.45px 0px #FEBF1899 inset",
+          boxShadow:
+            "0px -8px 0px 0px #0000003D inset, 0px 8px 0px 0px #FFFFFF29 inset",
         }}
+        className="flex flex-col items-center justify-center gap-[0.5rem] bg-gray-800 cursor-pointer w-[6rem] h-[6rem] py-[0.75rem]"
       >
-        <span className="text-[#D2CACA] text-[0.75rem] font-[400] leading-[100%] mb-[1.475rem]">
+        <Bullfy width={20} height={20} />
+        <span className="text-white block text-[0.875rem] font-[700] font-offbit leading-[100%] tracking-[0.04em] uppercase">
           {props.team.squad.name}
         </span>
-        <div className="flex items-center w-[5.685rem]">
-          {props.team.players.slice(0, 3).map((player, index) => (
-            <span
-              key={player.id}
-              className={cn("size-[1.875rem] rounded-full", {
-                "-ml-3": index !== 0,
-              })}
-            >
-              <SuiLogo className="size-[1.875rem] rounded-full" />
+        <div className="flex flex-col gap-[0.5rem] items-center w-[5.685rem]">
+          <div className="gap-[0.25rem] flex">
+            <span className="text-[0.875rem] font-[700] font-offbit leading-[100%] tracking-[0.04em] uppercase text-[#00FF00]">
+              10W
             </span>
-          ))}
-
-          <span
-            className={cn(
-              "size-[1.875rem] rounded-full bg-white -ml-3 text-black flex items-center justify-center"
-            )}
-          >
-            <CirclePlusIcon />
-            {props.team.players.slice(3, props.team.players.length).length}
-          </span>
+            <span className="text-[0.875rem] font-[700] font-offbit leading-[100%] tracking-[0.04em] uppercase text-[#FFCCCC]">
+              4L
+            </span>
+          </div>
+          <div className="flex items-center gap-[0.125rem]">
+            <span className="bg-gray-500 h-[0.5rem] w-[0.125rem]" />
+            <span className="bg-gray-500 h-[0.5rem] w-[0.125rem]" />
+            <span className="bg-gray-500 h-[0.5rem] w-[0.125rem]" />
+            <span className="bg-gray-500 h-[0.5rem] w-[0.125rem]" />
+            <span className="bg-gray-500 h-[0.5rem] w-[0.125rem]" />
+          </div>
         </div>
       </div>
     </>

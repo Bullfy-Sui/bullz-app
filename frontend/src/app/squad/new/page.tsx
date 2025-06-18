@@ -40,6 +40,7 @@ const NewSquadPage = () => {
     onClose: closeNotification,
     onOpen: openNotification,
     isOpen: notificationIsOpen,
+    disclosedData: noticationModalData,
   } = useDisclosure<NotificationStatus>();
   const {
     mutate: createSquad,
@@ -78,9 +79,10 @@ const NewSquadPage = () => {
   const modalContent = useNotificationsModal({
     status: creationSuccess ? "success" : creationError ? "error" : "loading",
     successContent: {
-      title: "Bullish !!!",
-      description: "You just created a team.",
-      buttonLabel: "Go Back Home",
+      title: "TEAM CREATED",
+      description:
+        "NOW, SELECT YOUR TEAM AND LOCK HORNS TO FIND SOMEONE TO PLAY WITH.",
+      buttonLabel: "SHOW MY TEAM",
       onButtonClick: () => {
         router.push("/");
         closeNotification();
@@ -194,8 +196,7 @@ const NewSquadPage = () => {
         // @ts-expect-error - -
         buttonLabel={modalContent?.buttonLabel}
         // @ts-expect-error - -
-        type={modalContent?.type}
-        // isLoading={creating}
+        status={noticationModalData}
         // @ts-expect-error - -
         title={modalContent?.title}
         description={modalContent?.description}
