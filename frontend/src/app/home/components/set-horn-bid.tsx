@@ -9,6 +9,8 @@ import { useFormContext, useWatch } from "react-hook-form";
 import BullHornBid from "./bull-horn-bid";
 import { Button } from "@/components/ui/button";
 import FreeHornBid from "./free-horn-bid";
+import LockedHorns from "./locked-horns";
+import { useState } from "react";
 
 interface SetHornBidProps {
   isOpen: boolean;
@@ -23,6 +25,7 @@ const SetHornBid = (props: SetHornBidProps) => {
   //   name: "wager_amount",
   // });
   const { address } = useAppStore();
+  const [isLocked, setIsLocked] = useState(false);
 
   return (
     <>
@@ -39,34 +42,52 @@ const SetHornBid = (props: SetHornBidProps) => {
                 LOCK HORNS
               </p>
             </div>
-            <Tabs defaultValue="account" className="w-full mx-auto mt-[1rem]">
-              <TabsList className="bg-gray-850 mx-auto w-full">
-                <TabsTrigger
-                  className="font-offbit rounded-none text-[1.0625rem] font-[700] leading-[100%] tracking-[0.04em] text-center"
-                  value="bull-run"
+            {!isLocked && (
+              <>
+                <Tabs
+                  defaultValue="account"
+                  className="w-full mx-auto mt-[1rem]"
                 >
-                  BULL-RUN
-                </TabsTrigger>
-                <TabsTrigger
-                  className="font-offbit rounded-none text-[1.0625rem] font-[700] leading-[100%] tracking-[0.04em] text-center"
-                  value="free-run"
-                >
-                  FREE-RUN
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="bull-run" className="px-0">
-                <BullHornBid />
-              </TabsContent>
-              <TabsContent value="free-run" className="px-0">
-                <FreeHornBid />
-              </TabsContent>
-            </Tabs>
-            <div className="w-full space-y-[1rem] mt-[1rem] ">
-              <Button className="w-full text-[1.0625rem]">LOCK HORNS</Button>
-              <Button className="w-full text-[1.0625rem]" variant={"secondary"}>
-                CANCEL
-              </Button>
-            </div>
+                  <TabsList className="bg-gray-850 mx-auto w-full">
+                    <TabsTrigger
+                      className="font-offbit rounded-none text-[1.0625rem] font-[700] leading-[100%] tracking-[0.04em] text-center"
+                      value="bull-run"
+                    >
+                      BULL-RUN
+                    </TabsTrigger>
+                    <TabsTrigger
+                      className="font-offbit rounded-none text-[1.0625rem] font-[700] leading-[100%] tracking-[0.04em] text-center"
+                      value="free-run"
+                    >
+                      FREE-RUN
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="bull-run" className="px-0">
+                    <BullHornBid />
+                  </TabsContent>
+                  <TabsContent value="free-run" className="px-0">
+                    <FreeHornBid />
+                  </TabsContent>
+                </Tabs>
+                <div className="w-full space-y-[1rem] mt-[1rem] ">
+                  <Button
+                    type="button"
+                    className="w-full text-[1.0625rem]"
+                    onClick={() => setIsLocked(true)}
+                  >
+                    LOCK HORNS
+                  </Button>
+                  <Button
+                    type="button"
+                    className="w-full text-[1.0625rem]"
+                    variant={"secondary"}
+                  >
+                    CANCEL
+                  </Button>
+                </div>
+              </>
+            )}
+            {isLocked && <LockedHorns />}
           </div>
         </SheetContent>
       </Sheet>
