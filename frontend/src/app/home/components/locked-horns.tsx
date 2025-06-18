@@ -1,5 +1,3 @@
-import DefaultDp from "@/components/svg/default-dp";
-import DefaultPlayerDp from "@/components/svg/default-player-dp";
 import EmptyPlayerDp from "@/components/svg/empty-player-dp";
 import UserPlayer from "@/components/svg/user-player";
 import { Button } from "@/components/ui/button";

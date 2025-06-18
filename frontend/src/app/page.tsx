@@ -4,7 +4,6 @@ import NavWrapper from "@/components/layout/nav-wrapper";
 import { Button } from "@/components/ui/button";
 import { useDisclosure } from "@/lib/hooks/use-diclosure";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
 import SetHornBid from "./home/components/set-horn-bid";
 import { useGetUserSquads } from "./squad/api-services";
@@ -24,7 +23,6 @@ export interface HornForm {
 export default function Home() {
   const { data: squadData } = useGetUserSquads();
   // const [squad, setSquad] = useState<SquadResponseItem>();
-  const router = useRouter();
   const form = useForm<HornForm>({
     defaultValues: {},
   });

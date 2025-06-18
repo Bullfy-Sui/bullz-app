@@ -1,16 +1,13 @@
 "use client";
 
-import { HornForm } from "@/app/page";
 import GameController from "@/components/icons/game-controller";
+import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAppStore } from "@/lib/store/app-store";
-import { useFormContext, useWatch } from "react-hook-form";
+import { useState } from "react";
 import BullHornBid from "./bull-horn-bid";
-import { Button } from "@/components/ui/button";
 import FreeHornBid from "./free-horn-bid";
 import LockedHorns from "./locked-horns";
-import { useState } from "react";
 
 interface SetHornBidProps {
   isOpen: boolean;
@@ -18,13 +15,12 @@ interface SetHornBidProps {
 }
 
 const SetHornBid = (props: SetHornBidProps) => {
-  const formContext = useFormContext<HornForm>();
   // const squadWatch = useWatch({ control: formContext.control, name: "squad" });
   // const wagerAmountWatch = useWatch({
   //   control: formContext.control,
   //   name: "wager_amount",
   // });
-  const { address } = useAppStore();
+
   const [isLocked, setIsLocked] = useState(false);
 
   return (
