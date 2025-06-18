@@ -1,26 +1,14 @@
 "use client";
 
 import { HornForm } from "@/app/page";
-import Pitch from "@/app/squad/components/pitch";
-import { formationLayouts } from "@/app/squad/constants";
-import { FormationLayoutKey } from "@/app/squad/types";
-import TitleBar from "@/components/general/title-bar";
-import CircleMinusIcon from "@/components/icons/circle-minus.icon";
-import PlusCircle from "@/components/icons/plus-circle.icon";
-import DefaultDp from "@/components/svg/default-dp";
-import DefaultPlayerDp from "@/components/svg/default-player-dp";
-import { Button } from "@/components/ui/button";
-import {
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+import GameController from "@/components/icons/game-controller";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAppStore } from "@/lib/store/app-store";
 import { useFormContext, useWatch } from "react-hook-form";
+import BullHornBid from "./bull-horn-bid";
+import { Button } from "@/components/ui/button";
+import FreeHornBid from "./free-horn-bid";
 
 interface SetHornBidProps {
   isOpen: boolean;
@@ -29,110 +17,54 @@ interface SetHornBidProps {
 
 const SetHornBid = (props: SetHornBidProps) => {
   const formContext = useFormContext<HornForm>();
-  const squadWatch = useWatch({ control: formContext.control, name: "squad" });
-  const wagerAmountWatch = useWatch({
-    control: formContext.control,
-    name: "wager_amount",
-  });
+  // const squadWatch = useWatch({ control: formContext.control, name: "squad" });
+  // const wagerAmountWatch = useWatch({
+  //   control: formContext.control,
+  //   name: "wager_amount",
+  // });
   const { address } = useAppStore();
 
   return (
     <>
       <Sheet open={props.isOpen}>
-        {/* <SheetContent side="bottom" className="border-none h-screen "> */}
         <SheetContent
           side="bottom"
-          className="border-none h-full overflow-scroll p-0"
+          className="border-none  overflow-scroll p-0 py-[2rem] bg-gray-800"
+          style={{ boxShadow: "0px 8px 0px 0px #FFFFFF29 inset" }}
         >
-          {/* <div className="w-[24.375rem] mx-auto  "> */}
-          <div className="w-[24.375rem] mx-auto  ">
-            <TitleBar title="Lock Horn" onClick={props.onClose} />
-
-            <Pitch
-              layout={
-                formationLayouts[
-                  squadWatch?.squad.formation as FormationLayoutKey
-                ]
-              }
-              players={squadWatch?.players}
-              onPlayerClick={(player) => {
-                console.log(player);
-              }}
-              ctaLabel="Lock horns"
-            />
-
-            <div className="bg-[#05051D] p-[1.5rem] w-full  border-t-[0.4px]  border-white/49">
-              <FormField
-                control={formContext.control}
-                name="wager_amount"
-                render={({ field }) => (
-                  <FormItem className="flex items-center">
-                    <FormLabel className="text-white whitespace-nowrap">
-                      Set a bid
-                    </FormLabel>
-                    <div className="flex items-center gap-[0.375rem]">
-                      <CircleMinusIcon
-                        className="block cursor-pointer"
-                        onClick={() =>
-                          formContext.setValue(
-                            "wager_amount",
-                            wagerAmountWatch - 1
-                          )
-                        }
-                      />
-
-                      <FormControl>
-                        <Input
-                          className="border bg-black text-white "
-                          placeholder="Enter amount in SUI"
-                          // type="number"
-                          {...field}
-                        />
-                      </FormControl>
-
-                      <PlusCircle
-                        className="cursor-pointer size-[2rem]"
-                        onClick={() =>
-                          formContext.setValue(
-                            "wager_amount",
-                            wagerAmountWatch + 1
-                          )
-                        }
-                      />
-                    </div>
-
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button
-                form="submit-bid-form"
-                className="w-full h-[4rem] mt-[2rem]"
-              >
-                Submit Bid
-              </Button>
+          <div className="w-[24.375rem] mx-auto ">
+            <div className="space-y-[1rem] flex flex-col items-center">
+              <GameController />
+              <p className="font-offbit text-white text-[1.375rem] font-[700] leading-[100%] tracking-[0.04em]">
+                LOCK HORNS
+              </p>
             </div>
-
-            <div className="bg-[#05051D] p-[1.5rem] w-full  border-t-[0.4px]  border-white/49">
-              <div className="flex items-center justify-between">
-                <div>
-                  <DefaultPlayerDp />
-                  <span className="text-[0.625rem] block leading-[150%] font-[600] w-[4rem] truncate">
-                    {address}
-                  </span>
-                </div>
-                <span className="text-gray-300 text-[1rem] leading-[150%] font-[400]">
-                  Connecting..
-                </span>
-                <div>
-                  <DefaultDp />
-                  <span className="text-[0.625rem] text-center block leading-[150%] font-[600] text-gray-300">
-                    waiting..
-                  </span>
-                </div>
-              </div>
-              <Button className="w-full h-[4rem] mt-[2rem]">
-                Cancel request
+            <Tabs defaultValue="account" className="w-full mx-auto mt-[1rem]">
+              <TabsList className="bg-gray-850 mx-auto w-full">
+                <TabsTrigger
+                  className="font-offbit rounded-none text-[1.0625rem] font-[700] leading-[100%] tracking-[0.04em] text-center"
+                  value="bull-run"
+                >
+                  BULL-RUN
+                </TabsTrigger>
+                <TabsTrigger
+                  className="font-offbit rounded-none text-[1.0625rem] font-[700] leading-[100%] tracking-[0.04em] text-center"
+                  value="free-run"
+                >
+                  FREE-RUN
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="bull-run" className="px-0">
+                <BullHornBid />
+              </TabsContent>
+              <TabsContent value="free-run" className="px-0">
+                <FreeHornBid />
+              </TabsContent>
+            </Tabs>
+            <div className="w-full space-y-[1rem] mt-[1rem] ">
+              <Button className="w-full text-[1.0625rem]">LOCK HORNS</Button>
+              <Button className="w-full text-[1.0625rem]" variant={"secondary"}>
+                CANCEL
               </Button>
             </div>
           </div>

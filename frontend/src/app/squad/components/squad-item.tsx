@@ -1,9 +1,11 @@
 import Bullfy from "@/components/svg/bullfy";
 import { SquadResponseItem } from "../api-services/types";
+import { cn } from "@/lib/utils";
 
 interface SquadItemProps {
   onClick: () => void;
   team: SquadResponseItem;
+  selected: boolean;
 }
 
 const SquadItem = (props: SquadItemProps) => {
@@ -15,7 +17,13 @@ const SquadItem = (props: SquadItemProps) => {
           boxShadow:
             "0px -8px 0px 0px #0000003D inset, 0px 8px 0px 0px #FFFFFF29 inset",
         }}
-        className="flex flex-col items-center justify-center gap-[0.5rem] bg-gray-800 cursor-pointer w-[6rem] h-[6rem] py-[0.75rem]"
+        className={cn(
+          "flex flex-col items-center justify-center gap-[0.5rem]  cursor-pointer w-[6rem] h-[6rem] py-[0.75rem]",
+          {
+            "bg-gray-600": props.selected,
+            "bg-gray-800": !props.selected,
+          }
+        )}
       >
         <Bullfy width={20} height={20} />
         <span className="text-white block text-[0.875rem] font-[700] font-offbit leading-[100%] tracking-[0.04em] uppercase">

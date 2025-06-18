@@ -1,10 +1,13 @@
-const BullTrophy = () => {
+import { SVGProps } from "react";
+
+const BullTrophy = (props: SVGProps<SVGSVGElement>) => {
   return (
     <svg
       width="21"
       height="22"
       viewBox="0 0 21 22"
       fill="none"
+      {...props}
       xmlns="http://www.w3.org/2000/svg"
       xmlnsXlink="http://www.w3.org/1999/xlink"
     >
