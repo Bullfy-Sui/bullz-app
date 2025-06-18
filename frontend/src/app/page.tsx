@@ -3,7 +3,6 @@
 import NavWrapper from "@/components/layout/nav-wrapper";
 import { Button } from "@/components/ui/button";
 import { useDisclosure } from "@/lib/hooks/use-diclosure";
-import { useRouter } from "next/navigation";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
 import SetHornBid from "./home/components/set-horn-bid";
 import { useGetUserSquads } from "./squad/api-services";
