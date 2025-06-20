@@ -4,7 +4,7 @@ This document provides comprehensive documentation of the Bullfy smart contracts
 
 **Package Name:** `bullfy`  
 **Edition:** `2024.beta`  
-**Dependencies:** Sui Framework, Pyth Network, Wormhole
+**Dependencies:** Sui Framework,
 
 ---
 
