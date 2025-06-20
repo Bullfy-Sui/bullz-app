@@ -1,4 +1,4 @@
-#[allow(duplicate_alias,unused_const,lint(self_transfer))]
+
 module bullfy::fee_collector {
     use sui::coin::{Self, Coin};
     use sui::balance::{Self};
@@ -8,8 +8,6 @@ module bullfy::fee_collector {
     use bullfy::admin::AdminCap;
 
     // Error codes with descriptive messages
-    #[error]
-    const ENotAdmin: vector<u8> = b"Only the admin can perform this action";
     #[error]
     const EInsufficientBalance: vector<u8> = b"Insufficient balance for withdrawal";
 
