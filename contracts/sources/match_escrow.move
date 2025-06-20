@@ -502,7 +502,7 @@ module bullfy::match_escrow {
         let match_index = *table::borrow(&registry.match_id_to_index, match_id);
         
         // Get all needed data before mutable borrow
-        let (bid1_id, total_prize, fees_collected, total_fees, winner_addr);
+        let (bid1_id, bid2_id, total_prize, fees_collected, total_fees, winner_addr);
         {
             let match_obj = vector::borrow(&registry.active_matches, match_index);
             
@@ -512,6 +512,7 @@ module bullfy::match_escrow {
             assert!(option::is_some(&match_obj.winner), E_MATCH_NOT_ACTIVE);
 
             bid1_id = match_obj.bid1_id;
+            bid2_id = match_obj.bid2_id;
             total_prize = match_obj.total_prize;
             fees_collected = match_obj.fees_collected;
             total_fees = match_obj.total_fees;
@@ -544,8 +545,13 @@ module bullfy::match_escrow {
             match_obj.prize_claimed = true;
         };
 
-        // Move match to completed vector
+        // Move match from active to completed Storage
         move_match_to_completed(registry, match_id);
+
+        // Move bid from active to completed Storage
+        move_bid_to_completed(registry, bid1_id);
+        move_bid_to_completed(registry, bid2_id);
+
 
         // Emit event
         event::emit(PrizeClaimed {
