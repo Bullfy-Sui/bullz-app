@@ -18,5 +18,12 @@ export const useDisclosure = <TData>(initialData?: TData) => {
     setIsOpen(false);
   };
   const onToggle = () => setIsOpen(!isOpen);
-  return { isOpen, onOpen, onClose, onToggle, disclosedData: data };
+  return {
+    isOpen,
+    onOpen,
+    onClose,
+    onToggle,
+    disclosedData: data,
+    updateData: setData,
+  };
 };

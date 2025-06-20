@@ -2,59 +2,62 @@
 
 import CautionIcon from "@/components/icons/caution-icon";
 import CheckMarkIcon from "@/components/icons/check-mark.icon";
-import CircleCloseIcon from "@/components/icons/cirlce-close.icon";
-import ErrorHexagonIcon from "@/components/icons/error-hexagon.icon";
+import ErrorExclamation from "@/components/icons/error-exclamation";
+import InfoBulbIcon from "@/components/icons/info-bulb.icon";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { NotificationStatus } from "@/lib/hooks/use-notifications-modal";
 
 interface NotificationModalProps {
-  type: "success" | "error" | "warning";
-  title?: string;
-  description: string;
+  status: NotificationStatus;
+  description?: string;
   onClose: () => void;
+  isOpen: boolean;
+  title?: string;
   buttonLabel?: string;
   onButtonClick?: () => void;
-  isOpen: boolean;
-  isLoading: boolean;
 }
 
 const NotificationModal = (props: NotificationModalProps) => {
   const Icon = {
-    success: <CheckMarkIcon color="#00FF00" />,
-    error: <ErrorHexagonIcon />,
+    success: (
+      <CheckMarkIcon className=" h-[1rem] w-[1.375rem] " color="#00FF00" />
+    ),
+    error: <ErrorExclamation className="size-[1.5rem]" />,
     warning: <CautionIcon />,
-  }[props.type];
+    loading: <></>,
+    info: <InfoBulbIcon className="size-[1.5rem]" />,
+  }[props.status];
   return (
     <Dialog onOpenChange={props.onClose} open={props.isOpen}>
-      <DialogContent className="max-w-[382px] bg-modal-bg rounded-[1.25rem] border-none w-[23.875rem] ">
-        {props.isLoading ? (
+      <DialogContent
+        style={{
+          boxShadow:
+            "0px 3.82px 2.55px 0px #00000040, 0px -8px 0px 0px #0000003D inset, 0px 8px 0px 0px #FFFFFF3D inset",
+        }}
+        className="max-w-[17.5rem] bg-gray-800 rounded-none border-none w-[23.875rem] p-0 py-[2rem] px-[1.5rem] "
+      >
+        {props.status === "loading" ? (
           <div className="flex h-full items-center justify-center">
-            <p className="text-[#949193] text-[1rem] leading-[1.5rem]">
+            <p className="text-white font-[700] tracking-[0.04em] text-[1.375rem] uppercase leading-[100%]">
               {props.description}
-              {/* Authenticating... */}
             </p>
           </div>
         ) : (
           <div>
-            <div
-              className="flex items-end justify-end w-full fixed m-[1rem] top-0 right-0 "
-              onClick={props.onClose}
-            >
-              <CircleCloseIcon />
-            </div>
-            <div className="mt-[2rem] space-y-[1.5rem] flex flex-col items-center">
-              <div className="bg-gray-700 rounded-full size-[5rem] flex items-center justify-center ">
-                {Icon}
-              </div>
+            <div className=" space-y-[1rem] flex flex-col items-center">
+              <>{Icon}</>
               <div className="text-center">
-                <h2 className="text-xl font-bold">{props.title}</h2>
-                <p className="text-gray-100 text-sm leading-[100%]">
+                <h2 className=" text-[1.0625rem] font-[700] tracking-[0.04em] leading-[100%] mb-[1rem]">
+                  {props.title}
+                </h2>
+                <p className="text-modal-desc uppercase text-[1.0625rem] tracking-[0.04em] text-center leading-[100%]">
                   {props.description}
                 </p>
               </div>
               <Button
                 onClick={props.onButtonClick}
-                className="h-[2.5rem] w-full"
+                className="h-[3rem] w-max px-[1.5rem]"
               >
                 {props.buttonLabel}
               </Button>
