@@ -22,94 +22,94 @@
 
 # Create a new admin capability
 sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --package $BULLFY_PACKAGE \
   --module admin \
   --function create_admin_cap \
-  --args 0xowner_cap_id 0xnew_admin_address \
+  --args $OWNER_CAP $NEW_ADMIN_ADDRESS \
   --gas-budget 100000000
 
 # Revoke admin capability
 sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --package $BULLFY_PACKAGE \
   --module admin \
   --function revoke_admin_cap \
-  --args 0xowner_cap_id 0xadmin_cap_to_revoke 0xadmin_address \
+  --args $OWNER_CAP $ADMIN_CAP_TO_REVOKE $ADMIN_ADDRESS \
   --gas-budget 100000000
 
 # Transfer owner capability
 sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --package $BULLFY_PACKAGE \
   --module admin \
   --function transfer_owner_cap \
-  --args 0xowner_cap_id 0xnew_owner_address \
+  --args $OWNER_CAP $NEW_OWNER_ADDRESS \
   --gas-budget 100000000
 
 # Update fee percentage (0-1000 basis points, i.e., 0-10%)
 sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --package $BULLFY_PACKAGE \
   --module admin \
   --function update_fee_percentage \
-  --args 0xadmin_cap_id 0xfee_config_object_id 500 \
+  --args $ADMIN_CAP $FEE_CONFIG 500 \
   --gas-budget 100000000
 
 # Update squad creation fee (in MIST, 1 SUI = 1_000_000_000 MIST)
 sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --package $BULLFY_PACKAGE \
   --module admin \
   --function update_squad_creation_fee \
-  --args 0xadmin_cap_id 0xfee_config_object_id 1000000000 \
+  --args $ADMIN_CAP $FEE_CONFIG 1000000000 \
   --gas-budget 100000000
 
 # Update revival fees (standard_fee, instant_fee in MIST)
 sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --package $BULLFY_PACKAGE \
   --module admin \
   --function update_revival_fees \
-  --args 0xadmin_cap_id 0xfee_config_object_id 50000000 100000000 \
+  --args $ADMIN_CAP $FEE_CONFIG 50000000 100000000 \
   --gas-budget 100000000
 
 # =============================================================================
-# BULLFY (SQUAD MANAGER) MODULE COMMANDS
+# SQUAD MANAGER MODULE COMMANDS
 # =============================================================================
 
-# Create a new squad
+# Create a new squad (without name - name will be set when adding players)
 sui client call \
-  --package 0x92e1f97ec5d96fdc6c464849009c0de761c5f5554441367fe3b270e829a91244 \
+  --package $BULLFY_PACKAGE \
   --module squad_manager \
   --function create_squad \
-  --args 0xf9c4b440d13187264d1718c4da7f85a5bafbb89b2e835dfb92b7c963a1414342 0x9c8854bf04b43d85f5128482c010ce2501f8a2431aec0337f2e3ca51d33a94b4 0x0fd90ddfd71a4ec4efdf9bba2108f533656287d35c09cc46c813b790def08650 "My Squad Name" 0x25f13f6a0a90a115e2c699f4e55d21d22dbcc216522bb243e1badc380560ec22 \
-
+  --args $SQUAD_REGISTRY $FEE_CONFIG $FEES_OBJECT $COIN_OBJECT \
+  --gas-budget 100000000
 
 # Revive squad using standard method (after 24 hours)
 sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
-  --module bullfy \
+  --package $BULLFY_PACKAGE \
+  --module squad_manager \
   --function revive_squad_standard \
-  --args 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 0xfee_config_object_id 0xee79201b857cd8826f9061e85301a4fe216abe13072a2fc85e33cbbfe495ffd2 1 0xcoin_object_id 0xclock_object_id \
+  --args $SQUAD_REGISTRY $FEE_CONFIG $FEES_OBJECT 1 $COIN_OBJECT 0x6 \
   --gas-budget 100000000
 
 # Revive squad instantly (immediate)
 sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
-  --module bullfy \
+  --package $BULLFY_PACKAGE \
+  --module squad_manager \
   --function revive_squad_instant \
-  --args 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 0xfee_config_object_id 0xee79201b857cd8826f9061e85301a4fe216abe13072a2fc85e33cbbfe495ffd2 1 0xcoin_object_id 0xclock_object_id \
+  --args $SQUAD_REGISTRY $FEE_CONFIG $FEES_OBJECT 1 $COIN_OBJECT 0x6 \
   --gas-budget 100000000
 
 # Delete a squad
 sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
-  --module bullfy \
+  --package $BULLFY_PACKAGE \
+  --module squad_manager \
   --function delete_squad \
-  --args 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 1 \
+  --args $SQUAD_REGISTRY 1 \
   --gas-budget 100000000
 
-# Add players to existing squad
+# Add players to existing squad and set squad name (exactly 7 players required)
 sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
-  --module bullfy \
+  --package $BULLFY_PACKAGE \
+  --module squad_manager \
   --function add_players_to_squad \
-  --args 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 1 "[\"new_player1\", \"new_player2\"]" \
+  --args $SQUAD_REGISTRY 1 "My Squad Name" '["Player1", "Player2", "Player3", "Player4", "Player5", "Player6", "Player7"]' \
   --gas-budget 100000000
 
 # =============================================================================
@@ -118,42 +118,42 @@ sui client call \
 
 # Create a bid for 1v1 match
 sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --package $BULLFY_PACKAGE \
   --module match_escrow \
   --function create_bid \
-  --args 0xescrow_registry_object_id 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 0xactive_squad_registry_object_id 0xfee_config_object_id 1 1000000000 3600000 0xcoin_object_id 0xclock_object_id \
+  --args $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $FEE_CONFIG 1 1000000000 300000 $COIN_OBJECT 0x6 \
   --gas-budget 100000000
 
 # Match two bids together (admin only)
 sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --package $BULLFY_PACKAGE \
   --module match_escrow \
   --function match_bids \
-  --args 0xadmin_cap_id 0xescrow_registry_object_id 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 0xactive_squad_registry_object_id 0xbid1_id 0xbid2_id 0xclock_object_id \
+  --args $ADMIN_CAP $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $BID1_ID $BID2_ID 0x6 \
   --gas-budget 100000000
 
 # Cancel a bid
 sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --package $BULLFY_PACKAGE \
   --module match_escrow \
   --function cancel_bid \
-  --args 0xescrow_registry_object_id 0xactive_squad_registry_object_id 0xbid_id 0xclock_object_id \
+  --args $ESCROW_REGISTRY $ACTIVE_SQUAD_REGISTRY $BID_ID \
   --gas-budget 100000000
 
-# Complete a match (declare winner)
+# Complete a match (declare winner - admin only, requires time validation)
 sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --package $BULLFY_PACKAGE \
   --module match_escrow \
   --function complete_match \
-  --args 0xadmin_cap_id 0xescrow_registry_object_id 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 0xfee_collector_fees_object_id 0xmatch_id 0xwinner_address 0xclock_object_id \
+  --args $ADMIN_CAP $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $MATCH_ID $WINNER_ADDRESS 0x6 \
   --gas-budget 100000000
 
-# Claim prize from completed match
+# Claim prize from completed match (admin only)
 sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --package $BULLFY_PACKAGE \
   --module match_escrow \
   --function claim_prize \
-  --args 0xescrow_registry_object_id 0xmatch_id \
+  --args $ADMIN_CAP $ESCROW_REGISTRY $FEES_OBJECT $MATCH_ID \
   --gas-budget 100000000
 
 # =============================================================================
@@ -162,50 +162,50 @@ sui client call \
 
 # Create a new challenge (multiplayer tournament)
 sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --package $BULLFY_PACKAGE \
   --module squad_player_challenge \
   --function create_challenge \
-  --args 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 0xactive_squad_registry_object_id 0xfee_config_object_id 1 1000000000 4 1774518152000 3600000 0xcoin_object_id 0xclock_object_id \
+  --args $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $FEE_CONFIG 1 1000000000 4 1774518152000 3600000 $COIN_OBJECT 0x6 \
   --gas-budget 100000000
 
 # Join an existing challenge
 sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --package $BULLFY_PACKAGE \
   --module squad_player_challenge \
   --function join_challenge \
-  --args 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 0xactive_squad_registry_object_id 0xfee_config_object_id 0xchallenge_object_id 2 0xcoin_object_id 0xclock_object_id \
+  --args $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $FEE_CONFIG $CHALLENGE_OBJECT 2 $COIN_OBJECT 0x6 \
   --gas-budget 100000000
 
 # Start a challenge (when scheduled time arrives)
 sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --package $BULLFY_PACKAGE \
   --module squad_player_challenge \
   --function start_challenge \
-  --args 0xchallenge_object_id 0xclock_object_id \
+  --args $CHALLENGE_OBJECT 0x6 \
   --gas-budget 100000000
 
 # Complete a challenge (declare winner)
 sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --package $BULLFY_PACKAGE \
   --module squad_player_challenge \
   --function complete_challenge \
-  --args 0xadmin_cap_id 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 0xactive_squad_registry_object_id 0xfee_collector_fees_object_id 0xchallenge_object_id 0xwinner_address 0xclock_object_id \
+  --args $ADMIN_CAP $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $FEES_OBJECT $CHALLENGE_OBJECT $WINNER_ADDRESS 0x6 \
   --gas-budget 100000000
 
 # Cancel a challenge (before it starts)
 sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --package $BULLFY_PACKAGE \
   --module squad_player_challenge \
   --function cancel_challenge \
-  --args 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 0xactive_squad_registry_object_id 0xfee_collector_fees_object_id 0xchallenge_object_id 0xclock_object_id \
+  --args $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $FEES_OBJECT $CHALLENGE_OBJECT 0x6 \
   --gas-budget 100000000
 
 # Expire a challenge (after scheduled start time with insufficient participants)
 sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --package $BULLFY_PACKAGE \
   --module squad_player_challenge \
   --function expire_challenge \
-  --args 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 0xactive_squad_registry_object_id 0xfee_collector_fees_object_id 0xchallenge_object_id 0xclock_object_id \
+  --args $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $FEES_OBJECT $CHALLENGE_OBJECT 0x6 \
   --gas-budget 100000000
 
 # =============================================================================
@@ -214,62 +214,18 @@ sui client call \
 
 # Withdraw specific amount from fees (admin only)
 sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --package $BULLFY_PACKAGE \
   --module fee_collector \
   --function withdraw \
-  --args 0xadmin_cap_id 0xee79201b857cd8826f9061e85301a4fe216abe13072a2fc85e33cbbfe495ffd2 1000000000 0xrecipient_address \
+  --args $ADMIN_CAP $FEES_OBJECT 1000000000 $RECIPIENT_ADDRESS \
   --gas-budget 100000000
 
 # Withdraw all fees (admin only)
 sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
+  --package $BULLFY_PACKAGE \
   --module fee_collector \
   --function withdraw_all \
-  --args 0xd6473051cbe19d0876394ec31af1b099f5e0d377493d7f637230f8c3b3f728a0 0xee79201b857cd8826f9061e85301a4fe216abe13072a2fc85e33cbbfe495ffd2 \
-  --gas-budget 100000000
-
-# =============================================================================
-# READ-ONLY QUERY EXAMPLES (using sui client call for public view functions)
-# =============================================================================
-
-# Get squad information
-sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
-  --module bullfy \
-  --function get_squad \
-  --args 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 1 \
-  --gas-budget 100000000
-
-# Check if owner has squads
-sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
-  --module bullfy \
-  --function has_squads \
-  --args 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 0xowner_address \
-  --gas-budget 100000000
-
-# Get owner's squad IDs
-sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
-  --module bullfy \
-  --function get_owner_squads \
-  --args 0x8dfd02479c825e64d8350c0b69b785a8dd05f92b888e734890e274127d6a0355 0xowner_address \
-  --gas-budget 100000000
-
-# Get fee configuration values
-sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
-  --module admin \
-  --function get_upfront_fee_bps \
-  --args 0xfee_config_object_id \
-  --gas-budget 100000000
-
-# Get total fees collected
-sui client call \
-  --package 0x34c25bcf0501fd56fb9cafa5363102f94521b65bf662f0ed429d6e97562bf61b \
-  --module fee_collector \
-  --function get_total \
-  --args 0xee79201b857cd8826f9061e85301a4fe216abe13072a2fc85e33cbbfe495ffd2 \
+  --args $ADMIN_CAP $FEES_OBJECT $RECIPIENT_ADDRESS \
   --gas-budget 100000000
 
 # =============================================================================
@@ -279,14 +235,14 @@ sui client call \
 # COMMON PARAMETERS:
 # - squad_id: Numeric ID of the squad (e.g., 1, 2, 3...)
 # - bid_amount: Amount in MIST (1 SUI = 1_000_000_000 MIST)
-# - duration: Duration in milliseconds (e.g., 3600000 = 1 hour)
+# - duration: Duration in milliseconds (60000-1800000 = 1-30 minutes)
 # - scheduled_start_time: Unix timestamp in milliseconds
 # - max_participants: Maximum number of participants in challenge
 # - coin_object_id: ID of SUI coin object for payment
-# - clock_object_id: Sui system clock object ID (usually 0x6)
+# - clock_object_id: Sui system clock object ID (always 0x6)
 #
 # OBJECT IDs TO UPDATE:
-# - Replace all 0x... placeholders with actual deployed object IDs
+# - Replace all $VARIABLE placeholders with actual deployed object IDs
 # - Get these IDs from deployment or network explorer
 # - Common objects: AdminCap, OwnerCap, SquadRegistry, FeeConfig, etc.
 #
@@ -294,3 +250,25 @@ sui client call \
 # - Admin functions require AdminCap ownership
 # - Owner functions require OwnerCap ownership  
 # - Regular functions require squad ownership or participation rights
+#
+# MODULE NAMES (CORRECT):
+# - bullfy::squad_manager (NOT bullfy::bullfy)
+# - bullfy::match_escrow
+# - bullfy::admin
+# - bullfy::fee_collector
+# - bullfy::squad_player_challenge
+#
+# TIME VALIDATION:
+# - complete_match function now requires match time to have ended
+# - Use clock object (0x6) for time-based validations
+# - Match durations are enforced between 1-30 minutes
+#
+# BID REQUIREMENTS:
+# - Minimum bid amount: 1_000_000 MIST (0.001 SUI)
+# - Duration limits: 60_000 to 1_800_000 milliseconds (1-30 minutes)
+# - Squad must be alive and not already active in another challenge
+#
+# SQUAD REQUIREMENTS:
+# - Must add exactly 7 players when calling add_players_to_squad
+# - Squad creation requires fee payment
+# - Revival has two options: standard (24h wait) or instant (higher fee)
