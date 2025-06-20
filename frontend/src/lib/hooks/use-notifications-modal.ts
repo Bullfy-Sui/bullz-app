@@ -14,22 +14,24 @@ type ModalContent = {
   onButtonClick: () => void;
 };
 
-type LoadingContent = {
-  description: string;
-  type: "loading";
-};
+// type LoadingContent = {
+//   description: string;
+//   type: "loading";
+// };
 
 interface Args {
   successContent?: ModalContent;
   errorContent?: ModalContent;
-  loadingContent?: LoadingContent;
-  status: NotificationStatus;
+  loadingContent?: ModalContent;
+  status: NotificationStatus | null;
 }
 
 export const useNotificationsModal = (args: Args) => {
-  return useMemo(() => {
+  const content = useMemo(() => {
     if (args.status === "success") return args.successContent;
     if (args.status === "loading") return args.loadingContent;
     if (args.status === "error") return args.errorContent;
   }, [args.status]);
+
+  return { ...content, status: args.status };
 };

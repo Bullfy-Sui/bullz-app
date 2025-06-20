@@ -1,6 +1,11 @@
+import NotificationModal from "@/components/general/modals/notify";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useDisclosure } from "@/lib/hooks/use-diclosure";
+import {
+  NotificationStatus,
+  useNotificationsModal,
+} from "@/lib/hooks/use-notifications-modal";
 import { useAppStore } from "@/lib/store/app-store";
 import { useConnectWallet, useWallets } from "@mysten/dapp-kit";
 import { useRouter } from "next/navigation";
@@ -14,9 +19,10 @@ const ConnectDrawer = (props: ConnectDrawerProps) => {
   const wallets = useWallets();
   const {
     mutate: connect,
-    // isPending: connectingWallet,
+    isPending: connectingWallet,
     // isSuccess: connectionSuccess,
     // isError: connectionError,
+    status: connectionStatus,
   } = useConnectWallet();
   // const {
   //   // mutate: registerUser,
@@ -26,42 +32,52 @@ const ConnectDrawer = (props: ConnectDrawerProps) => {
   // } = useRegister();
   const { setAddress } = useAppStore();
   const router = useRouter();
+  const loading = connectionStatus === "pending" || connectionStatus === "idle";
   const {
     onOpen: openNotificationDrawer,
-    // onClose: closeNotificationDrawer,
-    // isOpen: notificationIsOpen,
-  } = useDisclosure();
+    onClose: closeNotificationDrawer,
+    isOpen: notificationIsOpen,
+    disclosedData: notificationModalStatus,
+  } = useDisclosure<NotificationStatus | null>(
+    loading ? "loading" : connectionStatus
+  );
 
-  // const modalContent = useMemo(() => {
-  //   if (registrationSuccess || connectionSuccess) {
-  //     return {
-  //       title: "Connection Successful",
-  //       description: "You have successfully connected your wallet",
-  //       buttonLabel: "Proceed home",
-  //       type: "success",
-  //     };
-  //   }
-  //   if (registrationError || connectionError) {
-  //     return {
-  //       title: "Error connecting wallet",
-  //       description: "Sorry, we couldn’t connect your wallet",
-  //       buttonLabel: "Try Again",
-  //       type: "error",
-  //     };
-  //   }
-  // }, [
-  //   registrationSuccess,
-  //   connectionSuccess,
-  //   registrationError,
-  //   connectionError,
-  // ]);
+  const modalContent = useNotificationsModal({
+    status: notificationModalStatus,
+    errorContent: {
+      title: "FAILED",
+      description:
+        "WE COULDN’T CONNECT YOUR WALLET. TRY AGAIN OR USE A DIFFERENT WALLET",
+      buttonLabel: "Close",
+      onButtonClick: () => {
+        console.log("error");
+      },
+    },
+    successContent: {
+      title: "CONNECTED",
+      description: "YOUR WALLET HAS BEEN CONNECTED. YOU CAN START PLAYING NOW",
+      buttonLabel: "Continue",
+      onButtonClick: () => {
+        console.log("connected");
+        router.push("/squad");
+        closeNotificationDrawer();
+      },
+    },
+    loadingContent: {
+      title: "",
+      description: "Connecting wallet...",
+      buttonLabel: "",
+      onButtonClick: () => {
+        console.log("loading");
+      },
+    },
+  });
 
-  // @ts-expect-error - -
   const onConnect = (res) => {
     console.log(res);
     console.log("connected");
     setAddress(res.accounts[0].address);
-    router.push("/squad");
+    // router.push("/squad");
     // registerUser(
     //   {
     //     address: res.accounts[0].address,
@@ -77,41 +93,56 @@ const ConnectDrawer = (props: ConnectDrawerProps) => {
 
   return (
     <>
-      <Dialog onOpenChange={props.onClose} open={props.isOpen}>
-        <DialogContent className="max-w-[382px] bg-modal-bg rounded-[1.25rem] border-none w-[23.875rem] ">
-          <div className="space-y-4">
-            {wallets.map((wallet) => (
-              <Button
-                key={wallet.name}
-                className="w-full text-center border bg-transparent rounded-[1.25rem] border-waitlist-form-border"
-                onClick={() => {
-                  openNotificationDrawer();
-                  connect(
-                    { wallet },
-                    {
-                      onSuccess: onConnect,
-                    }
-                  );
-                }}
-              >
-                Connect to {wallet.name}
-              </Button>
-            ))}
+      <Sheet open={props.isOpen} onOpenChange={props.onClose}>
+        <SheetContent
+          side="bottom"
+          className="border-none  overflow-scroll px-[1rem] py-[2rem] bg-gray-850"
+          style={{ boxShadow: "0px 8px 0px 0px #FFFFFF29 inset" }}
+        >
+          <div className="space-y-4 w-full mx-auto">
+            <p className="text-gray-300 font-[700] font-offbit block text-[0.875rem] leading-[100%] mb-[0.5rem] ">
+              CONNECT WALLET
+            </p>
+
+            <div className="flex flex-col items-center gap-[0.5rem]">
+              {wallets.map((wallet) => (
+                <Button
+                  variant={"secondary"}
+                  key={wallet.name}
+                  className="bg-gray-800 cursor-pointer font-[700] text-[0.875rem] leading-[100%] flex flex-col items-center justify-center gap-[0.79rem]  w-full h-[3.25rem]"
+                  style={{
+                    boxShadow:
+                      "0px -8px 0px 0px #0000003D inset, 0px 8px 0px 0px #FFFFFF29 inset",
+                  }}
+                  onClick={() => {
+                    openNotificationDrawer({ data: "success" });
+                    props.onClose();
+                    connect(
+                      { wallet },
+                      {
+                        onSuccess: onConnect,
+                      }
+                    );
+                  }}
+                >
+                  {wallet.name}
+                </Button>
+              ))}
+            </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
-      {/* <NotificationModal
+      <NotificationModal
         isOpen={notificationIsOpen}
-        onClose={closeNotificationDrawer}
-        onButtonClick={closeNotificationDrawer}
+        onClose={() => {}}
+        onButtonClick={modalContent?.onButtonClick}
         buttonLabel={modalContent?.buttonLabel}
-        type={modalContent?.type}
-        isLoading={registering || connectingWallet}
+        isLoading={connectingWallet}
         title={modalContent?.title}
-
         description={modalContent?.description}
-      /> */}
+        status={notificationModalStatus}
+      />
     </>
   );
 };

@@ -11,7 +11,7 @@ import { getFullnodeUrl } from "@mysten/sui/client";
 const queryClient = new QueryClient();
 
 const { networkConfig } = createNetworkConfig({
-  devnet: { url: getFullnodeUrl("devnet") },
+  devnet: { url: getFullnodeUrl("testnet") },
   // mainnet: { url: getFullnodeUrl("mainnet") },
 });
 

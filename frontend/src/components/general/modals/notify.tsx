@@ -39,7 +39,7 @@ const NotificationModal = (props: NotificationModalProps) => {
       >
         {props.status === "loading" ? (
           <div className="flex h-full items-center justify-center">
-            <p className="text-white font-[700] tracking-[0.04em] text-[1.375rem] uppercase leading-[100%]">
+            <p className="text-white font-[700] text-center tracking-[0.04em] text-[1.375rem] uppercase leading-[100%]">
               {props.description}
             </p>
           </div>
@@ -48,7 +48,7 @@ const NotificationModal = (props: NotificationModalProps) => {
             <div className=" space-y-[1rem] flex flex-col items-center">
               <>{Icon}</>
               <div className="text-center">
-                <h2 className=" text-[1.0625rem] font-[700] tracking-[0.04em] leading-[100%] mb-[1rem]">
+                <h2 className="uppercase text-[1.0625rem] font-[700] tracking-[0.04em] leading-[100%] mb-[1rem]">
                   {props.title}
                 </h2>
                 <p className="text-gray-300 uppercase text-[1.0625rem] tracking-[0.04em] font-[700] text-center leading-[100%]">
@@ -57,7 +57,7 @@ const NotificationModal = (props: NotificationModalProps) => {
               </div>
               <Button
                 onClick={props.onButtonClick}
-                className="h-[3rem] w-max px-[1.5rem]"
+                className="h-[3rem] w-max px-[1.5rem] cursor-pointer"
               >
                 {props.buttonLabel}
               </Button>

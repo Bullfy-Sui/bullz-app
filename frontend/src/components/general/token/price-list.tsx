@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import TokenCard from "./card";
+import TokenCard, { TokenCardSkeleton } from "./card";
 import { useGetPriceList } from "@/common-api-services/token-price.ts";
 import { TokenResponse } from "@/common-api-services/token-price.ts/types";
 import ChevronRight from "@/components/icons/chevron-right";
@@ -10,7 +10,7 @@ interface PriceListProps {
 }
 
 const PriceList = (props?: PriceListProps) => {
-  const { data: priceListResponse } = useGetPriceList();
+  const { data: priceListResponse, isLoading } = useGetPriceList();
   return (
     <>
       <div className="flex items-center justify-between mt-[1.25rem] mb-[1.5rem]">
@@ -45,12 +45,13 @@ const PriceList = (props?: PriceListProps) => {
           </div>
         </div>
       </div>
+      {isLoading &&
+        [1, 2, 3, 4, 5, 6].map((i) => <TokenCardSkeleton key={i} />)}
       {priceListResponse?.data.map((token) => (
         <TokenCard
           {...token}
           key={token.token_id}
-          // @ts-expect-error - -
-          onClick={() => props?.onSelect(token)}
+          onClick={() => props?.onSelect && props?.onSelect(token)}
         />
       ))}
     </>
