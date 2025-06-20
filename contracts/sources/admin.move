@@ -1,19 +1,16 @@
-#[allow(unused_const,lint(custom_state_change),duplicate_alias)]
 module bullfy::admin {
     use sui::event;
 
     // Error codes with descriptive messages
     #[error]
-    const ENotOwner: vector<u8> = b"Only the owner can perform this action";
-    #[error]
-    const EInvalidFeePercentage: vector<u8> = b"Fee percentage must be between 0 and 1000 (0-10%)";
+    const EInvalidFeePercentage: vector<u8> = b"Fee percentage must be between 0 and 10 (0-10%)";
     #[error]
     const EInvalidSquadCreationFee: vector<u8> = b"Squad creation fee must be between 100000000 and 10000000000 MIST (0.1-10 SUI)";
     #[error]
     const EInvalidRevivalFee: vector<u8> = b"Revival fee must be between 10000000 and 1000000000 MIST (0.01-1 SUI)";
 
     // Constants
-    const MAX_FEE_BPS: u64 = 1000; // Maximum 10% fee
+    const MAX_FEE_BPS: u64 = 1000; // Maximum 10% fee (1000 basis points)
     const MIN_SQUAD_CREATION_FEE: u64 = 100_000_000; // Minimum 0.1 SUI
     const MAX_SQUAD_CREATION_FEE: u64 = 10_000_000_000; // Maximum 10 SUI
     const MIN_REVIVAL_FEE: u64 = 10_000_000; // Minimum 0.01 SUI
@@ -86,7 +83,7 @@ module bullfy::admin {
         // Create global fee configuration with defaults
         let fee_config = FeeConfig {
             id: object::new(ctx),
-            upfront_fee_bps: 500, // 5% default fee
+            upfront_fee_bps: 500, // 5% default fee (500 basis points)
             squad_creation_fee: 1_000_000_000, // 1 SUI default fee
             standard_revival_fee: 50_000_000, // 0.05 SUI default fee
             instant_revival_fee: 100_000_000, // 0.1 SUI default fee
@@ -96,6 +93,8 @@ module bullfy::admin {
         // Emit event for the first admin
         event::emit(AdminCapCreated { admin: sender });
     }
+
+
 
     // Create a new AdminCap and transfer it to the specified address
     public entry fun create_admin_cap(
@@ -138,7 +137,7 @@ module bullfy::admin {
         transfer::transfer(owner_cap, new_owner);
     }
 
-    // Update the upfront fee percentage (admin only)
+    // Update the upfront fee in basis points (admin only)
     public entry fun update_fee_percentage(
         _: &AdminCap,
         fee_config: &mut FeeConfig,
@@ -147,7 +146,7 @@ module bullfy::admin {
     ) {
         let sender = tx_context::sender(ctx);
         
-        // Validate fee percentage (0-10%)
+        // Validate fee in basis points (0-1000 = 0-10%)
         assert!(new_fee_bps <= MAX_FEE_BPS, EInvalidFeePercentage);
         
         let old_fee_bps = fee_config.upfront_fee_bps;
@@ -215,7 +214,7 @@ module bullfy::admin {
         });
     }
 
-    // Get current upfront fee percentage
+    // Get current upfront fee in basis points
     public fun get_upfront_fee_bps(fee_config: &FeeConfig): u64 {
         fee_config.upfront_fee_bps
     }
@@ -234,4 +233,11 @@ module bullfy::admin {
     public fun get_instant_revival_fee(fee_config: &FeeConfig): u64 {
         fee_config.instant_revival_fee
     }
-} 
+
+
+      // Test-only initialization function
+    #[test_only]
+    public fun init_for_testing(ctx: &mut TxContext) {
+        init(ctx);
+    }
+}

@@ -32,4 +32,4 @@ module bullfy::fee_calculator {
     public fun get_fee_bps(fee_config: &FeeConfig): u64 {
         admin::get_upfront_fee_bps(fee_config)
     }
-} 
+}

@@ -83,8 +83,6 @@ module bullfy::squad_manager {
         fee_paid: u64,
     }
 
-    
-
     // Event emitted when multiple players are added to squad.
     public struct PlayersAddedToSquad has copy, drop {
         squad_id: u64,
@@ -101,6 +99,12 @@ module bullfy::squad_manager {
             next_squad_id: 1, // Start squad IDs from 1
         };
         transfer::share_object(squad_registry);
+    }
+
+    // Test-only initialization function
+    #[test_only]
+    public fun init_for_testing(ctx: &mut TxContext) {
+        init(ctx);
     }
 
     // Creates a new squad with empty players vector and 5 life points.
@@ -126,7 +130,7 @@ module bullfy::squad_manager {
         if (coin::value(&payment) > creation_fee) {
             let change_amount = coin::value(&payment) - creation_fee;
             let change = coin::split(&mut payment, change_amount, ctx);
-            sui::transfer::public_transfer(change, owner);
+            transfer::public_transfer(change, owner);
         };
 
         // Send fee to collector
@@ -256,7 +260,7 @@ module bullfy::squad_manager {
         if (coin::value(&payment) > revival_fee) {
             let change_amount = coin::value(&payment) - revival_fee;
             let change = coin::split(&mut payment, change_amount, ctx);
-            sui::transfer::public_transfer(change, owner);
+            transfer::public_transfer(change, owner);
         };
 
         // Send fee to collector
@@ -303,7 +307,7 @@ module bullfy::squad_manager {
         if (coin::value(&payment) > revival_fee) {
             let change_amount = coin::value(&payment) - revival_fee;
             let change = coin::split(&mut payment, change_amount, ctx);
-            sui::transfer::public_transfer(change, owner);
+            transfer::public_transfer(change, owner);
         };
 
         // Send fee to collector
@@ -369,19 +373,30 @@ module bullfy::squad_manager {
         let squad = table::remove(&mut registry.squads, squad_id);
         
         // Remove from owner's squads list
+        //let owner_squads = table::borrow_mut(&mut registry.owner_squads, owner);
+        //let (found, index) = vector::index_of(owner_squads, &squad_id);
+
+        //================================new addition to fix the bug=====================================
+        //delete_squad function, you only remove the squad ID from the owner's vector of squads, 
+        //not the entry for the owner itself.
+        //So after deleting the last squad, the vector for that owner becomes empty,
+        //ut the entry for the owner still exists in the table.
+        //Thus, table::contains(&registry.owner_squads, owner) still returns true, causing your test to fail.
+
+        //fixed the function now all the tests should pass 
         let owner_squads = table::borrow_mut(&mut registry.owner_squads, owner);
         let (found, index) = vector::index_of(owner_squads, &squad_id);
         if (found) {
             vector::remove(owner_squads, index);
+            if (vector::is_empty(owner_squads)){
+                table::remove(&mut registry.owner_squads, owner);
+            }
         };
         
         // Delete the squad object
         let Squad { id, owner: _, squad_id: _, name: _, players: _, life: _, death_time: _ } = squad;
         object::delete(id);
     }
-
-   
-
 
     // Adds 7 players to a squad in one call (only squad owner can add players).
     public entry fun add_players_to_squad(
@@ -434,8 +449,7 @@ module bullfy::squad_manager {
         });
     }
 
-
-     // Get squad name
+    // Get squad name
     public fun get_squad_name(squad: &Squad): &String {
         &squad.name
     }
@@ -460,7 +474,7 @@ module bullfy::squad_manager {
         squad.life
     }
 
-     // Gets a squad by ID.
+    // Gets a squad by ID.
     public fun get_squad(registry: &SquadRegistry, squad_id: u64): &Squad {
         assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
         table::borrow(&registry.squads, squad_id)
@@ -473,4 +487,4 @@ module bullfy::squad_manager {
         };
         table::borrow(&registry.owner_squads, owner)
     }
-} 
+}
