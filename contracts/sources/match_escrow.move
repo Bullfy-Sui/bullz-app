@@ -9,6 +9,7 @@ module bullfy::match_escrow {
     use bullfy::fee_collector::{Self, Fees};
     use bullfy::squad_player_challenge::{Self, ActiveSquadRegistry};
     use bullfy::admin::{AdminCap, FeeConfig};
+    use bullfy::match_signer::{Self, MatchSignerCap};
     use bullfy::common_errors;
     use bullfy::validators;
     use bullfy::payment_utils;
@@ -443,7 +444,7 @@ module bullfy::match_escrow {
 
     // Complete a match by declaring a winner this must be called by the oracle or a backend service)
     public entry fun complete_match(
-        _: &AdminCap,
+        signer_cap: &MatchSignerCap,
         registry: &mut EscrowRegistry,
         squad_registry: &mut SquadRegistry,
         active_squad_registry: &mut ActiveSquadRegistry,
@@ -452,8 +453,11 @@ module bullfy::match_escrow {
         squad1_final_token_prices: vector<u64>, // Final token prices for squad1 at match completion
         squad2_final_token_prices: vector<u64>, // Final token prices for squad2 at match completion
         clock: &Clock,
-        _ctx: &mut TxContext
+        ctx: &mut TxContext
     ) {
+        // Validate signer authorization
+        assert!(match_signer::validate_match_signer(signer_cap, ctx), common_errors::unauthorized());
+        
         assert!(table::contains(&registry.match_id_to_index, match_id), E_MATCH_NOT_FOUND);
         let match_index = *table::borrow(&registry.match_id_to_index, match_id);
         let match_obj = vector::borrow_mut(&mut registry.active_matches, match_index);
@@ -518,12 +522,15 @@ module bullfy::match_escrow {
 
     // Claim prize after winning a match
     public entry fun claim_prize(
-        _: &AdminCap,
+        signer_cap: &MatchSignerCap,
         registry: &mut EscrowRegistry,
         fees: &mut Fees,
         match_id: ID,
         ctx: &mut TxContext
     ) {
+        // Validate signer authorization
+        assert!(match_signer::validate_match_signer(signer_cap, ctx), common_errors::unauthorized());
+        
         assert!(table::contains(&registry.match_id_to_index, match_id), E_MATCH_NOT_FOUND);
         let match_index = *table::borrow(&registry.match_id_to_index, match_id);
         
@@ -577,7 +584,6 @@ module bullfy::match_escrow {
         // Move bid from active to completed Storage
         move_bid_to_completed(registry, bid1_id);
         move_bid_to_completed(registry, bid2_id);
-
 
         // Emit event
         event::emit(PrizeClaimed {
