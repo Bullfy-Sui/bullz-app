@@ -108,16 +108,11 @@ module bullfy::squad_manager {
         squad_registry: &mut SquadRegistry,
         fee_config: &FeeConfig,
         fees: &mut fee_collector::Fees,
-        squad_name: String,
         mut payment: Coin<SUI>,
         ctx: &mut TxContext
     ) {
         let owner = tx_context::sender(ctx);
         
-        // Validate inputs
-        assert!(string::length(&squad_name) >= MIN_SQUAD_NAME_LENGTH, E_INVALID_SQUAD_NAME);
-        assert!(string::length(&squad_name) <= MAX_SQUAD_NAME_LENGTH, E_INVALID_SQUAD_NAME);
-
         // Calculate and handle squad creation fee using payment utils
         let creation_fee = admin::get_squad_creation_fee(fee_config);
         payment_utils::validate_payment_amount(coin::value(&payment), creation_fee);
@@ -139,7 +134,7 @@ module bullfy::squad_manager {
             id: object::new(ctx),
             owner,
             squad_id,
-            name: squad_name,
+            name: string::utf8(b""),  // Create with empty name - will be set when adding players
             players: vector::empty<String>(),  // Create with empty players vector
             life: INITIAL_SQUAD_LIFE,         // Start with 5 life points
             death_time: option::none(),       // Not dead initially
@@ -159,7 +154,7 @@ module bullfy::squad_manager {
         event::emit(SquadCreated { 
             owner,
             squad_id,
-            name: squad_name,
+            name: string::utf8(b""),  // Empty name initially
             life: INITIAL_SQUAD_LIFE,
             fee_paid: creation_fee,
         });
@@ -383,10 +378,11 @@ module bullfy::squad_manager {
    
 
 
-    // Adds 7 players to a squad in one call (only squad owner can add players).
+    // Adds 7 players to a squad in one call and sets the squad name (only squad owner can add players).
     public entry fun add_players_to_squad(
         registry: &mut SquadRegistry,
         squad_id: u64,
+        squad_name: String,
         player_names: vector<String>,
         ctx: &mut TxContext
     ) {
@@ -395,6 +391,10 @@ module bullfy::squad_manager {
         
         // Only squad owner can add players
         assert!(squad.owner == tx_context::sender(ctx), EOwnerDoesNotHaveSquad);
+        
+        // Validate squad name
+        assert!(string::length(&squad_name) >= MIN_SQUAD_NAME_LENGTH, E_INVALID_SQUAD_NAME);
+        assert!(string::length(&squad_name) <= MAX_SQUAD_NAME_LENGTH, E_INVALID_SQUAD_NAME);
         
         // Must be exactly 7 players
         assert!(vector::length(&player_names) == 7, EMustAddExactlySevenPlayers);
@@ -418,6 +418,9 @@ module bullfy::squad_manager {
             
             i = i + 1;
         };
+        
+        // Set the squad name
+        squad.name = squad_name;
         
         // Add all players to the squad
         let mut k = 0;

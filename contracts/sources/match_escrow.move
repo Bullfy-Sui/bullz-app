@@ -23,6 +23,7 @@ module bullfy::match_escrow {
     const E_MATCH_NOT_ACTIVE: u64 = 3006;
     const E_MATCH_ALREADY_COMPLETED: u64 = 3007;
     const E_INVALID_WINNER: u64 = 3008;
+    const E_MATCH_NOT_ENDED_YET: u64 = 3009;
 
     // Constants
     const MIN_BID_AMOUNT: u64 = 1_000_000; // 0.001 SUI in MIST
@@ -441,6 +442,10 @@ module bullfy::match_escrow {
         assert!(match_obj.status == MatchStatus::Active, E_MATCH_NOT_ACTIVE);
         assert!(!match_obj.prize_claimed, E_MATCH_ALREADY_COMPLETED);
         
+        // IMPORTANT: Validate that the match time has ended
+        let current_time = clock::timestamp_ms(clock);
+        assert!(current_time >= match_obj.ends_at, E_MATCH_NOT_ENDED_YET);
+        
         // Validate winner
         assert!(winner == match_obj.player1 || winner == match_obj.player2, E_INVALID_WINNER);
         
@@ -497,7 +502,7 @@ module bullfy::match_escrow {
         let match_index = *table::borrow(&registry.match_id_to_index, match_id);
         
         // Get all needed data before mutable borrow
-        let (bid1_id, total_prize, fees_collected, total_fees, winner_addr);
+        let (bid1_id, bid2_id, total_prize, fees_collected, total_fees, winner_addr);
         {
             let match_obj = vector::borrow(&registry.active_matches, match_index);
             
@@ -507,6 +512,7 @@ module bullfy::match_escrow {
             assert!(option::is_some(&match_obj.winner), E_MATCH_NOT_ACTIVE);
 
             bid1_id = match_obj.bid1_id;
+            bid2_id = match_obj.bid2_id;
             total_prize = match_obj.total_prize;
             fees_collected = match_obj.fees_collected;
             total_fees = match_obj.total_fees;
@@ -539,8 +545,13 @@ module bullfy::match_escrow {
             match_obj.prize_claimed = true;
         };
 
-        // Move match to completed vector
+        // Move match from active to completed Storage
         move_match_to_completed(registry, match_id);
+
+        // Move bid from active to completed Storage
+        move_bid_to_completed(registry, bid1_id);
+        move_bid_to_completed(registry, bid2_id);
+
 
         // Emit event
         event::emit(PrizeClaimed {
@@ -758,6 +769,25 @@ module bullfy::match_escrow {
         bid.status == BidStatus::Open
     }
 
+    // Helper function to check if a match has ended (time-based)
+    public fun has_match_ended(match_obj: &Match, clock: &Clock): bool {
+        let current_time = clock::timestamp_ms(clock);
+        current_time >= match_obj.ends_at
+    }
+
+    // Helper function to check if match can be completed
+    public fun can_complete_match(registry: &EscrowRegistry, match_id: ID, clock: &Clock): bool {
+        if (!table::contains(&registry.match_id_to_index, match_id)) {
+            return false
+        };
+        
+        let match_index = *table::borrow(&registry.match_id_to_index, match_id);
+        let match_obj = vector::borrow(&registry.active_matches, match_index);
+        
+        match_obj.status == MatchStatus::Active && 
+        !match_obj.prize_claimed && 
+        has_match_ended(match_obj, clock)
+    }
 
 }
 
