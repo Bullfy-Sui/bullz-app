@@ -6,6 +6,8 @@
 
 # OWNER_CAP=0x414172886f5b8b5542898889d2511888b66ccfb2f8f87338cd104765c936540f
 
+# ADMIN_REGISTRY=0x[UPDATE_WITH_DEPLOYED_ADMIN_REGISTRY_ID]
+
 # MATCH_SIGNER_CAP=0x[UPDATE_WITH_DEPLOYED_SIGNER_CAP_ID]
 
 # SIGNER_REGISTRY=0x[UPDATE_WITH_DEPLOYED_SIGNER_REGISTRY_ID]
@@ -24,20 +26,36 @@
 # ADMIN MODULE COMMANDS
 # =============================================================================
 
-# Create a new admin capability
+# Create a new admin capability (owner only)
 sui client call \
   --package $BULLFY_PACKAGE \
   --module admin \
   --function create_admin_cap \
-  --args $OWNER_CAP $NEW_ADMIN_ADDRESS \
+  --args $OWNER_CAP $ADMIN_REGISTRY $NEW_ADMIN_ADDRESS 0x6 \
   --gas-budget 100000000
 
-# Revoke admin capability
+# Revoke admin capability (owner only)
 sui client call \
   --package $BULLFY_PACKAGE \
   --module admin \
   --function revoke_admin_cap \
-  --args $OWNER_CAP $ADMIN_CAP_TO_REVOKE $ADMIN_ADDRESS \
+  --args $OWNER_CAP $ADMIN_REGISTRY $ADMIN_CAP_TO_REVOKE 0x6 \
+  --gas-budget 100000000
+
+# Deactivate admin (admin can deactivate themselves)
+sui client call \
+  --package $BULLFY_PACKAGE \
+  --module admin \
+  --function deactivate_admin \
+  --args $ADMIN_CAP 0x6 \
+  --gas-budget 100000000
+
+# Reactivate admin (admin can reactivate themselves)
+sui client call \
+  --package $BULLFY_PACKAGE \
+  --module admin \
+  --function reactivate_admin \
+  --args $ADMIN_CAP 0x6 \
   --gas-budget 100000000
 
 # Transfer owner capability
@@ -48,7 +66,7 @@ sui client call \
   --args $OWNER_CAP $NEW_OWNER_ADDRESS \
   --gas-budget 100000000
 
-# Update fee percentage (0-1000 basis points, i.e., 0-10%)
+# Update fee percentage (0-1000 basis points, i.e., 0-10%) - now requires active AdminCap
 sui client call \
   --package $BULLFY_PACKAGE \
   --module admin \
@@ -56,7 +74,7 @@ sui client call \
   --args $ADMIN_CAP $FEE_CONFIG 500 \
   --gas-budget 100000000
 
-# Update squad creation fee (in MIST, 1 SUI = 1_000_000_000 MIST)
+# Update squad creation fee (in MIST, 1 SUI = 1_000_000_000 MIST) - now requires active AdminCap
 sui client call \
   --package $BULLFY_PACKAGE \
   --module admin \
@@ -64,7 +82,7 @@ sui client call \
   --args $ADMIN_CAP $FEE_CONFIG 1000000000 \
   --gas-budget 100000000
 
-# Update revival fees (standard_fee, instant_fee in MIST)
+# Update revival fees (standard_fee, instant_fee in MIST) - now requires active AdminCap
 sui client call \
   --package $BULLFY_PACKAGE \
   --module admin \
@@ -360,13 +378,21 @@ sui client call \
 # OBJECT IDs TO UPDATE:
 # - Replace all $VARIABLE placeholders with actual deployed object IDs
 # - Get these IDs from deployment or network explorer
-# - Common objects: AdminCap, OwnerCap, MatchSignerCap, SignerRegistry, SquadRegistry, FeeConfig, etc.
+# - Common objects: AdminCap, OwnerCap, AdminRegistry, MatchSignerCap, SignerRegistry, SquadRegistry, FeeConfig, etc.
 #
 # PERMISSIONS:
-# - Admin functions require AdminCap ownership
-# - Owner functions require OwnerCap ownership
+# - Owner functions require OwnerCap ownership (create/revoke admins, transfer ownership)
+# - Admin functions require active AdminCap ownership (fee updates, match signer management)
 # - Match operations require MatchSignerCap ownership (match_bids, complete_match, claim_prize)
 # - Regular functions require squad ownership or participation rights
+#
+# ADMIN REGISTRY SYSTEM:
+# - AdminRegistry tracks all active admins centrally
+# - AdminCap now includes admin_address, created_at, and is_active fields
+# - Admins can temporarily deactivate/reactivate themselves
+# - Only active admins can perform admin functions
+# - Query functions available to check admin status and list all admins
+# - Events emitted for all admin lifecycle operations
 #
 # MATCH SIGNER CAPABILITIES:
 # - MatchSignerCap provides limited permissions for backend automation
@@ -378,8 +404,8 @@ sui client call \
 # MODULE NAMES (CORRECT):
 # - bullfy::squad_manager (NOT bullfy::bullfy)
 # - bullfy::match_escrow
-# - bullfy::match_signer (NEW)
-# - bullfy::admin
+# - bullfy::match_signer
+# - bullfy::admin (NOW WITH REGISTRY)
 # - bullfy::fee_collector
 # - bullfy::squad_player_challenge
 #
@@ -387,6 +413,7 @@ sui client call \
 # - complete_match function now requires match time to have ended
 # - Use clock object (0x6) for time-based validations
 # - Match durations are enforced between 1-30 minutes
+# - Admin operations now include timestamps for audit trails
 #
 # BID REQUIREMENTS:
 # - Minimum bid amount: 1_000_000 MIST (0.001 SUI)
@@ -398,9 +425,28 @@ sui client call \
 # - Squad creation requires fee payment
 # - Revival has two options: standard (24h wait) or instant (higher fee)
 #
+# ADMIN MANAGEMENT SETUP:
+# 1. Deploy contracts - OwnerCap goes to deployer, AdminRegistry is created
+# 2. Create first admin using OwnerCap + AdminRegistry
+# 3. Additional admins can be created by owner
+# 4. Admins can manage fees, create match signers, etc.
+# 5. Admins can temporarily deactivate themselves if needed
+# 6. Owner can revoke any admin at any time
+#
 # BACKEND AUTOMATION SETUP:
 # 1. Deploy contracts and get object IDs
-# 2. Create MatchSignerCap for your backend service address
-# 3. Backend service can now automate: bid matching → match completion → prize claiming
-# 4. Monitor events and use query functions to track match states
-# 5. Implement error handling for unauthorized operations
+# 2. Create AdminCap for admin operations
+# 3. Create MatchSignerCap for your backend service address
+# 4. Backend service can now automate: bid matching → match completion → prize claiming
+# 5. Monitor events and use query functions to track match states
+# 6. Implement error handling for unauthorized operations
+#
+# QUERY FUNCTIONS AVAILABLE:
+# - is_active_admin(registry, address): Check if address is an active admin
+# - get_active_admins(registry): Get list of all active admin addresses
+# - get_admin_count(registry): Get total number of admins
+# - get_admin_info(admin_cap): Get admin details (address, created_at, is_active)
+# - is_active_signer(registry, address): Check if address is an active signer
+# - get_active_signers(registry): Get list of all active signer addresses
+# - get_signer_count(registry): Get total number of signers
+# - get_signer_info(signer_cap): Get signer details (address, created_at, is_active)

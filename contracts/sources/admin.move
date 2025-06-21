@@ -1,6 +1,7 @@
 #[allow(unused_const,lint(custom_state_change),duplicate_alias)]
 module bullfy::admin {
     use sui::event;
+    use sui::clock::{Self, Clock};
 
     // Error codes with descriptive messages
     #[error]
@@ -11,6 +12,10 @@ module bullfy::admin {
     const EInvalidSquadCreationFee: vector<u8> = b"Squad creation fee must be between 100000000 and 10000000000 MIST (0.1-10 SUI)";
     #[error]
     const EInvalidRevivalFee: vector<u8> = b"Revival fee must be between 10000000 and 1000000000 MIST (0.01-1 SUI)";
+    #[error]
+    const EAdminNotFound: vector<u8> = b"Admin not found in registry";
+    #[error]
+    const EAdminAlreadyExists: vector<u8> = b"Admin already exists in registry";
 
     // Constants
     const MAX_FEE_BPS: u64 = 1000; // Maximum 10% fee
@@ -21,12 +26,22 @@ module bullfy::admin {
 
     // AdminCap to control admin-only functions
     public struct AdminCap has key {
-        id: UID
+        id: UID,
+        admin_address: address,
+        created_at: u64,
+        is_active: bool,
     }
 
     // OwnerCap - special capability for the contract owner
     public struct OwnerCap has key {
         id: UID
+    }
+
+    // Admin registry to track all admins
+    public struct AdminRegistry has key {
+        id: UID,
+        active_admins: vector<address>,
+        admin_count: u64,
     }
 
     // Global fee configuration
@@ -40,11 +55,23 @@ module bullfy::admin {
 
     // Events
     public struct AdminCapCreated has copy, drop {
-        admin: address
+        admin: address,
+        created_at: u64,
     }
 
     public struct AdminCapRevoked has copy, drop {
-        admin: address
+        admin: address,
+        revoked_at: u64,
+    }
+
+    public struct AdminDeactivated has copy, drop {
+        admin: address,
+        deactivated_at: u64,
+    }
+
+    public struct AdminReactivated has copy, drop {
+        admin: address,
+        reactivated_at: u64,
     }
 
     public struct FeePercentageUpdated has copy, drop {
@@ -67,7 +94,7 @@ module bullfy::admin {
         updated_by: address,
     }
 
-    // Init function to create the OwnerCap
+    // Init function to create the OwnerCap and AdminRegistry
     fun init(ctx: &mut TxContext) {
         let sender = tx_context::sender(ctx);
         
@@ -77,11 +104,13 @@ module bullfy::admin {
         };
         transfer::transfer(owner_cap, sender);
         
-        // Create and transfer the first AdminCap to the deployer
-        let admin_cap = AdminCap {
-            id: object::new(ctx)
+        // Create admin registry
+        let admin_registry = AdminRegistry {
+            id: object::new(ctx),
+            active_admins: vector::empty<address>(),
+            admin_count: 0,
         };
-        transfer::transfer(admin_cap, sender);
+        transfer::share_object(admin_registry);
 
         // Create global fee configuration with defaults
         let fee_config = FeeConfig {
@@ -93,41 +122,118 @@ module bullfy::admin {
         };
         transfer::share_object(fee_config);
         
-        // Emit event for the first admin
-        event::emit(AdminCapCreated { admin: sender });
+        // Note: First admin will be created separately using create_admin_cap
     }
 
     // Create a new AdminCap and transfer it to the specified address
     public entry fun create_admin_cap(
         _: &OwnerCap,
+        registry: &mut AdminRegistry,
         admin: address,
+        clock: &Clock,
         ctx: &mut TxContext
     ) {
+        let current_time = clock::timestamp_ms(clock);
+        
+        // Check if admin already exists
+        assert!(!vector::contains(&registry.active_admins, &admin), EAdminAlreadyExists);
+        
         // Create a new AdminCap
         let admin_cap = AdminCap {
-            id: object::new(ctx)
+            id: object::new(ctx),
+            admin_address: admin,
+            created_at: current_time,
+            is_active: true,
         };
+        
+        // Add to registry
+        vector::push_back(&mut registry.active_admins, admin);
+        registry.admin_count = registry.admin_count + 1;
         
         // Transfer the AdminCap to the new admin
         transfer::transfer(admin_cap, admin);
         
         // Emit event
-        event::emit(AdminCapCreated { admin });
+        event::emit(AdminCapCreated { 
+            admin,
+            created_at: current_time,
+        });
     }
 
-    // Revoke an admin's capability by creating a burn function
-    // The owner needs to get the AdminCap from the admin first (off-chain coordination)
+    // Revoke an admin's capability
     public entry fun revoke_admin_cap(
         _: &OwnerCap,
+        registry: &mut AdminRegistry,
         admin_cap: AdminCap,
-        admin: address
+        clock: &Clock
     ) {
+        let current_time = clock::timestamp_ms(clock);
+        let admin = admin_cap.admin_address;
+        
+        // Remove from registry
+        let (found, index) = vector::index_of(&registry.active_admins, &admin);
+        assert!(found, EAdminNotFound);
+        vector::remove(&mut registry.active_admins, index);
+        
         // Delete the AdminCap
-        let AdminCap { id } = admin_cap;
+        let AdminCap { id, admin_address: _, created_at: _, is_active: _ } = admin_cap;
         object::delete(id);
         
         // Emit event
-        event::emit(AdminCapRevoked { admin });
+        event::emit(AdminCapRevoked { 
+            admin,
+            revoked_at: current_time,
+        });
+    }
+
+    // Admin can deactivate themselves temporarily
+    public entry fun deactivate_admin(
+        admin_cap: &mut AdminCap,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let sender = tx_context::sender(ctx);
+        let current_time = clock::timestamp_ms(clock);
+        
+        // Validate that sender owns this admin cap
+        assert!(admin_cap.admin_address == sender, ENotOwner);
+        assert!(admin_cap.is_active, EAdminNotFound);
+        
+        admin_cap.is_active = false;
+        
+        // Emit event
+        event::emit(AdminDeactivated {
+            admin: sender,
+            deactivated_at: current_time,
+        });
+    }
+
+    // Admin can reactivate themselves
+    public entry fun reactivate_admin(
+        admin_cap: &mut AdminCap,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let sender = tx_context::sender(ctx);
+        let current_time = clock::timestamp_ms(clock);
+        
+        // Validate that sender owns this admin cap
+        assert!(admin_cap.admin_address == sender, ENotOwner);
+        assert!(!admin_cap.is_active, EAdminNotFound);
+        
+        admin_cap.is_active = true;
+        
+        // Emit event
+        event::emit(AdminReactivated {
+            admin: sender,
+            reactivated_at: current_time,
+        });
+    }
+
+    // Validate admin capability and activity status
+    public fun validate_admin_cap(admin_cap: &AdminCap, ctx: &mut TxContext): bool {
+        let sender = tx_context::sender(ctx);
+        admin_cap.admin_address == sender && admin_cap.is_active
     }
 
     // Transfer OwnerCap to a new owner
@@ -140,12 +246,15 @@ module bullfy::admin {
 
     // Update the upfront fee percentage (admin only)
     public entry fun update_fee_percentage(
-        _: &AdminCap,
+        admin_cap: &AdminCap,
         fee_config: &mut FeeConfig,
         new_fee_bps: u64,
         ctx: &mut TxContext
     ) {
         let sender = tx_context::sender(ctx);
+        
+        // Validate admin capability
+        assert!(validate_admin_cap(admin_cap, ctx), ENotOwner);
         
         // Validate fee percentage (0-10%)
         assert!(new_fee_bps <= MAX_FEE_BPS, EInvalidFeePercentage);
@@ -163,12 +272,15 @@ module bullfy::admin {
 
     // Update the squad creation fee (admin only)
     public entry fun update_squad_creation_fee(
-        _: &AdminCap,
+        admin_cap: &AdminCap,
         fee_config: &mut FeeConfig,
         new_fee: u64,
         ctx: &mut TxContext
     ) {
         let sender = tx_context::sender(ctx);
+        
+        // Validate admin capability
+        assert!(validate_admin_cap(admin_cap, ctx), ENotOwner);
         
         // Validate fee amount (0.1-10 SUI)
         assert!(new_fee >= MIN_SQUAD_CREATION_FEE && new_fee <= MAX_SQUAD_CREATION_FEE, EInvalidSquadCreationFee);
@@ -186,13 +298,16 @@ module bullfy::admin {
 
     // Update revival fees (admin only)
     public entry fun update_revival_fees(
-        _: &AdminCap,
+        admin_cap: &AdminCap,
         fee_config: &mut FeeConfig,
         new_standard_fee: u64,
         new_instant_fee: u64,
         ctx: &mut TxContext
     ) {
         let sender = tx_context::sender(ctx);
+        
+        // Validate admin capability
+        assert!(validate_admin_cap(admin_cap, ctx), ENotOwner);
         
         // Validate fee amounts
         assert!(new_standard_fee >= MIN_REVIVAL_FEE && new_standard_fee <= MAX_REVIVAL_FEE, EInvalidRevivalFee);
@@ -215,6 +330,23 @@ module bullfy::admin {
         });
     }
 
+    // Query functions for admin registry
+    public fun is_active_admin(registry: &AdminRegistry, admin_address: address): bool {
+        vector::contains(&registry.active_admins, &admin_address)
+    }
+
+    public fun get_active_admins(registry: &AdminRegistry): &vector<address> {
+        &registry.active_admins
+    }
+
+    public fun get_admin_count(registry: &AdminRegistry): u64 {
+        registry.admin_count
+    }
+
+    public fun get_admin_info(admin_cap: &AdminCap): (address, u64, bool) {
+        (admin_cap.admin_address, admin_cap.created_at, admin_cap.is_active)
+    }
+
     // Get current upfront fee percentage
     public fun get_upfront_fee_bps(fee_config: &FeeConfig): u64 {
         fee_config.upfront_fee_bps
@@ -233,5 +365,16 @@ module bullfy::admin {
     // Get instant revival fee
     public fun get_instant_revival_fee(fee_config: &FeeConfig): u64 {
         fee_config.instant_revival_fee
+    }
+
+    // Test helper function (for testing only)
+    #[test_only]
+    public fun create_admin_cap_for_testing(ctx: &mut TxContext): AdminCap {
+        AdminCap {
+            id: object::new(ctx),
+            admin_address: tx_context::sender(ctx),
+            created_at: 0,
+            is_active: true,
+        }
     }
 } 
