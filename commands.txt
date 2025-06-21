@@ -172,6 +172,20 @@ sui client call \
   --gas-budget 100000000
 
 # =============================================================================
+# MATCH COMPLETION FLOW (Using PTB - Recommended for Admin)
+# =============================================================================
+
+# Complete match and claim prize in a single transaction using PTB
+# This is the recommended approach for admins to complete and claim atomically
+sui client ptb \
+  --gas-budget 200000000 \
+  --move-call $BULLFY_PACKAGE::match_escrow::complete_match $ADMIN_CAP $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $MATCH_ID $WINNER_ADDRESS 0x6 \
+  --move-call $BULLFY_PACKAGE::match_escrow::claim_prize $ADMIN_CAP $ESCROW_REGISTRY $FEES_OBJECT $MATCH_ID
+
+
+
+
+# =============================================================================
 # SQUAD PLAYER CHALLENGE MODULE COMMANDS
 # =============================================================================
 
@@ -224,23 +238,48 @@ sui client call \
   --gas-budget 100000000
 
 # =============================================================================
+# CHALLENGE COMPLETION FLOW (Using PTB - Recommended for Tournaments)
+# =============================================================================
+
+# Complete challenge and handle all cleanup in a single transaction using PTB
+# This ensures atomic completion of tournament with proper fund distribution
+sui client ptb \
+  --gas-budget 200000000 \
+  --move-call $BULLFY_PACKAGE::squad_player_challenge::complete_challenge $ADMIN_CAP $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $FEES_OBJECT $CHALLENGE_OBJECT $WINNER_ADDRESS 0x6
+
+# Create and join challenge in a single transaction (for quick setup)
+# Useful when you want to immediately join your own created challenge
+sui client ptb \
+  --gas-budget 300000000 \
+  --move-call $BULLFY_PACKAGE::squad_player_challenge::create_challenge $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $FEE_CONFIG 1 1000000000 4 1774518152000 3600000 $COIN_OBJECT1 0x6 \
+  --move-call $BULLFY_PACKAGE::squad_player_challenge::join_challenge $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $FEE_CONFIG $CHALLENGE_OBJECT 2 $COIN_OBJECT2 0x6
+
+# Cancel challenge with immediate refund processing
+sui client ptb \
+  --gas-budget 200000000 \
+  --move-call $BULLFY_PACKAGE::squad_player_challenge::cancel_challenge $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $FEES_OBJECT $CHALLENGE_OBJECT 0x6
+
+# Note: For create+join PTB, you need to know the challenge object ID that will be generated
+# Consider using separate transactions if you need to inspect the challenge object first
+
+# =============================================================================
 # FEE COLLECTOR MODULE COMMANDS
 # =============================================================================
 
-# Withdraw specific amount from fees (admin only)
+# Withdraw specific amount from fees (admin only - automatically sends to admin address)
 sui client call \
-  --package $BULLFY_PACKAGE \
+  --package 0x7e075aab8c116002d9752533fb4b088d00fecd0d92af21c739bc130ec8c8b915 \
   --module fee_collector \
   --function withdraw \
-  --args $ADMIN_CAP $FEES_OBJECT 1000000000 $RECIPIENT_ADDRESS \
+  --args 0x0ea4dfedafa66e3c497ee3f59aeed0e394efe928c67cfae2a16021ca6bffcda4 0xc0bc733204e2780d52c95824317c39bd7c27b258a69ee4e790b28c8434af36e8 1000000000 \
   --gas-budget 100000000
 
-# Withdraw all fees (admin only)
+# Withdraw all fees (admin only - automatically sends to admin address)
 sui client call \
-  --package $BULLFY_PACKAGE \
+  --package 0x7e075aab8c116002d9752533fb4b088d00fecd0d92af21c739bc130ec8c8b915 \
   --module fee_collector \
   --function withdraw_all \
-  --args $ADMIN_CAP $FEES_OBJECT $RECIPIENT_ADDRESS \
+  --args 0x0ea4dfedafa66e3c497ee3f59aeed0e394efe928c67cfae2a16021ca6bffcda4 0xc0bc733204e2780d52c95824317c39bd7c27b258a69ee4e790b28c8434af36e8 \
   --gas-budget 100000000
 
 # =============================================================================
