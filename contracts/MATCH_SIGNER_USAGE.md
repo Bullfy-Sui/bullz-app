@@ -6,6 +6,7 @@ The `match_signer` module provides a specialized capability system for backend s
 
 The Match Signer system allows you to:
 - Create specific capabilities for backend services
+- Automatically match compatible bids using the existing `match_bids()` function
 - Automatically complete matches when they end using the existing `complete_match()` function
 - Automatically claim prizes for winners using the existing `claim_prize()` function
 - Manage and revoke signer permissions
@@ -15,6 +16,7 @@ The Match Signer system allows you to:
 
 ### MatchSignerCap
 A capability that allows backend services to:
+- Match bids using `match_bids()`
 - Complete matches using `complete_match()`
 - Claim prizes using `claim_prize()`
 
@@ -55,6 +57,22 @@ public entry fun create_match_signer_with_owner(
 ### 3. Backend Service Usage
 
 Your backend service can now use the `MatchSignerCap` with the existing functions:
+
+**Match two bids together:**
+```move
+public entry fun match_bids(
+    signer_cap: &MatchSignerCap,
+    registry: &mut EscrowRegistry,
+    squad_registry: &SquadRegistry,
+    active_squad_registry: &mut ActiveSquadRegistry,
+    bid1_id: ID,
+    bid2_id: ID,
+    squad1_token_prices: vector<u64>,
+    squad2_token_prices: vector<u64>,
+    clock: &Clock,
+    ctx: &mut TxContext
+)
+```
 
 **Complete a match:**
 ```move
@@ -152,10 +170,12 @@ public fun get_signer_info(signer_cap: &MatchSignerCap): (address, u64, bool)
 
 Your backend service should:
 
-1. **Monitor Matches**: Check for matches that have ended using `has_match_ended()`
-2. **Complete Matches**: Call `complete_match()` when a match ends
-3. **Claim Prizes**: Call `claim_prize()` to distribute prizes to winners
-4. **Handle Errors**: Implement proper error handling for unauthorized or invalid operations
+1. **Monitor Open Bids**: Check for compatible bids that can be matched
+2. **Match Bids**: Call `match_bids()` to create matches from compatible bids
+3. **Monitor Matches**: Check for matches that have ended using `has_match_ended()`
+4. **Complete Matches**: Call `complete_match()` when a match ends
+5. **Claim Prizes**: Call `claim_prize()` to distribute prizes to winners
+6. **Handle Errors**: Implement proper error handling for unauthorized or invalid operations
 
 ## Events
 
@@ -175,10 +195,10 @@ The module emits the following events for monitoring:
 
 ## Migration Notes
 
-**BREAKING CHANGE**: The `complete_match` and `claim_prize` functions now require `MatchSignerCap` instead of `AdminCap`. 
+**BREAKING CHANGE**: The `match_bids`, `complete_match`, and `claim_prize` functions now require `MatchSignerCap` instead of `AdminCap`. 
 
 If you have existing admin workflows that use these functions with `AdminCap`, you'll need to:
 1. Create a `MatchSignerCap` for your admin operations
 2. Update your function calls to use the `MatchSignerCap`
 
-This change provides better security by separating match completion permissions from general admin permissions. 
+This change provides better security by separating match-related permissions from general admin permissions. 

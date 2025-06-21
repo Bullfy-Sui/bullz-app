@@ -245,7 +245,7 @@ module bullfy::match_escrow {
 
     // Match two specific bids together (called by frontend to match two bids together )
     public entry fun match_bids(
-        _: &AdminCap,
+        signer_cap: &MatchSignerCap,
         registry: &mut EscrowRegistry,
         _squad_registry: &SquadRegistry,
         active_squad_registry: &mut ActiveSquadRegistry,
@@ -256,6 +256,9 @@ module bullfy::match_escrow {
         clock: &Clock,
         ctx: &mut TxContext
     ) {
+        // Validate signer authorization
+        assert!(match_signer::validate_match_signer(signer_cap, ctx), common_errors::unauthorized());
+        
         let current_time = clock::timestamp_ms(clock);
 
         // Validate both bids exist
