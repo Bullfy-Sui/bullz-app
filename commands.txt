@@ -6,6 +6,10 @@
 
 # OWNER_CAP=0x414172886f5b8b5542898889d2511888b66ccfb2f8f87338cd104765c936540f
 
+# MATCH_SIGNER_CAP=0x[UPDATE_WITH_DEPLOYED_SIGNER_CAP_ID]
+
+# SIGNER_REGISTRY=0x[UPDATE_WITH_DEPLOYED_SIGNER_REGISTRY_ID]
+
 # FEES_OBJECT=0xc0bc733204e2780d52c95824317c39bd7c27b258a69ee4e790b28c8434af36e8
 
 # SQUAD_REGISTRY=0xe353bc046de5f2de7ea5000a8f59666fe62103a2baade6b114b8d47fa6c2e373
@@ -66,6 +70,58 @@ sui client call \
   --module admin \
   --function update_revival_fees \
   --args $ADMIN_CAP $FEE_CONFIG 50000000 100000000 \
+  --gas-budget 100000000
+
+# =============================================================================
+# MATCH SIGNER MODULE COMMANDS
+# =============================================================================
+
+# Create a new match signer capability (admin only)
+sui client call \
+  --package $BULLFY_PACKAGE \
+  --module match_signer \
+  --function create_match_signer \
+  --args $ADMIN_CAP $SIGNER_REGISTRY $BACKEND_SERVICE_ADDRESS 0x6 \
+  --gas-budget 100000000
+
+# Create a new match signer capability using owner cap (for initial setup)
+sui client call \
+  --package $BULLFY_PACKAGE \
+  --module match_signer \
+  --function create_match_signer_with_owner \
+  --args $OWNER_CAP $SIGNER_REGISTRY $BACKEND_SERVICE_ADDRESS 0x6 \
+  --gas-budget 100000000
+
+# Revoke a match signer capability (admin only)
+sui client call \
+  --package $BULLFY_PACKAGE \
+  --module match_signer \
+  --function revoke_match_signer \
+  --args $ADMIN_CAP $SIGNER_REGISTRY $MATCH_SIGNER_CAP_TO_REVOKE 0x6 \
+  --gas-budget 100000000
+
+# Revoke a match signer capability using owner cap
+sui client call \
+  --package $BULLFY_PACKAGE \
+  --module match_signer \
+  --function revoke_match_signer_with_owner \
+  --args $OWNER_CAP $SIGNER_REGISTRY $MATCH_SIGNER_CAP_TO_REVOKE 0x6 \
+  --gas-budget 100000000
+
+# Deactivate signer (signer can deactivate themselves)
+sui client call \
+  --package $BULLFY_PACKAGE \
+  --module match_signer \
+  --function deactivate_signer \
+  --args $MATCH_SIGNER_CAP 0x6 \
+  --gas-budget 100000000
+
+# Reactivate signer (signer can reactivate themselves)
+sui client call \
+  --package $BULLFY_PACKAGE \
+  --module match_signer \
+  --function reactivate_signer \
+  --args $MATCH_SIGNER_CAP 0x6 \
   --gas-budget 100000000
 
 # =============================================================================
@@ -139,12 +195,12 @@ sui client call \
   --args $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $FEE_CONFIG 1 1000000000 300000 $COIN_OBJECT 0x6 \
   --gas-budget 100000000
 
-# Match two bids together (admin only) - now includes token prices
+# Match two bids together (requires MatchSignerCap) - now includes token prices
 sui client call \
   --package $BULLFY_PACKAGE \
   --module match_escrow \
   --function match_bids \
-  --args $ADMIN_CAP $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $BID1_ID $BID2_ID '[1000000, 2000000, 1500000, 3000000, 2500000, 1800000, 2200000]' '[1100000, 1900000, 1600000, 2900000, 2400000, 1700000, 2100000]' 0x6 \
+  --args $MATCH_SIGNER_CAP $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $BID1_ID $BID2_ID '[1000000, 2000000, 1500000, 3000000, 2500000, 1800000, 2200000]' '[1100000, 1900000, 1600000, 2900000, 2400000, 1700000, 2100000]' 0x6 \
   --gas-budget 100000000
 
 # Cancel a bid
@@ -155,33 +211,41 @@ sui client call \
   --args $ESCROW_REGISTRY $ACTIVE_SQUAD_REGISTRY $BID_ID \
   --gas-budget 100000000
 
-# Complete a match by declaring winner (admin only) - now includes final token prices
+# Complete a match by declaring winner (requires MatchSignerCap) - now includes final token prices
 sui client call \
   --package $BULLFY_PACKAGE \
   --module match_escrow \
   --function complete_match \
-  --args $ADMIN_CAP $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $MATCH_ID $WINNER_ADDRESS '[1050000, 2100000, 1550000, 3100000, 2550000, 1850000, 2250000]' '[1150000, 1950000, 1650000, 2950000, 2450000, 1750000, 2150000]' 0x6 \
+  --args $MATCH_SIGNER_CAP $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $MATCH_ID $WINNER_ADDRESS '[1050000, 2100000, 1550000, 3100000, 2550000, 1850000, 2250000]' '[1150000, 1950000, 1650000, 2950000, 2450000, 1750000, 2150000]' 0x6 \
   --gas-budget 100000000
 
-# Claim prize from completed match (admin only)
+# Claim prize from completed match (requires MatchSignerCap)
 sui client call \
   --package $BULLFY_PACKAGE \
   --module match_escrow \
   --function claim_prize \
-  --args $ADMIN_CAP $ESCROW_REGISTRY $FEES_OBJECT $MATCH_ID \
+  --args $MATCH_SIGNER_CAP $ESCROW_REGISTRY $FEES_OBJECT $MATCH_ID \
   --gas-budget 100000000
 
 # =============================================================================
-# MATCH COMPLETION FLOW (Using PTB - Recommended for Admin)
+# MATCH COMPLETION FLOW (Using PTB - Recommended for Backend Services)
 # =============================================================================
 
 # Complete match and claim prize in a single transaction using PTB
-# This is the recommended approach for admins to complete and claim atomically
+# This is the recommended approach for backend services to complete and claim atomically
 # Note: Token prices should be provided as vectors representing the 7 squad players' token prices
 sui client ptb \
   --gas-budget 200000000 \
-  --move-call $BULLFY_PACKAGE::match_escrow::complete_match $ADMIN_CAP $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $MATCH_ID $WINNER_ADDRESS '[1050000, 2100000, 1550000, 3100000, 2550000, 1850000, 2250000]' '[1150000, 1950000, 1650000, 2950000, 2450000, 1750000, 2150000]' 0x6 \
-  --move-call $BULLFY_PACKAGE::match_escrow::claim_prize $ADMIN_CAP $ESCROW_REGISTRY $FEES_OBJECT $MATCH_ID
+  --move-call $BULLFY_PACKAGE::match_escrow::complete_match $MATCH_SIGNER_CAP $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $MATCH_ID $WINNER_ADDRESS '[1050000, 2100000, 1550000, 3100000, 2550000, 1850000, 2250000]' '[1150000, 1950000, 1650000, 2950000, 2450000, 1750000, 2150000]' 0x6 \
+  --move-call $BULLFY_PACKAGE::match_escrow::claim_prize $MATCH_SIGNER_CAP $ESCROW_REGISTRY $FEES_OBJECT $MATCH_ID
+
+# Backend automation flow: Match bids, complete match, and claim prize in sequence
+# This is useful for automated backend services handling the full match lifecycle
+sui client ptb \
+  --gas-budget 300000000 \
+  --move-call $BULLFY_PACKAGE::match_escrow::match_bids $MATCH_SIGNER_CAP $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $BID1_ID $BID2_ID '[1000000, 2000000, 1500000, 3000000, 2500000, 1800000, 2200000]' '[1100000, 1900000, 1600000, 2900000, 2400000, 1700000, 2100000]' 0x6 \
+  --move-call $BULLFY_PACKAGE::match_escrow::complete_match $MATCH_SIGNER_CAP $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $MATCH_ID $WINNER_ADDRESS '[1050000, 2100000, 1550000, 3100000, 2550000, 1850000, 2250000]' '[1150000, 1950000, 1650000, 2950000, 2450000, 1750000, 2150000]' 0x6 \
+  --move-call $BULLFY_PACKAGE::match_escrow::claim_prize $MATCH_SIGNER_CAP $ESCROW_REGISTRY $FEES_OBJECT $MATCH_ID
 
 # =============================================================================
 # SQUAD PLAYER CHALLENGE MODULE COMMANDS
@@ -296,16 +360,25 @@ sui client call \
 # OBJECT IDs TO UPDATE:
 # - Replace all $VARIABLE placeholders with actual deployed object IDs
 # - Get these IDs from deployment or network explorer
-# - Common objects: AdminCap, OwnerCap, SquadRegistry, FeeConfig, etc.
+# - Common objects: AdminCap, OwnerCap, MatchSignerCap, SignerRegistry, SquadRegistry, FeeConfig, etc.
 #
 # PERMISSIONS:
 # - Admin functions require AdminCap ownership
-# - Owner functions require OwnerCap ownership  
+# - Owner functions require OwnerCap ownership
+# - Match operations require MatchSignerCap ownership (match_bids, complete_match, claim_prize)
 # - Regular functions require squad ownership or participation rights
+#
+# MATCH SIGNER CAPABILITIES:
+# - MatchSignerCap provides limited permissions for backend automation
+# - Can match bids, complete matches, and claim prizes
+# - Cannot perform other admin functions (fee updates, squad management, etc.)
+# - Must be created by admin or owner, can be revoked at any time
+# - Signers can temporarily deactivate/reactivate themselves
 #
 # MODULE NAMES (CORRECT):
 # - bullfy::squad_manager (NOT bullfy::bullfy)
 # - bullfy::match_escrow
+# - bullfy::match_signer (NEW)
 # - bullfy::admin
 # - bullfy::fee_collector
 # - bullfy::squad_player_challenge
@@ -324,3 +397,10 @@ sui client call \
 # - Must add exactly 7 players when calling add_players_to_squad
 # - Squad creation requires fee payment
 # - Revival has two options: standard (24h wait) or instant (higher fee)
+#
+# BACKEND AUTOMATION SETUP:
+# 1. Deploy contracts and get object IDs
+# 2. Create MatchSignerCap for your backend service address
+# 3. Backend service can now automate: bid matching → match completion → prize claiming
+# 4. Monitor events and use query functions to track match states
+# 5. Implement error handling for unauthorized operations
