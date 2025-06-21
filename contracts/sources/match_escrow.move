@@ -75,6 +75,11 @@ module bullfy::match_escrow {
         winner: Option<address>,
         prize_claimed: bool,
         fees_collected: bool, // Track if fees have been sent to collector
+        // Token price recording fields
+        squad1_token_prices: vector<u64>, // Token prices for squad1 at match start (in fixed point format)
+        squad2_token_prices: vector<u64>, // Token prices for squad2 at match start (in fixed point format)
+        squad1_final_token_prices: vector<u64>, // Token prices for squad1 at match completion (in fixed point format)
+        squad2_final_token_prices: vector<u64>, // Token prices for squad2 at match completion (in fixed point format)
     }
 
     // Registry for bids and matches
@@ -114,6 +119,8 @@ module bullfy::match_escrow {
         total_prize: u64,
         duration: u64,
         ends_at: u64,
+        squad1_token_prices: vector<u64>, // Token prices for squad1 at match start
+        squad2_token_prices: vector<u64>, // Token prices for squad2 at match start
     }
 
     public struct BidCancelled has copy, drop {
@@ -128,6 +135,8 @@ module bullfy::match_escrow {
         loser: address,
         prize_amount: u64,
         total_fees: u64,
+        squad1_final_token_prices: vector<u64>, // Final token prices for squad1 at match completion
+        squad2_final_token_prices: vector<u64>, // Final token prices for squad2 at match completion
     }
 
     public struct PrizeClaimed has copy, drop {
@@ -241,6 +250,8 @@ module bullfy::match_escrow {
         active_squad_registry: &mut ActiveSquadRegistry,
         bid1_id: ID,
         bid2_id: ID,
+        squad1_token_prices: vector<u64>, // Token prices for squad1 at match start
+        squad2_token_prices: vector<u64>, // Token prices for squad2 at match start
         clock: &Clock,
         ctx: &mut TxContext
     ) {
@@ -303,6 +314,11 @@ module bullfy::match_escrow {
             winner: option::none(),
             prize_claimed: false,
             fees_collected: false,
+            // Token price recording fields
+            squad1_token_prices: squad1_token_prices,
+            squad2_token_prices: squad2_token_prices,
+            squad1_final_token_prices: vector::empty<u64>(),
+            squad2_final_token_prices: vector::empty<u64>(),
         };
 
         let match_id = object::id(&match_obj);
@@ -371,6 +387,8 @@ module bullfy::match_escrow {
             total_prize,
             duration: bid1_duration,
             ends_at: current_time + bid1_duration,
+            squad1_token_prices: squad1_token_prices,
+            squad2_token_prices: squad2_token_prices,
         });
     }
 
@@ -431,6 +449,8 @@ module bullfy::match_escrow {
         active_squad_registry: &mut ActiveSquadRegistry,
         match_id: ID,
         winner: address,
+        squad1_final_token_prices: vector<u64>, // Final token prices for squad1 at match completion
+        squad2_final_token_prices: vector<u64>, // Final token prices for squad2 at match completion
         clock: &Clock,
         _ctx: &mut TxContext
     ) {
@@ -458,6 +478,10 @@ module bullfy::match_escrow {
         // Update match
         match_obj.status = MatchStatus::Completed;
         match_obj.winner = option::some(winner);
+        
+        // Record final token prices
+        match_obj.squad1_final_token_prices = squad1_final_token_prices;
+        match_obj.squad2_final_token_prices = squad2_final_token_prices;
 
         // Update squad life points
         let winner_squad_id = if (winner == match_obj.player1) {
@@ -487,6 +511,8 @@ module bullfy::match_escrow {
             loser,
             prize_amount: match_obj.total_prize,
             total_fees: match_obj.total_fees, // Total fees from both bids
+            squad1_final_token_prices: match_obj.squad1_final_token_prices,
+            squad2_final_token_prices: match_obj.squad2_final_token_prices,
         });
     }
 
@@ -787,6 +813,29 @@ module bullfy::match_escrow {
         match_obj.status == MatchStatus::Active && 
         !match_obj.prize_claimed && 
         has_match_ended(match_obj, clock)
+    }
+
+    // Token price getter functions
+    public fun get_match_squad1_start_prices(match_obj: &Match): &vector<u64> {
+        &match_obj.squad1_token_prices
+    }
+
+    public fun get_match_squad2_start_prices(match_obj: &Match): &vector<u64> {
+        &match_obj.squad2_token_prices
+    }
+
+    public fun get_match_squad1_final_prices(match_obj: &Match): &vector<u64> {
+        &match_obj.squad1_final_token_prices
+    }
+
+    public fun get_match_squad2_final_prices(match_obj: &Match): &vector<u64> {
+        &match_obj.squad2_final_token_prices
+    }
+
+    // Helper function to check if token prices have been recorded for a match
+    public fun has_final_prices_recorded(match_obj: &Match): bool {
+        !vector::is_empty(&match_obj.squad1_final_token_prices) && 
+        !vector::is_empty(&match_obj.squad2_final_token_prices)
     }
 
 }

@@ -139,12 +139,12 @@ sui client call \
   --args $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $FEE_CONFIG 1 1000000000 300000 $COIN_OBJECT 0x6 \
   --gas-budget 100000000
 
-# Match two bids together (admin only)
+# Match two bids together (admin only) - now includes token prices
 sui client call \
   --package $BULLFY_PACKAGE \
   --module match_escrow \
   --function match_bids \
-  --args $ADMIN_CAP $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $BID1_ID $BID2_ID 0x6 \
+  --args $ADMIN_CAP $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $BID1_ID $BID2_ID '[1000000, 2000000, 1500000, 3000000, 2500000, 1800000, 2200000]' '[1100000, 1900000, 1600000, 2900000, 2400000, 1700000, 2100000]' 0x6 \
   --gas-budget 100000000
 
 # Cancel a bid
@@ -155,12 +155,12 @@ sui client call \
   --args $ESCROW_REGISTRY $ACTIVE_SQUAD_REGISTRY $BID_ID \
   --gas-budget 100000000
 
-# Complete a match (declare winner - admin only, requires time validation)
+# Complete a match by declaring winner (admin only) - now includes final token prices
 sui client call \
   --package $BULLFY_PACKAGE \
   --module match_escrow \
   --function complete_match \
-  --args $ADMIN_CAP $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $MATCH_ID $WINNER_ADDRESS 0x6 \
+  --args $ADMIN_CAP $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $MATCH_ID $WINNER_ADDRESS '[1050000, 2100000, 1550000, 3100000, 2550000, 1850000, 2250000]' '[1150000, 1950000, 1650000, 2950000, 2450000, 1750000, 2150000]' 0x6 \
   --gas-budget 100000000
 
 # Claim prize from completed match (admin only)
@@ -177,13 +177,11 @@ sui client call \
 
 # Complete match and claim prize in a single transaction using PTB
 # This is the recommended approach for admins to complete and claim atomically
+# Note: Token prices should be provided as vectors representing the 7 squad players' token prices
 sui client ptb \
   --gas-budget 200000000 \
-  --move-call $BULLFY_PACKAGE::match_escrow::complete_match $ADMIN_CAP $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $MATCH_ID $WINNER_ADDRESS 0x6 \
+  --move-call $BULLFY_PACKAGE::match_escrow::complete_match $ADMIN_CAP $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $MATCH_ID $WINNER_ADDRESS '[1050000, 2100000, 1550000, 3100000, 2550000, 1850000, 2250000]' '[1150000, 1950000, 1650000, 2950000, 2450000, 1750000, 2150000]' 0x6 \
   --move-call $BULLFY_PACKAGE::match_escrow::claim_prize $ADMIN_CAP $ESCROW_REGISTRY $FEES_OBJECT $MATCH_ID
-
-
-
 
 # =============================================================================
 # SQUAD PLAYER CHALLENGE MODULE COMMANDS

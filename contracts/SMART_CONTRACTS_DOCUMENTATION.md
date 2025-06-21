@@ -134,6 +134,8 @@ Handles sophisticated bid-based escrow system for player-vs-player matches with 
     - `total_prize: u64`, `total_fees: u64`, `duration: u64`
     - `started_at: u64`, `ends_at: u64`, `status: MatchStatus`
     - `winner: Option<address>`, `prize_claimed: bool`, `fees_collected: bool`
+    - `squad1_token_prices: vector<u64>`, `squad2_token_prices: vector<u64>` (token prices at match start)
+    - `squad1_final_token_prices: vector<u64>`, `squad2_final_token_prices: vector<u64>` (token prices at match completion)
   - Traits: `key, store`
 
 - **EscrowRegistry**
@@ -143,9 +145,9 @@ Handles sophisticated bid-based escrow system for player-vs-player matches with 
 ### Events
 
 - **BidCreated**: `bid_id: ID`, `creator: address`, `squad_id: u64`, `bid_amount: u64`, `duration: u64`
-- **BidsMatched**: Match creation details with both players and prize info
+- **BidsMatched**: Match creation details with both players and prize info, includes `squad1_token_prices: vector<u64>`, `squad2_token_prices: vector<u64>`
 - **BidCancelled**: `bid_id: ID`, `creator: address`, `refund_amount: u64`
-- **MatchCompleted**: `match_id: ID`, `winner: address`, `loser: address`, `prize_amount: u64`, `total_fees: u64`
+- **MatchCompleted**: `match_id: ID`, `winner: address`, `loser: address`, `prize_amount: u64`, `total_fees: u64`, includes `squad1_final_token_prices: vector<u64>`, `squad2_final_token_prices: vector<u64>`
 - **PrizeClaimed**: `match_id: ID`, `winner: address`, `amount: u64`
 
 ### Error Constants
