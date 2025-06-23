@@ -122,7 +122,8 @@ module bullfy::admin {
         };
         transfer::share_object(fee_config);
         
-        // Note: First admin will be created separately using create_admin_cap
+        // Note: First admin will be created separately using create_admin_cap 
+        // because we dont create in the init function
     }
 
     // Create a new AdminCap and transfer it to the specified address

@@ -2,7 +2,7 @@
 
 [move]
 version = 3
-manifest_digest = "F5B94E55E435029CB1172E9B76E566151C6671DAAE5E9AB8445EE84A579AE5B2"
+manifest_digest = "ACF890C692EC4E952AB92B0535DB508B4A46C7355070EF9C452C2E3FC8AC3F33"
 deps_digest = "060AD7E57DFB13104F21BE5F5C3759D03F0553FC3229247D9A7A6B45F50D03A3"
 dependencies = [
   { id = "Pyth", name = "Pyth" },
@@ -46,21 +46,8 @@ flavor = "sui"
 
 [env]
 
-[env.testnet]
-chain-id = "4c78adac"
-original-published-id = "0xfd7a14835a1f9f7d9d4fa8fa5347e23369e232ae559c2a36c3fa9f70a7b20e71"
-latest-published-id = "0xfd7a14835a1f9f7d9d4fa8fa5347e23369e232ae559c2a36c3fa9f70a7b20e71"
-published-version = "1"
-
 [env.devnet]
-<<<<<<< HEAD
 chain-id = "aba3e445"
-original-published-id = "0x7e075aab8c116002d9752533fb4b088d00fecd0d92af21c739bc130ec8c8b915"
-latest-published-id = "0x7e075aab8c116002d9752533fb4b088d00fecd0d92af21c739bc130ec8c8b915"
+original-published-id = "0xd4ba3a0a1be88810af3678dfc49ac9b2e3cb9bb24d7a84fc2c44328c6bb87147"
+latest-published-id = "0xd4ba3a0a1be88810af3678dfc49ac9b2e3cb9bb24d7a84fc2c44328c6bb87147"
 published-version = "1"
-=======
-chain-id = "b782f7fa"
-original-published-id = "0x92e1f97ec5d96fdc6c464849009c0de761c5f5554441367fe3b270e829a91244"
-latest-published-id = "0x92e1f97ec5d96fdc6c464849009c0de761c5f5554441367fe3b270e829a91244"
-published-version = "1"
->>>>>>> 703821fe934f89e44e8941b8563f9772518036ad

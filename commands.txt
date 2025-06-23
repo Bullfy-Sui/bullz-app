@@ -28,10 +28,10 @@
 
 # Create a new admin capability (owner only)
 sui client call \
-  --package $BULLFY_PACKAGE \
+  --package 0xd4ba3a0a1be88810af3678dfc49ac9b2e3cb9bb24d7a84fc2c44328c6bb87147\
   --module admin \
   --function create_admin_cap \
-  --args $OWNER_CAP $ADMIN_REGISTRY $NEW_ADMIN_ADDRESS 0x6 \
+  --args 0xd71e252b0980301b9254ece1914c548de7535ffb9b380768979065df707aaac5 0x66b7a1ceff70c21bf25bae875475eb0d910ad3616132cc49f2e8cb936f9e6a62 0xd2b523dbf9612d35159d62a0a49a74f63b4e20b1a99fe8316838ac87289b8846 0x6 \
   --gas-budget 100000000
 
 # Revoke admin capability (owner only)
@@ -71,15 +71,15 @@ sui client call \
   --package $BULLFY_PACKAGE \
   --module admin \
   --function update_fee_percentage \
-  --args $ADMIN_CAP $FEE_CONFIG 500 \
+  --args $ADMIN_CAP $FEE_CONFIG 1000 \
   --gas-budget 100000000
 
 # Update squad creation fee (in MIST, 1 SUI = 1_000_000_000 MIST) - now requires active AdminCap
 sui client call \
-  --package $BULLFY_PACKAGE \
+  --package 0xd4ba3a0a1be88810af3678dfc49ac9b2e3cb9bb24d7a84fc2c44328c6bb87147 \
   --module admin \
   --function update_squad_creation_fee \
-  --args $ADMIN_CAP $FEE_CONFIG 1000000000 \
+  --args 0x4cc25eb85dbd48faff5ad1da892fe83872606e6ac136f3510f9c3f00f06b38e5 0xcedd742eb67d36960036c52e8f1f27287035cf0c3686487145d0edba2724802a 10000000000 \
   --gas-budget 100000000
 
 # Update revival fees (standard_fee, instant_fee in MIST) - now requires active AdminCap
@@ -169,9 +169,8 @@ sui client call \
 # Create squad and add players in a single transaction using PTB
 # This is the recommended approach as it completes the entire squad setup atomically
 sui client ptb \
-  --gas-budget 200000000 \
-  --move-call $BULLFY_PACKAGE::squad_manager::create_squad $SQUAD_REGISTRY $FEE_CONFIG $FEES_OBJECT $COIN_OBJECT \
-  --move-call $BULLFY_PACKAGE::squad_manager::add_players_to_squad $SQUAD_REGISTRY $NEXT_SQUAD_ID "My Squad Name" '["Player1", "Player2", "Player3", "Player4", "Player5", "Player6", "Player7"]'
+  --move-call 0xd4ba3a0a1be88810af3678dfc49ac9b2e3cb9bb24d7a84fc2c44328c6bb87147::squad_manager::create_squad @0xeb1b306896b8c180f176a0ca968426ca5687da9895ee1e82bf7480d26cb0e846 @0x49f8950035c0b6e295312462cbb04866e0e27fbb25c9616e20c41333bf8d95ac @0x49f8950035c0b6e295312462cbb04866e0e27fbb25c9616e20c41333bf8d95ac @0x1c23f71894adbf49120f4848b18cab7628fd9daffcd4fa36a42b1e77ea864bf7 \
+  --move-call 0xd4ba3a0a1be88810af3678dfc49ac9b2e3cb9bb24d7a84fc2c44328c6bb87147::squad_manager::add_players_to_squad @0xeb1b306896b8c180f176a0ca968426ca5687da9895ee1e82bf7480d26cb0e846 1 "bullz" vector["wal", "sui", "cetus", "axol", "lofi", "afsui", "bluefin"]
 
 # Note: Replace $NEXT_SQUAD_ID with the expected next squad ID (check current next_squad_id in SquadRegistry)
 # You can query the next squad ID first:
