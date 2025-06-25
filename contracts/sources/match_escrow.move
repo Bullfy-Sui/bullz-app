@@ -8,7 +8,7 @@ module bullfy::match_escrow {
     use bullfy::squad_manager::{Self, SquadRegistry};
     use bullfy::fee_collector::{Self, Fees};
     use bullfy::squad_player_challenge::{Self, ActiveSquadRegistry};
-    use bullfy::admin::{AdminCap, FeeConfig};
+    use bullfy::admin::FeeConfig;
     use bullfy::match_signer::{Self, MatchSignerCap};
     use bullfy::common_errors;
     use bullfy::validators;

@@ -12,7 +12,7 @@ module bullfy::squad_manager {
 
     // Error constants (module-specific only)
     const E_SQUAD_NOT_FOUND: u64 = 4001;
-    const E_CANNOT_REVIVE_YET: u64 = 4003;
+   // const E_CANNOT_REVIVE_YET: u64 = 4003;
     const E_REVIVAL_NOT_NEEDED: u64 = 4004;
     const E_INVALID_SQUAD_NAME: u64 = 4005;
 

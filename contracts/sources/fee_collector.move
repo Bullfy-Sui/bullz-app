@@ -1,3 +1,5 @@
+#[allow(lint(self_transfer))]
+
 module bullfy::fee_collector {
     use sui::coin::{Self, Coin};
     use sui::balance::{Self};
