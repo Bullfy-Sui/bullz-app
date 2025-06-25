@@ -1,26 +1,26 @@
 # BULLFY SMART CONTRACT CLI COMMANDS
 # Package addresses (update these with actual deployed addresses)
-# BULLFY_PACKAGE=0x7e075aab8c116002d9752533fb4b088d00fecd0d92af21c739bc130ec8c8b915
+# BULLFY_PACKAGE=0xf72df0e7b01581cda48d783e5862e72c9ffb437a22c90d230e0f01fd1081819f
 
 # ADMIN_CAP=0x0ea4dfedafa66e3c497ee3f59aeed0e394efe928c67cfae2a16021ca6bffcda4
 
-# OWNER_CAP=0x414172886f5b8b5542898889d2511888b66ccfb2f8f87338cd104765c936540f
+# OWNER_CAP=0x772d1fd3435c578aaeec79b3fd62370b2e56fe18b413eda87c848d3c1f0591a3
 
-# ADMIN_REGISTRY=0x[UPDATE_WITH_DEPLOYED_ADMIN_REGISTRY_ID]
+# ADMIN_REGISTRY=0x8694b1fdf73505d0eb5e716f9dc5e74cbc2679ccce04a339f323c40078b46ec6
 
 # MATCH_SIGNER_CAP=0x[UPDATE_WITH_DEPLOYED_SIGNER_CAP_ID]
 
-# SIGNER_REGISTRY=0x[UPDATE_WITH_DEPLOYED_SIGNER_REGISTRY_ID]
+# SIGNER_REGISTRY=0xfbe4079e3ee9648df043ca7370ed9d667f1f8688482387cd5e6b7ea954913145
 
-# FEES_OBJECT=0xc0bc733204e2780d52c95824317c39bd7c27b258a69ee4e790b28c8434af36e8
+# FEES_OBJECT=0x291afb572ac99e06e14a8f1835bcdb0907cef5fcfafe6f2b7bc01d15d0f650d1
 
-# SQUAD_REGISTRY=0xe353bc046de5f2de7ea5000a8f59666fe62103a2baade6b114b8d47fa6c2e373
+# SQUAD_REGISTRY=0xb16793c134eee41f3e73da2ab409dbbafd5cb9d437bef7c2a0588e422e668b06
 
-# FEE_CONFIG=0x3353c9785c5d0d39d85d5c9cb43a15e1d2d408092d6eec629f71c529f28d8fc4
+# FEE_CONFIG=0x00d6076c80f10a8eea80b0a8c7e0333ad6e634d0e3a1fddea9a6f9db064ac614
 
-# ESCROW_REGISTRY=0x47c5dda0d0408c09e77aff50394e94695e537ad318223ed582aede51ad8aaeb2
+# ESCROW_REGISTRY=0x825fef203d842b927419cedf68392d5031b7205c4652d055e2de9f2ad80ec84d
 
-# ACTIVE_SQUAD_REGISTRY=0xa4350b6044afa48ed4969c56caedf7e4fede956d8afd5e1bc6be7e5a5cbfa0c3
+# ACTIVE_SQUAD_REGISTRY=0x8033ec1e8e15e189bb10e55a3c29a3daf20c34b695c461666a409cb77e14ca5d
 
 # =============================================================================
 # ADMIN MODULE COMMANDS
@@ -96,10 +96,10 @@ sui client call \
 
 # Create a new match signer capability (admin only)
 sui client call \
-  --package $BULLFY_PACKAGE \
+  --package 0xd4ba3a0a1be88810af3678dfc49ac9b2e3cb9bb24d7a84fc2c44328c6bb87147 \
   --module match_signer \
   --function create_match_signer \
-  --args $ADMIN_CAP $SIGNER_REGISTRY $BACKEND_SERVICE_ADDRESS 0x6 \
+  --args 0x4cc25eb85dbd48faff5ad1da892fe83872606e6ac136f3510f9c3f00f06b38e5 0xb8be133bad71ad1fe0965f30abcc7296dbd8e783f691ed2d95af6208c42e10c8 0xd2b523dbf9612d35159d62a0a49a74f63b4e20b1a99fe8316838ac87289b8846 0x6 \
   --gas-budget 100000000
 
 # Create a new match signer capability using owner cap (for initial setup)
@@ -169,8 +169,8 @@ sui client call \
 # Create squad and add players in a single transaction using PTB
 # This is the recommended approach as it completes the entire squad setup atomically
 sui client ptb \
-  --move-call 0xd4ba3a0a1be88810af3678dfc49ac9b2e3cb9bb24d7a84fc2c44328c6bb87147::squad_manager::create_squad @0xeb1b306896b8c180f176a0ca968426ca5687da9895ee1e82bf7480d26cb0e846 @0x49f8950035c0b6e295312462cbb04866e0e27fbb25c9616e20c41333bf8d95ac @0x49f8950035c0b6e295312462cbb04866e0e27fbb25c9616e20c41333bf8d95ac @0x1c23f71894adbf49120f4848b18cab7628fd9daffcd4fa36a42b1e77ea864bf7 \
-  --move-call 0xd4ba3a0a1be88810af3678dfc49ac9b2e3cb9bb24d7a84fc2c44328c6bb87147::squad_manager::add_players_to_squad @0xeb1b306896b8c180f176a0ca968426ca5687da9895ee1e82bf7480d26cb0e846 1 "bullz" vector["wal", "sui", "cetus", "axol", "lofi", "afsui", "bluefin"]
+  --move-call 0xd4ba3a0a1be88810af3678dfc49ac9b2e3cb9bb24d7a84fc2c44328c6bb87147::squad_manager::create_squad @0xeb1b306896b8c180f176a0ca968426ca5687da9895ee1e82bf7480d26cb0e846 @0xcedd742eb67d36960036c52e8f1f27287035cf0c3686487145d0edba2724802a @0x49f8950035c0b6e295312462cbb04866e0e27fbb25c9616e20c41333bf8d95ac @0x75d6939cc48400ddee2f475a1c76b8d23d64932aa822e54d9c54c167b446e9db \
+  --move-call 0xd4ba3a0a1be88810af3678dfc49ac9b2e3cb9bb24d7a84fc2c44328c6bb87147::squad_manager::add_players_to_squad @0xeb1b306896b8c180f176a0ca968426ca5687da9895ee1e82bf7480d26cb0e846 2 '"genote"' 'vector["wals","eth","sol","bnb","usdt","trump","egg"]'
 
 # Note: Replace $NEXT_SQUAD_ID with the expected next squad ID (check current next_squad_id in SquadRegistry)
 # You can query the next squad ID first:
@@ -206,18 +206,18 @@ sui client call \
 
 # Create a bid for 1v1 match
 sui client call \
-  --package $BULLFY_PACKAGE \
+  --package 0xd4ba3a0a1be88810af3678dfc49ac9b2e3cb9bb24d7a84fc2c44328c6bb87147 \
   --module match_escrow \
   --function create_bid \
-  --args $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $FEE_CONFIG 1 1000000000 300000 $COIN_OBJECT 0x6 \
+  --args 0x86a479a95536116f8d682f6e9de84578d26cfd3320c6bc4b39ce6abd7f534bb1 0xeb1b306896b8c180f176a0ca968426ca5687da9895ee1e82bf7480d26cb0e846 0xe2b70813b59e705d0764b86a21a026ec1c4899838badc7f219a980fd43b04d8d 0xcedd742eb67d36960036c52e8f1f27287035cf0c3686487145d0edba2724802a 1 100000000 300000 0x07552e945914a8f7e329ab5fc7261b395fbc85b65941a5fe648ee91431efdb4f 0x6 \
   --gas-budget 100000000
 
 # Match two bids together (requires MatchSignerCap) - now includes token prices
 sui client call \
-  --package $BULLFY_PACKAGE \
+  --package 0xd4ba3a0a1be88810af3678dfc49ac9b2e3cb9bb24d7a84fc2c44328c6bb87147 \
   --module match_escrow \
   --function match_bids \
-  --args $MATCH_SIGNER_CAP $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $BID1_ID $BID2_ID '[1000000, 2000000, 1500000, 3000000, 2500000, 1800000, 2200000]' '[1100000, 1900000, 1600000, 2900000, 2400000, 1700000, 2100000]' 0x6 \
+  --args 0x6dd7feb57d1c8f33249c349a4ea6c3bf889cdc0a40f3a414ea4cb4fd1dadfad2 0x86a479a95536116f8d682f6e9de84578d26cfd3320c6bc4b39ce6abd7f534bb1 0xeb1b306896b8c180f176a0ca968426ca5687da9895ee1e82bf7480d26cb0e846 0xe2b70813b59e705d0764b86a21a026ec1c4899838badc7f219a980fd43b04d8d 0xff0777845db5d7e96d7e21edfcfa106d4618c49e4334eb00edf19b4223bdb9d2 0x772ea1507095871915e09ddff7e924a72ba7938696d2659895faf8bb7fc1afa1 '[1000000, 2000000, 1500000, 3000000, 2500000, 1800000, 2200000]' '[1100000, 1900000, 1600000, 2900000, 2400000, 1700000, 2100000]' 0x6 \
   --gas-budget 100000000
 
 # Cancel a bid
@@ -253,8 +253,8 @@ sui client call \
 # Note: Token prices should be provided as vectors representing the 7 squad players' token prices
 sui client ptb \
   --gas-budget 200000000 \
-  --move-call $BULLFY_PACKAGE::match_escrow::complete_match $MATCH_SIGNER_CAP $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $MATCH_ID $WINNER_ADDRESS '[1050000, 2100000, 1550000, 3100000, 2550000, 1850000, 2250000]' '[1150000, 1950000, 1650000, 2950000, 2450000, 1750000, 2150000]' 0x6 \
-  --move-call $BULLFY_PACKAGE::match_escrow::claim_prize $MATCH_SIGNER_CAP $ESCROW_REGISTRY $FEES_OBJECT $MATCH_ID
+  --move-call 0xd4ba3a0a1be88810af3678dfc49ac9b2e3cb9bb24d7a84fc2c44328c6bb87147::match_escrow::complete_match @0x6dd7feb57d1c8f33249c349a4ea6c3bf889cdc0a40f3a414ea4cb4fd1dadfad2 @0x86a479a95536116f8d682f6e9de84578d26cfd3320c6bc4b39ce6abd7f534bb1 @0xeb1b306896b8c180f176a0ca968426ca5687da9895ee1e82bf7480d26cb0e846 @0xe2b70813b59e705d0764b86a21a026ec1c4899838badc7f219a980fd43b04d8d @0xbaff6bf71e2d424029bfc73b8fa1d24ba0c6f897356edc509085dbc14653684b @0x64d74de054a8a20c75d4f08e6de619c5133b41da246e5a4e5183852eb46a6852 'vector[1050000, 2100000, 1550000, 3100000, 2550000, 1850000, 2250000]' 'vector[1150000, 1950000, 1650000, 2950000, 2450000, 1750000, 2150000]' @0x6 \
+  --move-call 0xd4ba3a0a1be88810af3678dfc49ac9b2e3cb9bb24d7a84fc2c44328c6bb87147::match_escrow::claim_prize @0x6dd7feb57d1c8f33249c349a4ea6c3bf889cdc0a40f3a414ea4cb4fd1dadfad2 @0x86a479a95536116f8d682f6e9de84578d26cfd3320c6bc4b39ce6abd7f534bb1 @0x49f8950035c0b6e295312462cbb04866e0e27fbb25c9616e20c41333bf8d95ac @0xbaff6bf71e2d424029bfc73b8fa1d24ba0c6f897356edc509085dbc14653684b
 
 # Backend automation flow: Match bids, complete match, and claim prize in sequence
 # This is useful for automated backend services handling the full match lifecycle
