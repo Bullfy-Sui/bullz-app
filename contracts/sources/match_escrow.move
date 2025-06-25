@@ -8,7 +8,8 @@ module bullfy::match_escrow {
     use bullfy::squad_manager::{Self, SquadRegistry};
     use bullfy::fee_collector::{Self, Fees};
     use bullfy::squad_player_challenge::{Self, ActiveSquadRegistry};
-    use bullfy::admin::{AdminCap, FeeConfig};
+    use bullfy::admin::FeeConfig;
+    use bullfy::match_signer::{Self, MatchSignerCap};
     use bullfy::common_errors;
     use bullfy::validators;
     use bullfy::payment_utils;
@@ -23,6 +24,7 @@ module bullfy::match_escrow {
     const E_MATCH_NOT_ACTIVE: u64 = 3006;
     const E_MATCH_ALREADY_COMPLETED: u64 = 3007;
     const E_INVALID_WINNER: u64 = 3008;
+    const E_MATCH_NOT_ENDED_YET: u64 = 3009;
 
     // Constants
     const MIN_BID_AMOUNT: u64 = 1_000_000; // 0.001 SUI in MIST
@@ -74,6 +76,11 @@ module bullfy::match_escrow {
         winner: Option<address>,
         prize_claimed: bool,
         fees_collected: bool, // Track if fees have been sent to collector
+        // Token price recording fields
+        squad1_token_prices: vector<u64>, // Token prices for squad1 at match start (in fixed point format)
+        squad2_token_prices: vector<u64>, // Token prices for squad2 at match start (in fixed point format)
+        squad1_final_token_prices: vector<u64>, // Token prices for squad1 at match completion (in fixed point format)
+        squad2_final_token_prices: vector<u64>, // Token prices for squad2 at match completion (in fixed point format)
     }
 
     // Registry for bids and matches
@@ -113,6 +120,8 @@ module bullfy::match_escrow {
         total_prize: u64,
         duration: u64,
         ends_at: u64,
+        squad1_token_prices: vector<u64>, // Token prices for squad1 at match start
+        squad2_token_prices: vector<u64>, // Token prices for squad2 at match start
     }
 
     public struct BidCancelled has copy, drop {
@@ -127,6 +136,8 @@ module bullfy::match_escrow {
         loser: address,
         prize_amount: u64,
         total_fees: u64,
+        squad1_final_token_prices: vector<u64>, // Final token prices for squad1 at match completion
+        squad2_final_token_prices: vector<u64>, // Final token prices for squad2 at match completion
     }
 
     public struct PrizeClaimed has copy, drop {
@@ -234,15 +245,20 @@ module bullfy::match_escrow {
 
     // Match two specific bids together (called by frontend to match two bids together )
     public entry fun match_bids(
-        _: &AdminCap,
+        signer_cap: &MatchSignerCap,
         registry: &mut EscrowRegistry,
         _squad_registry: &SquadRegistry,
         active_squad_registry: &mut ActiveSquadRegistry,
         bid1_id: ID,
         bid2_id: ID,
+        squad1_token_prices: vector<u64>, // Token prices for squad1 at match start
+        squad2_token_prices: vector<u64>, // Token prices for squad2 at match start
         clock: &Clock,
         ctx: &mut TxContext
     ) {
+        // Validate signer authorization
+        assert!(match_signer::validate_match_signer(signer_cap, ctx), common_errors::unauthorized());
+        
         let current_time = clock::timestamp_ms(clock);
 
         // Validate both bids exist
@@ -302,6 +318,11 @@ module bullfy::match_escrow {
             winner: option::none(),
             prize_claimed: false,
             fees_collected: false,
+            // Token price recording fields
+            squad1_token_prices: squad1_token_prices,
+            squad2_token_prices: squad2_token_prices,
+            squad1_final_token_prices: vector::empty<u64>(),
+            squad2_final_token_prices: vector::empty<u64>(),
         };
 
         let match_id = object::id(&match_obj);
@@ -370,6 +391,8 @@ module bullfy::match_escrow {
             total_prize,
             duration: bid1_duration,
             ends_at: current_time + bid1_duration,
+            squad1_token_prices: squad1_token_prices,
+            squad2_token_prices: squad2_token_prices,
         });
     }
 
@@ -424,15 +447,20 @@ module bullfy::match_escrow {
 
     // Complete a match by declaring a winner this must be called by the oracle or a backend service)
     public entry fun complete_match(
-        _: &AdminCap,
+        signer_cap: &MatchSignerCap,
         registry: &mut EscrowRegistry,
         squad_registry: &mut SquadRegistry,
         active_squad_registry: &mut ActiveSquadRegistry,
         match_id: ID,
         winner: address,
+        squad1_final_token_prices: vector<u64>, // Final token prices for squad1 at match completion
+        squad2_final_token_prices: vector<u64>, // Final token prices for squad2 at match completion
         clock: &Clock,
-        _ctx: &mut TxContext
+        ctx: &mut TxContext
     ) {
+        // Validate signer authorization
+        assert!(match_signer::validate_match_signer(signer_cap, ctx), common_errors::unauthorized());
+        
         assert!(table::contains(&registry.match_id_to_index, match_id), E_MATCH_NOT_FOUND);
         let match_index = *table::borrow(&registry.match_id_to_index, match_id);
         let match_obj = vector::borrow_mut(&mut registry.active_matches, match_index);
@@ -440,6 +468,10 @@ module bullfy::match_escrow {
         // Validate match status
         assert!(match_obj.status == MatchStatus::Active, E_MATCH_NOT_ACTIVE);
         assert!(!match_obj.prize_claimed, E_MATCH_ALREADY_COMPLETED);
+        
+        // IMPORTANT: Validate that the match time has ended
+        let current_time = clock::timestamp_ms(clock);
+        assert!(current_time >= match_obj.ends_at, E_MATCH_NOT_ENDED_YET);
         
         // Validate winner
         assert!(winner == match_obj.player1 || winner == match_obj.player2, E_INVALID_WINNER);
@@ -453,6 +485,10 @@ module bullfy::match_escrow {
         // Update match
         match_obj.status = MatchStatus::Completed;
         match_obj.winner = option::some(winner);
+        
+        // Record final token prices
+        match_obj.squad1_final_token_prices = squad1_final_token_prices;
+        match_obj.squad2_final_token_prices = squad2_final_token_prices;
 
         // Update squad life points
         let winner_squad_id = if (winner == match_obj.player1) {
@@ -482,22 +518,27 @@ module bullfy::match_escrow {
             loser,
             prize_amount: match_obj.total_prize,
             total_fees: match_obj.total_fees, // Total fees from both bids
+            squad1_final_token_prices: match_obj.squad1_final_token_prices,
+            squad2_final_token_prices: match_obj.squad2_final_token_prices,
         });
     }
 
     // Claim prize after winning a match
     public entry fun claim_prize(
-        _: &AdminCap,
+        signer_cap: &MatchSignerCap,
         registry: &mut EscrowRegistry,
         fees: &mut Fees,
         match_id: ID,
         ctx: &mut TxContext
     ) {
+        // Validate signer authorization
+        assert!(match_signer::validate_match_signer(signer_cap, ctx), common_errors::unauthorized());
+        
         assert!(table::contains(&registry.match_id_to_index, match_id), E_MATCH_NOT_FOUND);
         let match_index = *table::borrow(&registry.match_id_to_index, match_id);
         
         // Get all needed data before mutable borrow
-        let (bid1_id, total_prize, fees_collected, total_fees, winner_addr);
+        let (bid1_id, bid2_id, total_prize, fees_collected, total_fees, winner_addr);
         {
             let match_obj = vector::borrow(&registry.active_matches, match_index);
             
@@ -507,6 +548,7 @@ module bullfy::match_escrow {
             assert!(option::is_some(&match_obj.winner), E_MATCH_NOT_ACTIVE);
 
             bid1_id = match_obj.bid1_id;
+            bid2_id = match_obj.bid2_id;
             total_prize = match_obj.total_prize;
             fees_collected = match_obj.fees_collected;
             total_fees = match_obj.total_fees;
@@ -539,8 +581,12 @@ module bullfy::match_escrow {
             match_obj.prize_claimed = true;
         };
 
-        // Move match to completed vector
+        // Move match from active to completed Storage
         move_match_to_completed(registry, match_id);
+
+        // Move bid from active to completed Storage
+        move_bid_to_completed(registry, bid1_id);
+        move_bid_to_completed(registry, bid2_id);
 
         // Emit event
         event::emit(PrizeClaimed {
@@ -758,6 +804,48 @@ module bullfy::match_escrow {
         bid.status == BidStatus::Open
     }
 
+    // Helper function to check if a match has ended (time-based)
+    public fun has_match_ended(match_obj: &Match, clock: &Clock): bool {
+        let current_time = clock::timestamp_ms(clock);
+        current_time >= match_obj.ends_at
+    }
+
+    // Helper function to check if match can be completed
+    public fun can_complete_match(registry: &EscrowRegistry, match_id: ID, clock: &Clock): bool {
+        if (!table::contains(&registry.match_id_to_index, match_id)) {
+            return false
+        };
+        
+        let match_index = *table::borrow(&registry.match_id_to_index, match_id);
+        let match_obj = vector::borrow(&registry.active_matches, match_index);
+        
+        match_obj.status == MatchStatus::Active && 
+        !match_obj.prize_claimed && 
+        has_match_ended(match_obj, clock)
+    }
+
+    // Token price getter functions
+    public fun get_match_squad1_start_prices(match_obj: &Match): &vector<u64> {
+        &match_obj.squad1_token_prices
+    }
+
+    public fun get_match_squad2_start_prices(match_obj: &Match): &vector<u64> {
+        &match_obj.squad2_token_prices
+    }
+
+    public fun get_match_squad1_final_prices(match_obj: &Match): &vector<u64> {
+        &match_obj.squad1_final_token_prices
+    }
+
+    public fun get_match_squad2_final_prices(match_obj: &Match): &vector<u64> {
+        &match_obj.squad2_final_token_prices
+    }
+
+    // Helper function to check if token prices have been recorded for a match
+    public fun has_final_prices_recorded(match_obj: &Match): bool {
+        !vector::is_empty(&match_obj.squad1_final_token_prices) && 
+        !vector::is_empty(&match_obj.squad2_final_token_prices)
+    }
 
 }
 

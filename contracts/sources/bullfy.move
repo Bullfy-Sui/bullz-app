@@ -12,7 +12,7 @@ module bullfy::squad_manager {
 
     // Error constants (module-specific only)
     const E_SQUAD_NOT_FOUND: u64 = 4001;
-    const E_CANNOT_REVIVE_YET: u64 = 4003;
+   // const E_CANNOT_REVIVE_YET: u64 = 4003;
     const E_REVIVAL_NOT_NEEDED: u64 = 4004;
     const E_INVALID_SQUAD_NAME: u64 = 4005;
 
@@ -25,7 +25,7 @@ module bullfy::squad_manager {
     // Constants
     const MIN_SQUAD_NAME_LENGTH: u64 = 1;
     const MAX_SQUAD_NAME_LENGTH: u64 = 50;
-    const INITIAL_SQUAD_LIFE: u64 = 5;
+    const INITIAL_SQUAD_LIFE: u64 = 1;
     const REVIVAL_WAIT_TIME_MS: u64 = 864_00_000; // 24 * 60 * 60 * 1000
 
     // Represents a football squad.
@@ -108,16 +108,11 @@ module bullfy::squad_manager {
         squad_registry: &mut SquadRegistry,
         fee_config: &FeeConfig,
         fees: &mut fee_collector::Fees,
-        squad_name: String,
         mut payment: Coin<SUI>,
         ctx: &mut TxContext
     ) {
         let owner = tx_context::sender(ctx);
         
-        // Validate inputs
-        assert!(string::length(&squad_name) >= MIN_SQUAD_NAME_LENGTH, E_INVALID_SQUAD_NAME);
-        assert!(string::length(&squad_name) <= MAX_SQUAD_NAME_LENGTH, E_INVALID_SQUAD_NAME);
-
         // Calculate and handle squad creation fee using payment utils
         let creation_fee = admin::get_squad_creation_fee(fee_config);
         payment_utils::validate_payment_amount(coin::value(&payment), creation_fee);
@@ -139,7 +134,7 @@ module bullfy::squad_manager {
             id: object::new(ctx),
             owner,
             squad_id,
-            name: squad_name,
+            name: string::utf8(b""),  // Create with empty name - will be set when adding players
             players: vector::empty<String>(),  // Create with empty players vector
             life: INITIAL_SQUAD_LIFE,         // Start with 5 life points
             death_time: option::none(),       // Not dead initially
@@ -159,7 +154,7 @@ module bullfy::squad_manager {
         event::emit(SquadCreated { 
             owner,
             squad_id,
-            name: squad_name,
+            name: string::utf8(b""),  // Empty name initially
             life: INITIAL_SQUAD_LIFE,
             fee_paid: creation_fee,
         });
@@ -222,8 +217,10 @@ module bullfy::squad_manager {
         };
     }
 
-    // Revives a dead squad after 24 hours with standard fee (0.05 SUI)
-    public entry fun revive_squad_standard(
+    // Revives a dead squad with automatic fee calculation based on wait time
+    // - If less than 24 hours since death: instant revival fee (higher)
+    // - If 24+ hours since death: standard revival fee (lower)
+    public entry fun revive_squad(
         squad_registry: &mut SquadRegistry,
         fee_config: &FeeConfig,
         fees: &mut fee_collector::Fees,
@@ -244,12 +241,19 @@ module bullfy::squad_manager {
         assert!(squad.life == 0, E_REVIVAL_NOT_NEEDED);
         assert!(option::is_some(&squad.death_time), E_REVIVAL_NOT_NEEDED);
         
-        // Check 24-hour waiting period
         let death_time = *option::borrow(&squad.death_time);
-        assert!(current_time >= death_time + REVIVAL_WAIT_TIME_MS, E_CANNOT_REVIVE_YET);
+        let time_since_death = current_time - death_time;
+        
+        // Automatically determine fee and revival type based on wait time
+        let (revival_fee, revival_type) = if (time_since_death >= REVIVAL_WAIT_TIME_MS) {
+            // Standard revival: 24+ hours wait, lower fee
+            (admin::get_standard_revival_fee(fee_config), string::utf8(b"standard"))
+        } else {
+            // Instant revival: less than 24 hours, higher fee
+            (admin::get_instant_revival_fee(fee_config), string::utf8(b"instant"))
+        };
 
-        // Calculate and handle standard revival fee using payment utils
-        let revival_fee = admin::get_standard_revival_fee(fee_config);
+        // Validate payment amount
         payment_utils::validate_payment_amount(coin::value(&payment), revival_fee);
         
         // Handle payment with change return
@@ -269,69 +273,41 @@ module bullfy::squad_manager {
         event::emit(SquadRevived {
             squad_id,
             revived_at: current_time,
-            revival_type: string::utf8(b"standard"),
+            revival_type,
             fee_paid: revival_fee,
         });
     }
 
-    // Revives a dead squad instantly with higher fee (0.1 SUI)
-    public entry fun revive_squad_instant(
-        squad_registry: &mut SquadRegistry,
-        fee_config: &FeeConfig,
-        fees: &mut fee_collector::Fees,
-        squad_id: u64,
-        mut payment: Coin<SUI>,
-        clock: &Clock,
-        ctx: &mut TxContext
-    ) {
-        let owner = tx_context::sender(ctx);
-
-        // Validate squad exists and is owned by sender
-        assert!(table::contains(&squad_registry.squads, squad_id), E_SQUAD_NOT_FOUND);
-        let squad = table::borrow_mut(&mut squad_registry.squads, squad_id);
-        assert!(squad.owner == owner, common_errors::unauthorized());
-        
-        // Check if squad needs revival
-        assert!(squad.life == 0, E_REVIVAL_NOT_NEEDED);
-        assert!(option::is_some(&squad.death_time), E_REVIVAL_NOT_NEEDED);
-
-        // Calculate and handle instant revival fee using payment utils
-        let revival_fee = admin::get_instant_revival_fee(fee_config);
-        payment_utils::validate_payment_amount(coin::value(&payment), revival_fee);
-        
-        // Handle payment with change return
-        if (coin::value(&payment) > revival_fee) {
-            let change_amount = coin::value(&payment) - revival_fee;
-            let change = coin::split(&mut payment, change_amount, ctx);
-            sui::transfer::public_transfer(change, owner);
+    // Helper function to calculate required payment for revival based on current time
+    public fun calculate_revival_payment(squad: &Squad, fee_config: &FeeConfig, clock: &Clock): (u64, String) {
+        if (squad.life > 0 || option::is_none(&squad.death_time)) {
+            return (0, string::utf8(b"not_needed"))
         };
-
-        // Send fee to collector
-        fee_collector::collect(fees, payment, ctx);
-
-        // Revive the squad
-        squad.life = INITIAL_SQUAD_LIFE;
-        squad.death_time = option::none();
         
-        event::emit(SquadRevived {
-            squad_id,
-            revived_at: clock::timestamp_ms(clock),
-            revival_type: string::utf8(b"instant"),
-            fee_paid: revival_fee,
-        });
+        let current_time = clock::timestamp_ms(clock);
+        let death_time = *option::borrow(&squad.death_time);
+        let time_since_death = current_time - death_time;
+        
+        if (time_since_death >= REVIVAL_WAIT_TIME_MS) {
+            (admin::get_standard_revival_fee(fee_config), string::utf8(b"standard"))
+        } else {
+            (admin::get_instant_revival_fee(fee_config), string::utf8(b"instant"))
+        }
     }
 
-    // Helper functions to calculate required payments for revival
-    public fun calculate_standard_revival_payment(fee_config: &FeeConfig): u64 {
-        admin::get_standard_revival_fee(fee_config)
+    // Helper function to get revival fee for a specific type
+    public fun calculate_revival_fee(revival_type: String, fee_config: &FeeConfig): u64 {
+        if (revival_type == string::utf8(b"standard")) {
+            admin::get_standard_revival_fee(fee_config)
+        } else if (revival_type == string::utf8(b"instant")) {
+            admin::get_instant_revival_fee(fee_config)
+        } else {
+            0 // Invalid type
+        }
     }
 
-    public fun calculate_instant_revival_payment(fee_config: &FeeConfig): u64 {
-        admin::get_instant_revival_fee(fee_config)
-    }
-
-    // Checks if a squad can be revived with standard option (dead for 24+ hours).
-    public fun can_revive_squad_standard(squad: &Squad, clock: &Clock): bool {
+    // Helper function to check if standard revival is available (24hr wait met)
+    public fun can_revive_standard(squad: &Squad, clock: &Clock): bool {
         if (squad.life > 0 || option::is_none(&squad.death_time)) {
             return false
         };
@@ -341,52 +317,16 @@ module bullfy::squad_manager {
         current_time >= death_time + REVIVAL_WAIT_TIME_MS
     }
 
-    // Checks if a squad can be revived with instant option (any dead squad).
-    public fun can_revive_squad_instant(squad: &Squad): bool {
+    // Helper function to check if instant revival is available (squad is dead)
+    public fun can_revive_instant(squad: &Squad): bool {
         squad.life == 0 && option::is_some(&squad.death_time)
     }
 
-    // Gets squad death time (if dead).
-    public fun get_squad_death_time(squad: &Squad): Option<u64> {
-        squad.death_time
-    }
-
-    // Deletes a squad.
-    public entry fun delete_squad(
-        registry: &mut SquadRegistry,
-        squad_id: u64,
-        ctx: &mut TxContext
-    ) {
-        assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
-        
-        let squad = table::borrow(&registry.squads, squad_id);
-        let owner = tx_context::sender(ctx);
-        
-        // Ensure only the squad owner can delete it
-        assert!(squad.owner == owner, EOwnerDoesNotHaveSquad);
-        
-        // Remove from the registry
-        let squad = table::remove(&mut registry.squads, squad_id);
-        
-        // Remove from owner's squads list
-        let owner_squads = table::borrow_mut(&mut registry.owner_squads, owner);
-        let (found, index) = vector::index_of(owner_squads, &squad_id);
-        if (found) {
-            vector::remove(owner_squads, index);
-        };
-        
-        // Delete the squad object
-        let Squad { id, owner: _, squad_id: _, name: _, players: _, life: _, death_time: _ } = squad;
-        object::delete(id);
-    }
-
-   
-
-
-    // Adds 7 players to a squad in one call (only squad owner can add players).
+    // Adds 7 players to a squad in one call and sets the squad name (only squad owner can add players).
     public entry fun add_players_to_squad(
         registry: &mut SquadRegistry,
         squad_id: u64,
+        squad_name: String,
         player_names: vector<String>,
         ctx: &mut TxContext
     ) {
@@ -395,6 +335,10 @@ module bullfy::squad_manager {
         
         // Only squad owner can add players
         assert!(squad.owner == tx_context::sender(ctx), EOwnerDoesNotHaveSquad);
+        
+        // Validate squad name
+        assert!(string::length(&squad_name) >= MIN_SQUAD_NAME_LENGTH, E_INVALID_SQUAD_NAME);
+        assert!(string::length(&squad_name) <= MAX_SQUAD_NAME_LENGTH, E_INVALID_SQUAD_NAME);
         
         // Must be exactly 7 players
         assert!(vector::length(&player_names) == 7, EMustAddExactlySevenPlayers);
@@ -418,6 +362,9 @@ module bullfy::squad_manager {
             
             i = i + 1;
         };
+        
+        // Set the squad name
+        squad.name = squad_name;
         
         // Add all players to the squad
         let mut k = 0;

@@ -134,6 +134,8 @@ Handles sophisticated bid-based escrow system for player-vs-player matches with 
     - `total_prize: u64`, `total_fees: u64`, `duration: u64`
     - `started_at: u64`, `ends_at: u64`, `status: MatchStatus`
     - `winner: Option<address>`, `prize_claimed: bool`, `fees_collected: bool`
+    - `squad1_token_prices: vector<u64>`, `squad2_token_prices: vector<u64>` (token prices at match start)
+    - `squad1_final_token_prices: vector<u64>`, `squad2_final_token_prices: vector<u64>` (token prices at match completion)
   - Traits: `key, store`
 
 - **EscrowRegistry**
@@ -143,10 +145,22 @@ Handles sophisticated bid-based escrow system for player-vs-player matches with 
 ### Events
 
 - **BidCreated**: `bid_id: ID`, `creator: address`, `squad_id: u64`, `bid_amount: u64`, `duration: u64`
-- **BidsMatched**: Match creation details with both players and prize info
+- **BidsMatched**: Match creation details with both players and prize info, includes `squad1_token_prices: vector<u64>`, `squad2_token_prices: vector<u64>`
 - **BidCancelled**: `bid_id: ID`, `creator: address`, `refund_amount: u64`
-- **MatchCompleted**: `match_id: ID`, `winner: address`, `loser: address`, `prize_amount: u64`, `total_fees: u64`
+- **MatchCompleted**: `match_id: ID`, `winner: address`, `loser: address`, `prize_amount: u64`, `total_fees: u64`, includes `squad1_final_token_prices: vector<u64>`, `squad2_final_token_prices: vector<u64>`
 - **PrizeClaimed**: `match_id: ID`, `winner: address`, `amount: u64`
+
+### Error Constants
+
+- **E_BID_NOT_FOUND**: `u64 = 3001`
+- **E_CANNOT_MATCH_OWN_BID**: `u64 = 3002`
+- **E_BID_AMOUNT_MISMATCH**: `u64 = 3003`
+- **E_DURATION_MISMATCH**: `u64 = 3004`
+- **E_MATCH_NOT_FOUND**: `u64 = 3005`
+- **E_MATCH_NOT_ACTIVE**: `u64 = 3006`
+- **E_MATCH_ALREADY_COMPLETED**: `u64 = 3007`
+- **E_INVALID_WINNER**: `u64 = 3008`
+- **E_MATCH_NOT_ENDED_YET**: `u64 = 3009`
 
 ### Constants
 
@@ -159,11 +173,26 @@ Handles sophisticated bid-based escrow system for player-vs-player matches with 
 #### Public Entry Functions
 
 - **create_bid**: Creates a new bid with squad validation and fee escrow
-- **match_bids**: Matches two compatible bids into an active match
+- **match_bids**: Matches two compatible bids into an active match (Admin only)
 - **cancel_bid**: Cancels an open bid and refunds the creator
-- **submit_match_result**: Submits match result and handles prize distribution
-- **claim_prize**: Claims prize after match completion
-- **force_expire_match**: Handles expired matches
+- **complete_match**: Completes a match by declaring a winner (Admin only, requires match time to have ended)
+- **claim_prize**: Claims prize after match completion (Admin only)
+
+#### Public Helper Functions
+
+- **is_bid_valid**: Checks if a bid is still valid for matching
+- **has_match_ended**: Checks if a match has ended based on time
+- **can_complete_match**: Checks if a match can be completed (status, time validation)
+
+#### Public View Functions
+
+- **get_bid**: Retrieves active bid by ID
+- **get_match**: Retrieves active match by ID
+- **get_completed_bid_by_id**: Retrieves completed bid by ID
+- **get_completed_match_by_id**: Retrieves completed match by ID
+- **is_bid_completed**: Checks if bid is in completed table
+- **is_match_completed**: Checks if match is in completed table
+- Various user tracking functions for bids and matches
 
 ---
 
@@ -347,7 +376,7 @@ The Bullfy smart contracts implement a comprehensive fantasy football platform w
 ### **Sophisticated Escrow System**
 - Bid-based matching for fair competition
 - Automatic prize pool calculation
-- Time-limited matches with expiration handling
+- Time-limited matches with mandatory expiration checking
 - Fee collection integrated into all transactions
 
 ### **Administrative Controls**

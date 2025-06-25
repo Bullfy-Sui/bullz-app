@@ -1,3 +1,4 @@
+#[allow(lint(self_transfer))]
 
 module bullfy::fee_collector {
     use sui::coin::{Self, Coin};
@@ -53,38 +54,40 @@ module bullfy::fee_collector {
         });
     }
 
-    public fun withdraw(_: &AdminCap, fees: &mut Fees, amount: u64, recipient: address, ctx: &mut TxContext) {
+    public fun withdraw(_: &AdminCap, fees: &mut Fees, amount: u64, ctx: &mut TxContext) {
+        let admin_address = tx_context::sender(ctx);
+        
         // Check that there's enough balance
         let current_balance = balance::value(&fees.total);
         assert!(current_balance >= amount, EInsufficientBalance);
         
-        // Extract and transfer coins
+        // Extract and transfer coins to admin
         let withdrawn_balance = balance::split(&mut fees.total, amount);
         let withdrawn = coin::from_balance(withdrawn_balance, ctx);
-        transfer::public_transfer(withdrawn, recipient);
+        transfer::public_transfer(withdrawn, admin_address);
         
         // Emit event
         event::emit(FeeWithdrawn {
             amount,
-            recipient,
+            recipient: admin_address,
         });
     }
     
     // Allow admin to withdraw all fees at once
     public fun withdraw_all(_: &AdminCap, fees: &mut Fees, ctx: &mut TxContext) {
-        let sender = tx_context::sender(ctx);
+        let admin_address = tx_context::sender(ctx);
         let amount = balance::value(&fees.total);
         assert!(amount > 0, EInsufficientBalance);
         
         // Extract and transfer all coins
         let withdrawn_balance = balance::split(&mut fees.total, amount);
         let withdrawn = coin::from_balance(withdrawn_balance, ctx);
-        transfer::public_transfer(withdrawn, sender);
+        transfer::public_transfer(withdrawn, admin_address);
         
         // Emit event
         event::emit(FeeWithdrawn {
             amount,
-            recipient: sender,
+            recipient: admin_address,
         });
     }
     
