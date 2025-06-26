@@ -25,7 +25,7 @@ module bullfy::squad_manager {
     // Constants
     const MIN_SQUAD_NAME_LENGTH: u64 = 1;
     const MAX_SQUAD_NAME_LENGTH: u64 = 50;
-    const INITIAL_SQUAD_LIFE: u64 = 1;
+    const INITIAL_SQUAD_LIFE: u64 = 5;
     const REVIVAL_WAIT_TIME_MS: u64 = 864_00_000; // 24 * 60 * 60 * 1000
 
     // Represents a football squad.
