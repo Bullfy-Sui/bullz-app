@@ -1,0 +1,45 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme {
+  --color-background: #000019;
+  --color-foreground: #ffffff;
+  --font-offbit: var(--font-offbit);
+  --color-waitlist-form-border: #404040;
+  --color-button-foreground: #ffff;
+  --color-button-bg: #ff5c16;
+  --color-modal-bg: #1e1e28;
+  --color-gray-300: #9898b3;
+  --color-gray-100: #dadae6;
+  --color-gray-400: #7a7a99;
+  --color-gray-600: #474766;
+  --color-gray-700: #32324d;
+  --color-gray-800: #1f1f33;
+  --color-gray-850: #161626;
+  --color-gray-900: #0a0a1d;
+  --color-success-foreground: #00ff00;
+  --color-success-opacity1: #24c98d14;
+  --color-profit-foreground: #36ff91;
+  --color-loss-foreground: #ff9999;
+  --color-slider-bg: #31333a;
+  --color-slider-border: #e1e2e7;
+  --color-sui-blue: #4da2ff;
+  --color-font-subtext: #b8b8cc;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html {
+    background-color: #000019;
+  }
+}
+
+.bull-glow {
+  filter: drop-shadow(0 0 20px rgba(255, 92, 22, 0.5));
+}
