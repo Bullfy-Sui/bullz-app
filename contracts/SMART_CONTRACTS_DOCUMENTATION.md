@@ -78,28 +78,149 @@ Manages football squads for the Bullfy platform, including creation, life manage
 
 #### Public Entry Functions
 
-- **create_squad**: Creates a new squad with validation, fee payment, and event emission
-- **revive_squad_standard**: Revives a dead squad after 24-hour wait period (0.05 SUI default fee)
-- **revive_squad_instant**: Revives a dead squad instantly without wait period (0.1 SUI default fee)
-- **delete_squad**: Deletes a squad (owner only)
-- **add_players_to_squad**: Adds exactly 7 players to a squad with duplicate validation
+- **create_squad**
+  - **Purpose**: Creates a new squad with initial settings and collects creation fee
+  - **Arguments**:
+    - `squad_registry: &mut SquadRegistry` — Registry for squad management
+    - `fee_config: &FeeConfig` — Configuration for fees
+    - `fees: &mut fee_collector::Fees` — Fee collector object
+    - `payment: Coin<SUI>` — SUI payment for creation fee
+    - `ctx: &mut TxContext` — Transaction context
+  - **Returns**: None (entry function)
+  - **Emits**: `SquadCreated` event
+
+- **revive_squad**
+  - **Purpose**: Revives a dead squad with automatic fee calculation based on time since death
+  - **Arguments**:
+    - `squad_registry: &mut SquadRegistry` — Registry for squad management
+    - `fee_config: &FeeConfig` — Configuration for fees
+    - `fees: &mut fee_collector::Fees` — Fee collector object
+    - `squad_id: u64` — ID of the squad to revive
+    - `payment: Coin<SUI>` — SUI payment for revival fee
+    - `clock: &Clock` — System clock for time validation
+    - `ctx: &mut TxContext` — Transaction context
+  - **Returns**: None (entry function)
+  - **Fee Logic**: Standard revival (24h+ wait, lower fee) vs Instant revival (immediate, higher fee)
+  - **Emits**: `SquadRevived` event
+
+- **add_players_to_squad**
+  - **Purpose**: Adds exactly 7 players to a squad and sets the squad name
+  - **Arguments**:
+    - `registry: &mut SquadRegistry` — Registry for squad management
+    - `squad_id: u64` — ID of the squad to modify
+    - `squad_name: String` — Squad name (1-50 characters)
+    - `player_names: vector<String>` — Vector of exactly 7 player names
+    - `ctx: &mut TxContext` — Transaction context
+  - **Returns**: None (entry function)
+  - **Validation**: Owner only, duplicate checking, exact count requirement
+  - **Emits**: `PlayersAddedToSquad` event
 
 #### Public View Functions
 
-- **get_squad**: Retrieves squad by ID
-- **get_owner_squads**: Gets all squad IDs for an owner
-- **has_squads**: Checks if owner has any squads
-- **is_squad_alive**: Checks if squad has life > 0
-- **can_revive_squad_standard**: Checks if squad can be revived after 24h wait
-- **can_revive_squad_instant**: Checks if squad can be revived instantly
-- **calculate_squad_creation_payment**: Helper for fee calculation
-- **calculate_standard_revival_payment**: Helper for standard revival fee
-- **calculate_instant_revival_payment**: Helper for instant revival fee
+- **get_squad**
+  - **Purpose**: Retrieves squad by ID
+  - **Arguments**:
+    - `registry: &SquadRegistry` — Registry to search in
+    - `squad_id: u64` — ID of the squad to retrieve
+  - **Returns**: `&Squad` — Reference to the squad object
+
+- **get_owner_squads**
+  - **Purpose**: Gets all squad IDs for an owner
+  - **Arguments**:
+    - `registry: &SquadRegistry` — Registry to search in
+    - `owner: address` — Address of the owner
+  - **Returns**: `&vector<u64>` — Reference to vector of squad IDs
+
+- **has_squads**
+  - **Purpose**: Checks if owner has any squads
+  - **Arguments**:
+    - `registry: &SquadRegistry` — Registry to check
+    - `owner: address` — Address to check
+  - **Returns**: `bool` — True if owner has squads
+
+- **is_squad_alive**
+  - **Purpose**: Checks if squad has life > 0
+  - **Arguments**:
+    - `squad: &Squad` — Squad to check
+  - **Returns**: `bool` — True if squad has life points
+
+- **can_revive_standard**
+  - **Purpose**: Checks if squad can be revived after 24h wait
+  - **Arguments**:
+    - `squad: &Squad` — Squad to check
+    - `clock: &Clock` — System clock for time validation
+  - **Returns**: `bool` — True if standard revival is available
+
+- **can_revive_instant**
+  - **Purpose**: Checks if squad can be revived instantly
+  - **Arguments**:
+    - `squad: &Squad` — Squad to check
+  - **Returns**: `bool` — True if instant revival is available
+
+- **calculate_squad_creation_payment**
+  - **Purpose**: Helper for fee calculation
+  - **Arguments**:
+    - `fee_config: &FeeConfig` — Fee configuration
+  - **Returns**: `u64` — Required payment amount in MIST
+
+- **calculate_revival_payment**
+  - **Purpose**: Calculates revival fee based on current time
+  - **Arguments**:
+    - `squad: &Squad` — Squad to calculate for
+    - `fee_config: &FeeConfig` — Fee configuration
+    - `clock: &Clock` — System clock for time calculation
+  - **Returns**: `(u64, String)` — Fee amount and revival type
+
+- **calculate_revival_fee**
+  - **Purpose**: Gets revival fee for specific type
+  - **Arguments**:
+    - `revival_type: String` — Type ("standard" or "instant")
+    - `fee_config: &FeeConfig` — Fee configuration
+  - **Returns**: `u64` — Fee amount in MIST
 
 #### Public Functions
 
-- **decrease_squad_life**: Decreases life by 1, records death if needed
-- **increase_squad_life**: Increases life by 1 (max 5)
+- **decrease_squad_life**
+  - **Purpose**: Decreases life by 1, records death if needed
+  - **Arguments**:
+    - `registry: &mut SquadRegistry` — Squad registry
+    - `squad_id: u64` — ID of squad to modify
+    - `clock: &Clock` — System clock for death timestamp
+  - **Returns**: None
+  - **Emits**: `SquadLifeLost`, potentially `SquadDied`
+
+- **increase_squad_life**
+  - **Purpose**: Increases life by 1 (max 5)
+  - **Arguments**:
+    - `registry: &mut SquadRegistry` — Squad registry
+    - `squad_id: u64` — ID of squad to modify
+  - **Returns**: None
+  - **Emits**: `SquadLifeGained`
+
+- **get_squad_name**
+  - **Purpose**: Returns squad name
+  - **Arguments**: `squad: &Squad` — Squad to query
+  - **Returns**: `&String` — Reference to squad name
+
+- **get_squad_players**
+  - **Purpose**: Returns squad players list
+  - **Arguments**: `squad: &Squad` — Squad to query
+  - **Returns**: `&vector<String>` — Reference to players vector
+
+- **get_squad_owner**
+  - **Purpose**: Returns squad owner address
+  - **Arguments**: `squad: &Squad` — Squad to query
+  - **Returns**: `address` — Owner address
+
+- **get_squad_id**
+  - **Purpose**: Returns squad ID
+  - **Arguments**: `squad: &Squad` — Squad to query
+  - **Returns**: `u64` — Squad ID
+
+- **get_squad_life**
+  - **Purpose**: Returns squad life points
+  - **Arguments**: `squad: &Squad` — Squad to query
+  - **Returns**: `u64` — Current life points
 
 ---
 
@@ -172,27 +293,206 @@ Handles sophisticated bid-based escrow system for player-vs-player matches with 
 
 #### Public Entry Functions
 
-- **create_bid**: Creates a new bid with squad validation and fee escrow
-- **match_bids**: Matches two compatible bids into an active match (Admin only)
-- **cancel_bid**: Cancels an open bid and refunds the creator
-- **complete_match**: Completes a match by declaring a winner (Admin only, requires match time to have ended)
-- **claim_prize**: Claims prize after match completion (Admin only)
+- **create_bid**
+  - **Purpose**: Creates a new bid with squad validation and fee escrow
+  - **Arguments**:
+    - `registry: &mut EscrowRegistry` — The escrow registry
+    - `squad_registry: &SquadRegistry` — Squad registry for validation
+    - `active_squad_registry: &mut ActiveSquadRegistry` — Registry for tracking active squads
+    - `fee_config: &FeeConfig` — Fee configuration
+    - `squad_id: u64` — ID of the squad to use in match
+    - `bid_amount: u64` — Bid amount in MIST (min 0.001 SUI)
+    - `duration: u64` — Match duration in milliseconds (1-30 minutes)
+    - `payment: Coin<SUI>` — SUI payment for bid and fee
+    - `clock: &Clock` — System clock
+    - `ctx: &mut TxContext` — Transaction context
+  - **Returns**: None (entry function)
+  - **Validation**: Squad ownership, life status, bid/duration ranges, squad not active
+  - **Emits**: `BidCreated` event
+
+- **match_bids**
+  - **Purpose**: Matches two compatible bids into an active match (Admin only)
+  - **Arguments**:
+    - `signer_cap: &MatchSignerCap` — Match signer capability for authorization
+    - `registry: &mut EscrowRegistry` — The escrow registry
+    - `_squad_registry: &SquadRegistry` — Squad registry (for validation)
+    - `active_squad_registry: &mut ActiveSquadRegistry` — Active squad registry
+    - `bid1_id: ID` — ID of the first bid
+    - `bid2_id: ID` — ID of the second bid
+    - `squad1_token_prices: vector<u64>` — Token prices for squad 1 at match start
+    - `squad2_token_prices: vector<u64>` — Token prices for squad 2 at match start
+    - `clock: &Clock` — System clock
+    - `ctx: &mut TxContext` — Transaction context
+  - **Returns**: None (entry function)
+  - **Validation**: Bid compatibility (amount, duration), different creators
+  - **Emits**: `BidsMatched` event
+
+- **cancel_bid**
+  - **Purpose**: Cancels an open bid and refunds the creator
+  - **Arguments**:
+    - `registry: &mut EscrowRegistry` — The escrow registry
+    - `active_squad_registry: &mut ActiveSquadRegistry` — Active squad registry
+    - `bid_id: ID` — ID of the bid to cancel
+    - `ctx: &mut TxContext` — Transaction context
+  - **Returns**: None (entry function)
+  - **Validation**: Creator authorization, bid status (must be Open)
+  - **Emits**: `BidCancelled` event
+
+- **complete_match**
+  - **Purpose**: Completes a match by declaring a winner (Admin only, requires match time to have ended)
+  - **Arguments**:
+    - `signer_cap: &MatchSignerCap` — Match signer capability
+    - `registry: &mut EscrowRegistry` — The escrow registry
+    - `squad_registry: &mut SquadRegistry` — Squad registry for life updates
+    - `active_squad_registry: &mut ActiveSquadRegistry` — Active squad registry
+    - `match_id: ID` — ID of the match to complete
+    - `winner: address` — Address of the winner
+    - `squad1_final_token_prices: vector<u64>` — Final token prices for squad 1
+    - `squad2_final_token_prices: vector<u64>` — Final token prices for squad 2
+    - `clock: &Clock` — System clock for time validation
+    - `ctx: &mut TxContext` — Transaction context
+  - **Returns**: None (entry function)
+  - **Validation**: Match ended, valid winner, signer authorization
+  - **Effects**: Updates squad life (winner +1, loser -1)
+  - **Emits**: `MatchCompleted` event
+
+- **claim_prize**
+  - **Purpose**: Claims prize after match completion (Admin only)
+  - **Arguments**:
+    - `signer_cap: &MatchSignerCap` — Match signer capability
+    - `registry: &mut EscrowRegistry` — The escrow registry
+    - `fees: &mut Fees` — Fee collector object
+    - `match_id: ID` — ID of the completed match
+    - `ctx: &mut TxContext` — Transaction context
+  - **Returns**: None (entry function)
+  - **Effects**: Transfers prize to winner, collects fees
+  - **Emits**: `PrizeClaimed` event
 
 #### Public Helper Functions
 
-- **is_bid_valid**: Checks if a bid is still valid for matching
-- **has_match_ended**: Checks if a match has ended based on time
-- **can_complete_match**: Checks if a match can be completed (status, time validation)
+- **is_bid_valid**
+  - **Purpose**: Checks if a bid is still valid for matching
+  - **Arguments**:
+    - `bid: &Bid` — Bid to validate
+    - `_clock: &Clock` — System clock (currently unused)
+  - **Returns**: `bool` — True if bid can be matched
+
+- **has_match_ended**
+  - **Purpose**: Checks if a match has ended based on time
+  - **Arguments**:
+    - `match_obj: &Match` — Match to check
+    - `clock: &Clock` — System clock for time comparison
+  - **Returns**: `bool` — True if current time >= match end time
+
+- **can_complete_match**
+  - **Purpose**: Checks if a match can be completed (status, time validation)
+  - **Arguments**:
+    - `registry: &EscrowRegistry` — Registry to check
+    - `match_id: ID` — Match ID to validate
+    - `clock: &Clock` — System clock for time validation
+  - **Returns**: `bool` — True if match can be completed
 
 #### Public View Functions
 
-- **get_bid**: Retrieves active bid by ID
-- **get_match**: Retrieves active match by ID
-- **get_completed_bid_by_id**: Retrieves completed bid by ID
-- **get_completed_match_by_id**: Retrieves completed match by ID
-- **is_bid_completed**: Checks if bid is in completed table
-- **is_match_completed**: Checks if match is in completed table
-- Various user tracking functions for bids and matches
+- **get_bid**
+  - **Purpose**: Retrieves active bid by ID
+  - **Arguments**:
+    - `registry: &EscrowRegistry` — Registry to search
+    - `bid_id: ID` — Bid ID to retrieve
+  - **Returns**: `&Bid` — Reference to bid object
+
+- **get_match**
+  - **Purpose**: Retrieves active match by ID
+  - **Arguments**:
+    - `registry: &EscrowRegistry` — Registry to search
+    - `match_id: ID` — Match ID to retrieve
+  - **Returns**: `&Match` — Reference to match object
+
+- **get_completed_bid_by_id**
+  - **Purpose**: Retrieves completed bid by ID
+  - **Arguments**:
+    - `registry: &EscrowRegistry` — Registry to search
+    - `bid_id: ID` — Bid ID to retrieve
+  - **Returns**: `&Bid` — Reference to completed bid
+
+- **get_completed_match_by_id**
+  - **Purpose**: Retrieves completed match by ID
+  - **Arguments**:
+    - `registry: &EscrowRegistry` — Registry to search
+    - `match_id: ID` — Match ID to retrieve
+  - **Returns**: `&Match` — Reference to completed match
+
+- **is_bid_completed**
+  - **Purpose**: Checks if bid is in completed table
+  - **Arguments**:
+    - `registry: &EscrowRegistry` — Registry to check
+    - `bid_id: ID` — Bid ID to check
+  - **Returns**: `bool` — True if bid is completed
+
+- **is_match_completed**
+  - **Purpose**: Checks if match is in completed table
+  - **Arguments**:
+    - `registry: &EscrowRegistry` — Registry to check
+    - `match_id: ID` — Match ID to check
+  - **Returns**: `bool` — True if match is completed
+
+- **get_user_active_bids**
+  - **Purpose**: Gets active bid indices for a user
+  - **Arguments**:
+    - `registry: &EscrowRegistry` — Registry to query
+    - `user: address` — User address
+  - **Returns**: `&vector<u64>` — Reference to user's active bid indices
+
+- **get_user_completed_bids**
+  - **Purpose**: Gets completed bid IDs for a user
+  - **Arguments**:
+    - `registry: &EscrowRegistry` — Registry to query
+    - `user: address` — User address
+  - **Returns**: `&vector<ID>` — Reference to user's completed bid IDs
+
+- **get_user_active_matches**
+  - **Purpose**: Gets active match indices for a user
+  - **Arguments**:
+    - `registry: &EscrowRegistry` — Registry to query
+    - `user: address` — User address
+  - **Returns**: `&vector<u64>` — Reference to user's active match indices
+
+- **get_user_completed_matches**
+  - **Purpose**: Gets completed match IDs for a user
+  - **Arguments**:
+    - `registry: &EscrowRegistry` — Registry to query
+    - `user: address` — User address
+  - **Returns**: `&vector<ID>` — Reference to user's completed match IDs
+
+- **get_match_squad1_start_prices**
+  - **Purpose**: Gets starting token prices for squad 1
+  - **Arguments**:
+    - `match_obj: &Match` — Match to query
+  - **Returns**: `&vector<u64>` — Reference to price vector
+
+- **get_match_squad2_start_prices**
+  - **Purpose**: Gets starting token prices for squad 2
+  - **Arguments**:
+    - `match_obj: &Match` — Match to query
+  - **Returns**: `&vector<u64>` — Reference to price vector
+
+- **get_match_squad1_final_prices**
+  - **Purpose**: Gets final token prices for squad 1
+  - **Arguments**:
+    - `match_obj: &Match` — Match to query
+  - **Returns**: `&vector<u64>` — Reference to price vector
+
+- **get_match_squad2_final_prices**
+  - **Purpose**: Gets final token prices for squad 2
+  - **Arguments**:
+    - `match_obj: &Match` — Match to query
+  - **Returns**: `&vector<u64>` — Reference to price vector
+
+- **has_final_prices_recorded**
+  - **Purpose**: Checks if final prices have been recorded
+  - **Arguments**:
+    - `match_obj: &Match` — Match to check
+  - **Returns**: `bool` — True if final prices are set
 
 ---
 
@@ -209,8 +509,27 @@ Manages squad-based challenges and tracks active squad participation.
 
 ### Functions
 
-- **is_squad_active**: Checks if a squad is currently participating in a challenge
-- Various challenge management functions for squad-based competitions
+- **is_squad_active**
+  - **Purpose**: Checks if a squad is currently participating in a challenge
+  - **Arguments**:
+    - `registry: &ActiveSquadRegistry` — Registry to check
+    - `squad_id: u64` — Squad ID to check
+  - **Returns**: `bool` — True if squad is active
+
+- **register_squad_active**
+  - **Purpose**: Registers a squad as active in a challenge
+  - **Arguments**:
+    - `registry: &mut ActiveSquadRegistry` — Registry to update
+    - `squad_id: u64` — Squad ID to register
+    - `challenge_id: ID` — Challenge or match ID
+  - **Returns**: None
+
+- **unregister_squad_active**
+  - **Purpose**: Removes a squad from active status
+  - **Arguments**:
+    - `registry: &mut ActiveSquadRegistry` — Registry to update
+    - `squad_id: u64` — Squad ID to unregister
+  - **Returns**: None
 
 ---
 
@@ -260,19 +579,148 @@ Provides administrative controls and fee configuration for the platform.
 
 #### Public Entry Functions
 
-- **create_admin_cap**: Creates new admin capabilities (owner only)
-- **revoke_admin_cap**: Revokes admin capabilities (owner only)
-- **transfer_owner_cap**: Transfers ownership to new address
-- **update_fee_percentage**: Updates platform fee percentage (admin only)
-- **update_squad_creation_fee**: Updates squad creation fees (admin only)
-- **update_revival_fees**: Updates revival fees (admin only)
+- **create_admin_cap**
+  - **Purpose**: Creates new admin capabilities (owner only)
+  - **Arguments**:
+    - `_: &OwnerCap` — Owner capability for authorization
+    - `registry: &mut AdminRegistry` — Admin registry to update
+    - `admin: address` — Address to grant admin privileges
+    - `clock: &Clock` — System clock for timestamp
+    - `ctx: &mut TxContext` — Transaction context
+  - **Returns**: None (entry function)
+  - **Effects**: Creates and transfers AdminCap to specified address
+  - **Emits**: `AdminCapCreated` event
+
+- **revoke_admin_cap**
+  - **Purpose**: Revokes admin capabilities (owner only)
+  - **Arguments**:
+    - `_: &OwnerCap` — Owner capability for authorization
+    - `registry: &mut AdminRegistry` — Admin registry to update
+    - `admin_cap: AdminCap` — Admin capability to revoke
+    - `clock: &Clock` — System clock for timestamp
+  - **Returns**: None (entry function)
+  - **Effects**: Deletes AdminCap and removes from registry
+  - **Emits**: `AdminCapRevoked` event
+
+- **deactivate_admin**
+  - **Purpose**: Allows admin to temporarily deactivate their capability
+  - **Arguments**:
+    - `admin_cap: &mut AdminCap` — Admin capability to deactivate
+    - `clock: &Clock` — System clock for timestamp
+    - `ctx: &mut TxContext` — Transaction context
+  - **Returns**: None (entry function)
+  - **Validation**: Admin owns the capability
+  - **Emits**: `AdminDeactivated` event
+
+- **reactivate_admin**
+  - **Purpose**: Allows admin to reactivate their capability
+  - **Arguments**:
+    - `admin_cap: &mut AdminCap` — Admin capability to reactivate
+    - `clock: &Clock` — System clock for timestamp
+    - `ctx: &mut TxContext` — Transaction context
+  - **Returns**: None (entry function)
+  - **Validation**: Admin owns the capability
+  - **Emits**: `AdminReactivated` event
+
+- **transfer_owner_cap**
+  - **Purpose**: Transfers ownership to new address
+  - **Arguments**:
+    - `owner_cap: OwnerCap` — Owner capability to transfer
+    - `new_owner: address` — New owner address
+  - **Returns**: None (entry function)
+  - **Effects**: Transfers OwnerCap to new address
+
+- **update_fee_percentage**
+  - **Purpose**: Updates platform fee percentage (admin only)
+  - **Arguments**:
+    - `admin_cap: &AdminCap` — Admin capability for authorization
+    - `fee_config: &mut FeeConfig` — Fee configuration to update
+    - `new_fee_bps: u64` — New fee in basis points (max 1000 = 10%)
+    - `ctx: &mut TxContext` — Transaction context
+  - **Returns**: None (entry function)
+  - **Validation**: Admin authorization, fee within limits
+  - **Emits**: `FeePercentageUpdated` event
+
+- **update_squad_creation_fee**
+  - **Purpose**: Updates squad creation fees (admin only)
+  - **Arguments**:
+    - `admin_cap: &AdminCap` — Admin capability for authorization
+    - `fee_config: &mut FeeConfig` — Fee configuration to update
+    - `new_fee: u64` — New fee amount in MIST (0.1-10 SUI range)
+    - `ctx: &mut TxContext` — Transaction context
+  - **Returns**: None (entry function)
+  - **Validation**: Admin authorization, fee within limits
+  - **Emits**: `SquadCreationFeeUpdated` event
+
+- **update_revival_fees**
+  - **Purpose**: Updates revival fees (admin only)
+  - **Arguments**:
+    - `admin_cap: &AdminCap` — Admin capability for authorization
+    - `fee_config: &mut FeeConfig` — Fee configuration to update
+    - `new_standard_fee: u64` — New standard revival fee in MIST
+    - `new_instant_fee: u64` — New instant revival fee in MIST
+    - `ctx: &mut TxContext` — Transaction context
+  - **Returns**: None (entry function)
+  - **Validation**: Admin authorization, fees within limits, instant > standard
+  - **Emits**: `RevivalFeesUpdated` event
 
 #### Public Functions
 
-- **get_upfront_fee_bps**: Returns current upfront fee percentage
-- **get_squad_creation_fee**: Returns squad creation fee amount
-- **get_standard_revival_fee**: Returns standard revival fee amount
-- **get_instant_revival_fee**: Returns instant revival fee amount
+- **validate_admin_cap**
+  - **Purpose**: Validates admin capability and activity status
+  - **Arguments**:
+    - `admin_cap: &AdminCap` — Admin capability to validate
+    - `ctx: &mut TxContext` — Transaction context for sender check
+  - **Returns**: `bool` — True if admin is valid and active
+
+- **is_active_admin**
+  - **Purpose**: Checks if address is an active admin
+  - **Arguments**:
+    - `registry: &AdminRegistry` — Registry to check
+    - `admin_address: address` — Address to check
+  - **Returns**: `bool` — True if address is active admin
+
+- **get_active_admins**
+  - **Purpose**: Returns list of all active admin addresses
+  - **Arguments**:
+    - `registry: &AdminRegistry` — Registry to query
+  - **Returns**: `&vector<address>` — Reference to active admins vector
+
+- **get_admin_count**
+  - **Purpose**: Returns total number of admins
+  - **Arguments**:
+    - `registry: &AdminRegistry` — Registry to query
+  - **Returns**: `u64` — Total admin count
+
+- **get_admin_info**
+  - **Purpose**: Returns admin capability information
+  - **Arguments**:
+    - `admin_cap: &AdminCap` — Admin capability to query
+  - **Returns**: `(address, u64, bool)` — Admin address, created timestamp, active status
+
+- **get_upfront_fee_bps**
+  - **Purpose**: Returns current upfront fee percentage
+  - **Arguments**:
+    - `fee_config: &FeeConfig` — Fee configuration to query
+  - **Returns**: `u64` — Fee percentage in basis points
+
+- **get_squad_creation_fee**
+  - **Purpose**: Returns squad creation fee amount
+  - **Arguments**:
+    - `fee_config: &FeeConfig` — Fee configuration to query
+  - **Returns**: `u64` — Fee amount in MIST
+
+- **get_standard_revival_fee**
+  - **Purpose**: Returns standard revival fee amount
+  - **Arguments**:
+    - `fee_config: &FeeConfig` — Fee configuration to query
+  - **Returns**: `u64` — Fee amount in MIST
+
+- **get_instant_revival_fee**
+  - **Purpose**: Returns instant revival fee amount
+  - **Arguments**:
+    - `fee_config: &FeeConfig` — Fee configuration to query
+  - **Returns**: `u64` — Fee amount in MIST
 
 ---
 
@@ -298,10 +746,39 @@ Centralized collection and management of platform fees.
 
 #### Public Functions
 
-- **collect**: Adds incoming fees to the total balance
-- **withdraw**: Withdraws specific amount (admin only)
-- **withdraw_all**: Withdraws all collected fees (admin only)
-- **get_total**: Returns total collected fees
+- **collect**
+  - **Purpose**: Adds incoming fees to the total balance
+  - **Arguments**:
+    - `fees: &mut Fees` — Fee collector object to update
+    - `incoming: Coin<SUI>` — Incoming fee payment
+    - `ctx: &mut TxContext` — Transaction context
+  - **Returns**: None
+  - **Effects**: Adds coin value to total balance
+  - **Emits**: `FeeCollected` event
+
+- **withdraw**
+  - **Purpose**: Withdraws specific amount (admin only)
+  - **Arguments**:
+    - `fees: &mut Fees` — Fee collector object
+    - `amount: u64` — Amount to withdraw in MIST
+    - `ctx: &mut TxContext` — Transaction context
+  - **Returns**: `Coin<SUI>` — Withdrawn amount as coin
+  - **Validation**: Sufficient balance check
+  - **Emits**: `FeeWithdrawn` event
+
+- **withdraw_all**
+  - **Purpose**: Withdraws all collected fees (admin only)
+  - **Arguments**:
+    - `fees: &mut Fees` — Fee collector object
+    - `ctx: &mut TxContext` — Transaction context
+  - **Returns**: `Coin<SUI>` — All fees as coin
+  - **Emits**: `FeeWithdrawn` event
+
+- **get_total**
+  - **Purpose**: Returns total collected fees
+  - **Arguments**:
+    - `fees: &Fees` — Fee collector object to query
+  - **Returns**: `u64` — Total balance in MIST
 
 ---
 
@@ -314,8 +791,33 @@ Provides standardized fee calculation logic across the platform.
 
 #### Public Functions
 
-- **calculate_upfront_fee**: Calculates required upfront fees based on bid amount and fee configuration
-- Returns fee amount and total required payment
+- **calculate_upfront_fee**
+  - **Purpose**: Calculates required upfront fees based on bid amount and fee configuration
+  - **Arguments**:
+    - `base_amount: u64` — Base bid amount in MIST
+    - `fee_config: &FeeConfig` — Fee configuration for percentage
+  - **Returns**: `(u64, u64)` — (fee_amount, total_required) both in MIST
+  - **Formula**: fee = (base_amount * fee_bps) / 10000
+
+- **calculate_fee_amount**
+  - **Purpose**: Calculates just the fee amount
+  - **Arguments**:
+    - `base_amount: u64` — Base amount in MIST
+    - `fee_config: &FeeConfig` — Fee configuration
+  - **Returns**: `u64` — Fee amount in MIST
+
+- **calculate_total_payment**
+  - **Purpose**: Calculates total required payment (base + fee)
+  - **Arguments**:
+    - `base_amount: u64` — Base amount in MIST
+    - `fee_config: &FeeConfig` — Fee configuration
+  - **Returns**: `u64` — Total required payment in MIST
+
+- **get_fee_bps**
+  - **Purpose**: Gets fee basis points from configuration
+  - **Arguments**:
+    - `fee_config: &FeeConfig` — Fee configuration to query
+  - **Returns**: `u64` — Fee percentage in basis points
 
 ---
 
@@ -328,9 +830,38 @@ Handles payment processing, validation, and change management.
 
 #### Public Functions
 
-- **validate_payment_amount**: Validates sufficient payment for required amount
-- **handle_payment_with_fee**: Splits payment into main amount and fee portions
-- **handle_payment_with_change**: Processes payments and returns change if necessary
+- **handle_payment_with_fee**
+  - **Purpose**: Splits payment into main amount and fee portions
+  - **Arguments**:
+    - `payment: Coin<SUI>` — Payment coin to split
+    - `main_amount: u64` — Main payment amount in MIST
+    - `fee_amount: u64` — Fee amount in MIST
+    - `recipient: address` — Address to send change (if any)
+    - `ctx: &mut TxContext` — Transaction context
+  - **Returns**: `(Coin<SUI>, Coin<SUI>)` — (main_coin, fee_coin)
+  - **Effects**: Returns change to recipient if overpaid
+
+- **validate_payment_amount**
+  - **Purpose**: Validates sufficient payment for required amount
+  - **Arguments**:
+    - `payment_amount: u64` — Amount being paid in MIST
+    - `required_amount: u64` — Required amount in MIST
+  - **Returns**: None (aborts if insufficient)
+  - **Validation**: payment_amount >= required_amount
+
+- **is_payment_sufficient**
+  - **Purpose**: Checks if payment amount is sufficient (returns bool)
+  - **Arguments**:
+    - `payment_amount: u64` — Amount being paid in MIST
+    - `required_amount: u64` — Required amount in MIST
+  - **Returns**: `bool` — True if payment is sufficient
+
+- **calculate_total_required**
+  - **Purpose**: Calculates total required payment (main + fee)
+  - **Arguments**:
+    - `main_amount: u64` — Main amount in MIST
+    - `fee_amount: u64` — Fee amount in MIST
+  - **Returns**: `u64` — Total required in MIST
 
 ---
 
@@ -343,9 +874,54 @@ Provides common validation functions used across multiple modules.
 
 #### Public Functions
 
-- **validate_bid_amount**: Validates bid amounts against minimum requirements
-- **validate_duration**: Validates match duration within acceptable limits
-- **validate_squad_ownership_and_life**: Validates squad ownership and life status
+- **validate_squad_ownership_and_life**
+  - **Purpose**: Validates squad ownership and life status
+  - **Arguments**:
+    - `squad_registry: &SquadRegistry` — Squad registry to check
+    - `squad_id: u64` — Squad ID to validate
+    - `owner: address` — Expected owner address
+  - **Returns**: None (aborts if invalid)
+  - **Validation**: Owner match, squad has life > 0
+
+- **is_squad_valid_for_owner**
+  - **Purpose**: Checks squad validity for owner (returns bool)
+  - **Arguments**:
+    - `squad_registry: &SquadRegistry` — Squad registry to check
+    - `squad_id: u64` — Squad ID to validate
+    - `owner: address` — Expected owner address
+  - **Returns**: `bool` — True if squad is valid for owner
+
+- **validate_bid_amount**
+  - **Purpose**: Validates bid amounts against minimum requirements
+  - **Arguments**:
+    - `bid_amount: u64` — Bid amount in MIST
+    - `min_amount: u64` — Minimum allowed amount in MIST
+  - **Returns**: None (aborts if invalid)
+  - **Validation**: bid_amount >= min_amount
+
+- **is_bid_amount_valid**
+  - **Purpose**: Checks if bid amount is valid (returns bool)
+  - **Arguments**:
+    - `bid_amount: u64` — Bid amount in MIST
+    - `min_amount: u64` — Minimum allowed amount in MIST
+  - **Returns**: `bool` — True if amount is valid
+
+- **validate_duration**
+  - **Purpose**: Validates match duration within acceptable limits
+  - **Arguments**:
+    - `duration: u64` — Duration in milliseconds
+    - `min_duration: u64` — Minimum allowed duration
+    - `max_duration: u64` — Maximum allowed duration
+  - **Returns**: None (aborts if invalid)
+  - **Validation**: min_duration <= duration <= max_duration
+
+- **is_duration_valid**
+  - **Purpose**: Checks if duration is valid (returns bool)
+  - **Arguments**:
+    - `duration: u64` — Duration in milliseconds
+    - `min_duration: u64` — Minimum allowed duration
+    - `max_duration: u64` — Maximum allowed duration
+  - **Returns**: `bool` — True if duration is valid
 
 ---
 
@@ -358,9 +934,40 @@ Centralized error definitions for consistent error handling across modules.
 
 #### Public Functions
 
-- **unauthorized**: Returns unauthorized access error
-- **squad_already_active**: Returns squad already active error
-- **insufficient_funds**: Returns insufficient funds error
+- **unauthorized**
+  - **Purpose**: Returns unauthorized access error code
+  - **Arguments**: None
+  - **Returns**: `u64` — Error code for unauthorized access
+
+- **squad_not_owned**
+  - **Purpose**: Returns squad not owned error code
+  - **Arguments**: None
+  - **Returns**: `u64` — Error code for squad ownership mismatch
+
+- **squad_not_alive**
+  - **Purpose**: Returns squad not alive error code
+  - **Arguments**: None
+  - **Returns**: `u64` — Error code for dead squad
+
+- **squad_already_active**
+  - **Purpose**: Returns squad already active error code
+  - **Arguments**: None
+  - **Returns**: `u64` — Error code for squad already in use
+
+- **invalid_bid_amount**
+  - **Purpose**: Returns invalid bid amount error code
+  - **Arguments**: None
+  - **Returns**: `u64` — Error code for invalid bid
+
+- **insufficient_payment**
+  - **Purpose**: Returns insufficient funds error code
+  - **Arguments**: None
+  - **Returns**: `u64` — Error code for payment issues
+
+- **invalid_duration**
+  - **Purpose**: Returns invalid duration error code
+  - **Arguments**: None
+  - **Returns**: `u64` — Error code for duration validation
 
 ---
 
