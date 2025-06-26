@@ -18,6 +18,8 @@ export const useCreateSquad = () => {
 };
 
 export const useGetUserSquads = () => {
+  const { address } = useAppStore();
+  console.log({ address });
   return useQuery({
     queryKey: ["get-user-squads"],
     queryFn: () =>

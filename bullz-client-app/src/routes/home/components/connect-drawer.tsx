@@ -8,7 +8,7 @@ import {
 } from "@/lib/hooks/use-notifications-modal";
 import { useAppStore } from "@/lib/store/app-store";
 import { useConnectWallet, useWallets } from "@mysten/dapp-kit";
-import { useRouter } from "next/navigation";
+import { useNavigate } from "react-router";
 
 interface ConnectDrawerProps {
   isOpen: boolean;
@@ -20,18 +20,10 @@ const ConnectDrawer = (props: ConnectDrawerProps) => {
   const {
     mutate: connect,
     isPending: connectingWallet,
-    // isSuccess: connectionSuccess,
-    // isError: connectionError,
     status: connectionStatus,
   } = useConnectWallet();
-  // const {
-  //   // mutate: registerUser,
-  //   isPending: registering,
-  //   isSuccess: registrationSuccess,
-  //   isError: registrationError,
-  // } = useRegister();
   const { setAddress } = useAppStore();
-  const router = useRouter();
+  const navigate = useNavigate();
   const loading = connectionStatus === "pending" || connectionStatus === "idle";
   const {
     onOpen: openNotificationDrawer,
@@ -39,7 +31,7 @@ const ConnectDrawer = (props: ConnectDrawerProps) => {
     isOpen: notificationIsOpen,
     disclosedData: notificationModalStatus,
   } = useDisclosure<NotificationStatus | null>(
-    loading ? "loading" : connectionStatus
+    loading ? "loading" : connectionStatus,
   );
 
   const modalContent = useNotificationsModal({
@@ -59,7 +51,7 @@ const ConnectDrawer = (props: ConnectDrawerProps) => {
       buttonLabel: "Continue",
       onButtonClick: () => {
         console.log("connected");
-        router.push("/squad");
+        navigate("/");
         closeNotificationDrawer();
       },
     },
@@ -77,18 +69,6 @@ const ConnectDrawer = (props: ConnectDrawerProps) => {
     console.log(res);
     console.log("connected");
     setAddress(res.accounts[0].address);
-    // router.push("/squad");
-    // registerUser(
-    //   {
-    //     address: res.accounts[0].address,
-    //   },
-    //   {
-    //     onSuccess: (data) => {
-    //       setAddress(data.data.address);
-    //       router.push("/squad");
-    //     },
-    //   }
-    // );
   };
 
   return (
@@ -121,7 +101,7 @@ const ConnectDrawer = (props: ConnectDrawerProps) => {
                       { wallet },
                       {
                         onSuccess: onConnect,
-                      }
+                      },
                     );
                   }}
                 >

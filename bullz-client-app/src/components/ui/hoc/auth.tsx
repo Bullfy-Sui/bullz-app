@@ -12,13 +12,14 @@
 
 "use client";
 
-import { useRegister } from "@/app/login/api-services";
-import { RegistrationResponse } from "@/app/login/api-services/types";
+import { useRegister } from "@/routes/login/api-services";
+import { RegistrationResponse } from "@/routes/login/api-services/types";
 import { useGetMutationState } from "@/lib/hooks/use-get-mutation-state";
 import { useAppStore } from "@/lib/store/app-store";
 import { jwtToAddress } from "@mysten/sui/zklogin";
-import { useRouter } from "next/navigation";
+
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 
 // interface DecodedJwt {
 //   sub: string;
@@ -37,7 +38,7 @@ const AuthWrapper = ({ children }: { children: React.ReactNode }) => {
   const { mutate: register, isPending: registering } = useRegister();
   const { setAddress, address } = useAppStore();
   const [idToken, setIdToken] = useState<string | null>(null);
-  const router = useRouter();
+  const navigate = useNavigate();
   const { data: registerResponse } = useGetMutationState<RegistrationResponse>([
     "register",
   ]);
@@ -65,13 +66,13 @@ const AuthWrapper = ({ children }: { children: React.ReactNode }) => {
         { address },
         {
           onSuccess: () => {
-            router.push("/squad");
+            navigate("squad");
           },
           onError: () => {
             // setGoogleId(null);
             setAddress(null);
           },
-        }
+        },
       );
     }
   }, [address, idToken, register, setAddress]);

@@ -1,13 +1,12 @@
-"use client";
-
 import CreateBullModal from "@/components/general/modals/create-bull-modal";
 import NotificationModal from "@/components/general/modals/notify";
 import PriceList from "@/components/general/token/price-list";
 import NavWrapper from "@/components/layout/nav-wrapper";
 import { useDisclosure } from "@/lib/hooks/use-diclosure";
 import { NotificationStatus } from "@/lib/hooks/use-notifications-modal";
-import { useRouter } from "next/navigation";
+
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import AddNewSquadButton from "./components/add-new-squad-button";
 
 const SquadPage = () => {
@@ -19,7 +18,7 @@ const SquadPage = () => {
     disclosedData: notificationStatus,
   } = useDisclosure<NotificationStatus>();
   const [isCreating] = useState(false);
-  const router = useRouter();
+  const navigate = useNavigate();
   const {
     isOpen: guideIsOpen,
     onClose: closeGuide,
@@ -109,7 +108,7 @@ const SquadPage = () => {
           buttonLabel={notificationStatus === "success" ? "LET'S GO!" : "CLOSE"}
           onButtonClick={() => {
             closeNotification();
-            if (notificationStatus === "success") router.push("/squad/new");
+            if (notificationStatus === "success") navigate("/squad/new");
           }}
           isOpen={notificationIsOpen}
         />

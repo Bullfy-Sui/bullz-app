@@ -1,11 +1,10 @@
-"use client";
-
 import TitleBar from "@/components/general/title-bar";
-import { useRouter } from "next/navigation";
+
 import RaceTrack from "../components/race-track";
 import UserPlayer from "@/components/svg/user-player";
 import { Button } from "@/components/ui/button";
 import SuiLogo from "@/components/svg/sui.logo";
+import { useNavigate } from "react-router";
 
 const Player = () => {
   return (
@@ -22,10 +21,10 @@ const Player = () => {
 };
 
 const LiveSessionPage = () => {
-  const router = useRouter();
+  const navigate = useNavigate();
   return (
     <>
-      <TitleBar title="LIVE MATCHES" onClick={() => router.push("/live")} />
+      <TitleBar title="LIVE MATCHES" onClick={() => navigate("/live")} />
       <div className="mt-[1.5rem] w-max mx-auto">
         <p className="text-gray-300 font-[700] font-offbit leading-[100%] tracking-[0.04em] text-center mb-[2rem]">
           MATCH IN PROGRESS

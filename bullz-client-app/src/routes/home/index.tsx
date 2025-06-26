@@ -1,17 +1,15 @@
-"use client";
-
 import NavWrapper from "@/components/layout/nav-wrapper";
 import { Button } from "@/components/ui/button";
 import { useDisclosure } from "@/lib/hooks/use-diclosure";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
-import SetHornBid from "./home/components/set-horn-bid";
-import { useGetUserSquads } from "./squad/api-services";
-import { SquadResponseItem } from "./squad/api-services/types";
-import AddNewSquadButton from "./squad/components/add-new-squad-button";
-import Pitch from "./squad/components/pitch";
-import SquadItem from "./squad/components/squad-item";
-import { formationLayouts } from "./squad/constants";
-import { FormationLayoutKey } from "./squad/types";
+import SetHornBid from "./components/set-horn-bid";
+import { useGetUserSquads } from "../squad/api-services";
+import { SquadResponseItem } from "../squad/api-services/types";
+import AddNewSquadButton from "../squad/components/add-new-squad-button";
+import Pitch from "../squad/components/pitch";
+import SquadItem from "../squad/components/squad-item";
+import { formationLayouts } from "../squad/constants";
+import { FormationLayoutKey } from "../squad/types";
 
 export interface HornForm {
   wager_amount: number;
@@ -20,16 +18,18 @@ export interface HornForm {
 }
 
 export default function Home() {
-  const { data: squadData } = useGetUserSquads();
-  // const [squad, setSquad] = useState<SquadResponseItem>();
+  const { data: squadData, isLoading } = useGetUserSquads();
+
   const form = useForm<HornForm>({
-    defaultValues: {},
+    defaultValues: { squad: squadData?.data[0] },
   });
+
   const { isOpen, onOpen, onClose } = useDisclosure();
+
   const squadWatch = useWatch({
     control: form.control,
     name: "squad",
-    defaultValue: squadData?.data[0],
+    // defaultValue: squadData?.data[0],
   });
 
   const onSubmit = form.handleSubmit((data) => {
@@ -39,6 +39,7 @@ export default function Home() {
 
   return (
     <NavWrapper>
+      <></>
       <FormProvider {...form}>
         <form
           id="submit-bid-form"
@@ -48,7 +49,7 @@ export default function Home() {
           <div className="flex max-w-[23.875rem] mx-auto items-center justify-between h-[3.5rem] w-full mb-[0.5625rem] bg-gray-850 p-[0.5rem] border border-gray-700">
             <div>
               <p className="font-offbit text-[1.375rem] font-[700] leading-[100%] mb-[0.25rem] capitalize">
-                {squadWatch?.squad.name}
+                {/* {squadWatch?.squad.name} */}
               </p>
               <span className="block text-gray-400 text-[0.875rem] font-[700] leading-[100%] tracking-[0.04em]">
                 10% WIN RATE
@@ -57,7 +58,7 @@ export default function Home() {
             <Button
               type="button"
               className="h-[2.5rem] px-[1.5rem]"
-              onClick={() => onOpen()}
+              onClick={() => {}}
             >
               PLAY NOW
             </Button>
@@ -99,7 +100,7 @@ export default function Home() {
                 ))}
               </div>
               <AddNewSquadButton
-                onClick={() => {}}
+                onClick={() => onOpen()}
                 classNames="h-[6rem] w-[6rem]"
               />
             </div>

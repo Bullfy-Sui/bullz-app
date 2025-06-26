@@ -7,7 +7,7 @@ import {
 import PlusMinusButton from "./plus-minus.button";
 import { Input } from "@/components/ui/input";
 import { useFormContext } from "react-hook-form";
-import { HornForm } from "@/app/page";
+import { HornForm } from "@/routes/home";
 import BullTrophy from "@/components/svg/bull-trophy";
 
 const FreeHornBid = () => {

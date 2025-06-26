@@ -5,8 +5,10 @@ import HomeIcon from "../icons/home.icon";
 import LeaguesIcon from "../icons/leagues.icon";
 import ProfileIcon from "../icons/profile.icon";
 import { cn } from "@/lib/utils";
-import { usePathname } from "next/navigation";
-import Link from "next/link";
+import { NavLink } from "react-router";
+import { useLocation } from "react-router";
+// import { usePathname } from "next/navigation";
+// import Link from "next/link";
 
 const NavItems = [
   {
@@ -45,8 +47,8 @@ interface NavItemProps {
 
 const NavItem = (props: NavItemProps) => {
   return (
-    <Link
-      href={props.href}
+    <NavLink
+      to={props.href}
       style={{
         boxShadow: props.isActive
           ? "0px -4px 0px 0px #0000003D inset, 0px 4px 0px 0px #FFFFFF29 inset"
@@ -57,7 +59,7 @@ const NavItem = (props: NavItemProps) => {
         {
           "text-white bg-gray-800": props.isActive,
           "text-gray-400 background": !props.isActive,
-        }
+        },
       )}
     >
       <props.Icon />
@@ -67,17 +69,18 @@ const NavItem = (props: NavItemProps) => {
           {
             "text-white": props.isActive,
             "text-gray-400": !props.isActive,
-          }
+          },
         )}
       >
         {props.title}
       </p>
-    </Link>
+    </NavLink>
   );
 };
 
 const NavBar = () => {
-  const pathname = usePathname();
+  let location = useLocation();
+  const pathname = location.pathname;
 
   return (
     <div className="flex items-center border-t border-gray-600  h-[4rem] w-full max-w-[26.875rem] fixed bottom-0 bg-background">

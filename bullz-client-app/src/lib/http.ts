@@ -1,7 +1,7 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
 
 export const BASE_AXIOS = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_BASE_URL,
+  baseURL: "http://localhost:8081/api/v1",
   timeout: 50000,
   headers: {
     Accept: "application/json",
@@ -36,7 +36,7 @@ BASE_AXIOS.interceptors.request.use(
   requestConfig,
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 BASE_AXIOS.interceptors.response.use((response) => {
@@ -47,7 +47,7 @@ COUNTRY_AXIOS.interceptors.request.use(
   requestConfig,
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 COUNTRY_AXIOS.interceptors.response.use((response) => {
@@ -57,7 +57,7 @@ COUNTRY_AXIOS.interceptors.response.use((response) => {
 export class HttpClient {
   private static async request<T>(
     axiosInstance: AxiosInstance,
-    config: AxiosRequestConfig
+    config: AxiosRequestConfig,
   ): Promise<T> {
     const response = await axiosInstance.request<T>(config);
     return response.data;
@@ -65,7 +65,7 @@ export class HttpClient {
 
   static async get<T>(
     axiosInstance: AxiosInstance,
-    { url, params }: { url: string; params?: unknown }
+    { url, params }: { url: string; params?: unknown },
   ): Promise<T> {
     return this.request<T>(axiosInstance, { method: "get", url, params });
   }
@@ -76,7 +76,7 @@ export class HttpClient {
       url,
       data,
       options,
-    }: { url: string; data: unknown; options?: AxiosRequestConfig }
+    }: { url: string; data: unknown; options?: AxiosRequestConfig },
   ): Promise<T> {
     console.log(data, url);
     return this.request<T>(axiosInstance, {
@@ -89,21 +89,21 @@ export class HttpClient {
 
   static async put<T>(
     axiosInstance: AxiosInstance,
-    { url, data }: { url: string; data: unknown }
+    { url, data }: { url: string; data: unknown },
   ): Promise<T> {
     return this.request<T>(axiosInstance, { method: "put", url, data });
   }
 
   static async patch<T>(
     axiosInstance: AxiosInstance,
-    { url, data }: { url: string; data?: unknown }
+    { url, data }: { url: string; data?: unknown },
   ): Promise<T> {
     return this.request<T>(axiosInstance, { method: "patch", url, data });
   }
 
   static async delete<T>(
     axiosInstance: AxiosInstance,
-    { url }: { url: string }
+    { url }: { url: string },
   ): Promise<T> {
     return this.request<T>(axiosInstance, { method: "delete", url });
   }

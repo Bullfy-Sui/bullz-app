@@ -1,5 +1,3 @@
-"use client";
-
 import { useAppStore } from "@/lib/store/app-store";
 import DefaultDp from "../svg/default-dp";
 import SuiCoin from "../svg/sui-coin";

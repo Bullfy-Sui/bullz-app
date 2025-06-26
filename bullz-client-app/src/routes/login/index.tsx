@@ -4,7 +4,6 @@ import Bullfy from "@/components/svg/bullfy";
 import BullzTextLogo from "@/components/svg/bullz-text.logo";
 import { Button } from "@/components/ui/button";
 import { useDisclosure } from "@/lib/hooks/use-diclosure";
-import { useRouter } from "next/navigation";
 import ConnectDrawer from "../home/components/connect-drawer";
 
 export default function LoginPage() {
@@ -13,7 +12,6 @@ export default function LoginPage() {
     isOpen: connectDrawerIsOpen,
     onOpen: openConnectDrawer,
   } = useDisclosure();
-  const router = useRouter();
 
   // const {
   //   isOpen: walletModalIsOpen,

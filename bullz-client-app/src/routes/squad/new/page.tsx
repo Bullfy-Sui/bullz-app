@@ -11,7 +11,6 @@ import {
   useNotificationsModal,
 } from "@/lib/hooks/use-notifications-modal";
 import { cn } from "@/lib/utils";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   FormProvider,
@@ -25,6 +24,7 @@ import SelectSquadPlayers from "../components/select-squad.players";
 import { formationLayouts, SquadFormation } from "../constants";
 import { FormationLayoutKey, SquadForm } from "../types";
 import SquadNameForm from "../components/squad-name.form";
+import { useNavigate } from "react-router";
 
 const NewSquadPage = () => {
   const [layout, setLayout] = useState(formationLayouts.OneThreeOneTwo);
@@ -35,7 +35,7 @@ const NewSquadPage = () => {
     isOpen,
     disclosedData: selectionDrawerData,
   } = useDisclosure<{ focusedPosition: [Postition, Multiplier] }>();
-  const router = useRouter();
+  const navigate = useNavigate();
   const {
     onClose: closeNotification,
     onOpen: openNotification,
@@ -84,7 +84,7 @@ const NewSquadPage = () => {
         "NOW, SELECT YOUR TEAM AND LOCK HORNS TO FIND SOMEONE TO PLAY WITH.",
       buttonLabel: "SHOW MY TEAM",
       onButtonClick: () => {
-        router.push("/");
+        navigate("/");
         closeNotification();
       },
     },
@@ -109,7 +109,7 @@ const NewSquadPage = () => {
                     "w-[4.25rem] text-white h-full text-center  text-[0.875rem] leading-[100%] tracking-[0.04em] font-bold font-offbit flex items-center justify-center cursor-pointer",
                     {
                       "bg-gray-800 ": formation === value,
-                    }
+                    },
                   )}
                   style={{
                     boxShadow:
@@ -120,13 +120,13 @@ const NewSquadPage = () => {
                   key={value}
                   onClick={() => {
                     const formation = Object.keys(SquadFormation).find(
-                      (k) => SquadFormation[k as FormationLayoutKey] === value
+                      (k) => SquadFormation[k as FormationLayoutKey] === value,
                     );
                     // console.log(formation);
                     form.setValue("formation", formation as FormationLayoutKey);
                     setFormation(value as SquadFormation);
                     setLayout(
-                      formationLayouts[formation as FormationLayoutKey]
+                      formationLayouts[formation as FormationLayoutKey],
                     );
                   }}
                 >
@@ -191,13 +191,10 @@ const NewSquadPage = () => {
       <NotificationModal
         isOpen={notificationIsOpen}
         onClose={closeNotification}
-        // @ts-expect-error - -
         onButtonClick={modalContent?.onButtonClick}
-        // @ts-expect-error - -
         buttonLabel={modalContent?.buttonLabel}
         // @ts-expect-error - -
         status={noticationModalData}
-        // @ts-expect-error - -
         title={modalContent?.title}
         description={modalContent?.description}
       />
