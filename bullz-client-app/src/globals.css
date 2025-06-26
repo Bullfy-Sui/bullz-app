@@ -30,6 +30,7 @@
 @layer base {
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-offbit), sans-serif; /* ✅ add this */
     margin: 0;
     padding: 0;
     box-sizing: border-box;

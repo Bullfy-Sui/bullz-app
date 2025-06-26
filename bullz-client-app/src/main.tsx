@@ -2,6 +2,7 @@ import "@mysten/dapp-kit/dist/index.css";
 import "@radix-ui/themes/styles.css";
 import React from "react";
 import ReactDOM from "react-dom/client";
+import "./fonts.css";
 import "./globals.css";
 
 import { SuiClientProvider, WalletProvider } from "@mysten/dapp-kit";
