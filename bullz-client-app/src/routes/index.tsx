@@ -20,8 +20,11 @@ export const router = createBrowserRouter([
       { path: "session", Component: SessionPage },
       {
         path: "live",
-        Component: LiveSessions,
         children: [
+          {
+            index: true,
+            Component: LiveSessions,
+          },
           {
             path: ":session_id",
             Component: LiveSessionPage,
