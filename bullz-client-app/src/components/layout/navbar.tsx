@@ -81,15 +81,12 @@ const NavItem = (props: NavItemProps) => {
 const NavBar = () => {
   let location = useLocation();
   const pathname = location.pathname;
+  console.log({ pathname });
 
   return (
     <div className="flex items-center border-t border-gray-600  h-[4rem] w-full max-w-[26.875rem] fixed bottom-0 bg-background">
       {NavItems.map((item) => (
-        <NavItem
-          isActive={pathname.includes(item.href)}
-          key={item.title}
-          {...item}
-        />
+        <NavItem isActive={pathname == item.href} key={item.title} {...item} />
       ))}
     </div>
   );

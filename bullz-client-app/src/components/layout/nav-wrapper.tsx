@@ -6,7 +6,7 @@ const NavWrapper = ({ children }: { children: ReactNode }) => {
   return (
     <>
       <Header />
-      <main className="pb-[4.5rem]">{children}</main>
+      <main className="pb-[4.5rem] mt-[4rem]">{children}</main>
       <NavBar />
     </>
   );

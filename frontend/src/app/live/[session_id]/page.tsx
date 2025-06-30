@@ -1,37 +1,31 @@
 "use client";
 
 import TitleBar from "@/components/general/title-bar";
-import SuiLogo from "@/components/svg/sui.logo";
-import UserPlayerDp from "@/components/user-player-dp";
 import { useRouter } from "next/navigation";
 import RaceTrack from "../components/race-track";
-import WinnerMatchEnded from "../components/winner-match-ended-screen";
-import { useDisclosure } from "@/lib/hooks/use-diclosure";
+import UserPlayer from "@/components/svg/user-player";
+import { Button } from "@/components/ui/button";
+import SuiLogo from "@/components/svg/sui.logo";
 
 const Player = () => {
   return (
     <div className="space-y-[0.5rem] flex flex-col items-center justify-center">
-      <UserPlayerDp imageUrl="/assets/images/weird-nft.jpg" />
+      <UserPlayer />
       <span className="font-[700] block text-[1.0625rem] leading-[100%] tracking-[0.04em] ">
         0xkfjg.....101
       </span>
-      {/* <Button variant={"secondary"} className="h-[2rem]">
+      <Button variant={"secondary"} className="h-[2rem]">
         VIEW TEAM
-      </Button> */}
+      </Button>
     </div>
   );
 };
 
 const LiveSessionPage = () => {
   const router = useRouter();
-  const {
-    isOpen: winningSheetIsOpen,
-    onClose,
-    onOpen: openWinningSheet,
-  } = useDisclosure();
   return (
     <>
-      <TitleBar title="LIVE MATCH" onClick={() => router.push("/live")} />
+      <TitleBar title="LIVE MATCHES" onClick={() => router.push("/live")} />
       <div className="mt-[1.5rem] w-max mx-auto">
         <p className="text-gray-300 font-[700] font-offbit leading-[100%] tracking-[0.04em] text-center mb-[2rem]">
           MATCH IN PROGRESS
@@ -43,10 +37,7 @@ const LiveSessionPage = () => {
         </div>
       </div>
       <div className=" mb-[2rem] mt-[0.25rem] w-full">
-        <div
-          onClick={() => openWinningSheet()}
-          className="flex items-center justify-center h-[2.25rem] gap-1"
-        >
+        <div className=" flex items-center justify-center  h-[2.25rem]">
           <SuiLogo width={20} height={20} className="rounded-full" />
           <span className="font-[700] block text-white text-[1.375rem]">2</span>
         </div>
@@ -56,7 +47,6 @@ const LiveSessionPage = () => {
         </div>
       </div>
       <RaceTrack />
-      <WinnerMatchEnded isOpen={winningSheetIsOpen} />
     </>
   );
 };

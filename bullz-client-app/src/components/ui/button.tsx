@@ -17,7 +17,7 @@ const buttonVariants = cva(
         link: "",
       },
       size: {
-        default: "h-[3rem] px-4 py-2 has-[>svg]:px-3",
+        default: "h-[3rem] text-[1.0625rem] px-4 py-2 has-[>svg]:px-3",
         sm: "h-8 rounded-full gap-1.5 px-3 has-[>svg]:px-2.5",
         lg: "h-10 rounded-full px-6 has-[>svg]:px-4",
         icon: "size-9",
@@ -27,14 +27,14 @@ const buttonVariants = cva(
       variant: "default",
       size: "default",
     },
-  }
+  },
 );
 
 const textShadow = (variant: "default" | "secondary") =>
   ({
     secondary: "1px 1px 2px #1A1A1AB2, 0px 1px 1px #1A1A1AB2",
     default: "1px 1px 2px #661600, 0px 1px 1px #661600",
-  }[variant]);
+  })[variant];
 
 function Button({
   className,
@@ -55,7 +55,7 @@ function Button({
       {...props}
       style={{
         textShadow: textShadow(
-          variant ? (variant as "default" | "secondary") : "default"
+          variant ? (variant as "default" | "secondary") : "default",
         ),
         boxShadow:
           "0px 3.82px 2.55px 0px #00000040, 0px -8px 0px 0px #0000003D inset, 0px 8px 0px 0px #FFFFFF3D inset",

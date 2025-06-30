@@ -2,7 +2,90 @@
   "hash": "f48ea8ea",
   "configHash": "8137c6e8",
   "lockfileHash": "e01078c3",
-  "browserHash": "18ffd5f9",
-  "optimized": {},
-  "chunks": {}
+  "browserHash": "7926ed85",
+  "optimized": {
+    "react/jsx-dev-runtime": {
+      "src": "../../node_modules/.pnpm/react@18.3.1/node_modules/react/jsx-dev-runtime.js",
+      "file": "react_jsx-dev-runtime.js",
+      "fileHash": "4f690605",
+      "needsInterop": true
+    },
+    "react": {
+      "src": "../../node_modules/.pnpm/react@18.3.1/node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "021468fc",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "e9f964a5",
+      "needsInterop": true
+    },
+    "@mysten/dapp-kit": {
+      "src": "../../node_modules/.pnpm/@mysten+dapp-kit@0.16.13_@tanstack+react-query@5.81.2_react@18.3.1__@types+react-dom@18_cc206c64ea046fc2aa7129ec8ec865cd/node_modules/@mysten/dapp-kit/dist/esm/index.js",
+      "file": "@mysten_dapp-kit.js",
+      "fileHash": "8bccb68c",
+      "needsInterop": false
+    },
+    "@tanstack/react-query": {
+      "src": "../../node_modules/.pnpm/@tanstack+react-query@5.81.2_react@18.3.1/node_modules/@tanstack/react-query/build/modern/index.js",
+      "file": "@tanstack_react-query.js",
+      "fileHash": "2c8bc041",
+      "needsInterop": false
+    },
+    "react-router-dom": {
+      "src": "../../node_modules/.pnpm/react-router-dom@7.6.2_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/react-router-dom/dist/index.mjs",
+      "file": "react-router-dom.js",
+      "fileHash": "5f0d2c53",
+      "needsInterop": false
+    },
+    "@mysten/sui/client": {
+      "src": "../../node_modules/.pnpm/@mysten+sui@1.34.0_typescript@5.8.3/node_modules/@mysten/sui/dist/esm/client/index.js",
+      "file": "@mysten_sui_client.js",
+      "fileHash": "b27ba918",
+      "needsInterop": false
+    },
+    "react-hook-form": {
+      "src": "../../node_modules/.pnpm/react-hook-form@7.58.1_react@18.3.1/node_modules/react-hook-form/dist/index.esm.mjs",
+      "file": "react-hook-form.js",
+      "fileHash": "85929d62",
+      "needsInterop": false
+    },
+    "recharts": {
+      "src": "../../node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/index.js",
+      "file": "recharts.js",
+      "fileHash": "9c6f2586",
+      "needsInterop": false
+    },
+    "react-router": {
+      "src": "../../node_modules/.pnpm/react-router@7.6.2_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/react-router/dist/development/index.mjs",
+      "file": "react-router.js",
+      "fileHash": "0c4c82c6",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "chunk-P4LXPE4N": {
+      "file": "chunk-P4LXPE4N.js"
+    },
+    "chunk-MAM6W2QT": {
+      "file": "chunk-MAM6W2QT.js"
+    },
+    "chunk-XEZ6UBKQ": {
+      "file": "chunk-XEZ6UBKQ.js"
+    },
+    "chunk-VC6Q54EB": {
+      "file": "chunk-VC6Q54EB.js"
+    },
+    "chunk-OLC3PA44": {
+      "file": "chunk-OLC3PA44.js"
+    },
+    "chunk-CFYMFWAG": {
+      "file": "chunk-CFYMFWAG.js"
+    },
+    "chunk-WOOG5QLI": {
+      "file": "chunk-WOOG5QLI.js"
+    }
+  }
 }

@@ -1,3 +1,4 @@
+import BottomSheet from "@/components/general/bottom-sheet";
 import NotificationModal from "@/components/general/modals/notify";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -73,45 +74,39 @@ const ConnectDrawer = (props: ConnectDrawerProps) => {
 
   return (
     <>
-      <Sheet open={props.isOpen} onOpenChange={props.onClose}>
-        <SheetContent
-          side="bottom"
-          className="border-none  overflow-scroll px-[1rem] py-[2rem] bg-gray-850"
-          style={{ boxShadow: "0px 8px 0px 0px #FFFFFF29 inset" }}
-        >
-          <div className="space-y-4 w-full mx-auto">
-            <p className="text-gray-300 font-[700] font-offbit block text-[0.875rem] leading-[100%] mb-[0.5rem] ">
-              CONNECT WALLET
-            </p>
+      <BottomSheet isOpen={props.isOpen} onClose={props.onClose}>
+        <div className="space-y-4 w-full mx-auto">
+          <p className="text-gray-300 font-[700] font-offbit block text-[0.875rem] leading-[100%] mb-[0.5rem] ">
+            CONNECT WALLET
+          </p>
 
-            <div className="flex flex-col items-center gap-[0.5rem]">
-              {wallets.map((wallet) => (
-                <Button
-                  variant={"secondary"}
-                  key={wallet.name}
-                  className="bg-gray-800 cursor-pointer font-[700] text-[0.875rem] leading-[100%] flex flex-col items-center justify-center gap-[0.79rem]  w-full h-[3.25rem]"
-                  style={{
-                    boxShadow:
-                      "0px -8px 0px 0px #0000003D inset, 0px 8px 0px 0px #FFFFFF29 inset",
-                  }}
-                  onClick={() => {
-                    openNotificationDrawer({ data: "success" });
-                    props.onClose();
-                    connect(
-                      { wallet },
-                      {
-                        onSuccess: onConnect,
-                      },
-                    );
-                  }}
-                >
-                  {wallet.name}
-                </Button>
-              ))}
-            </div>
+          <div className="flex flex-col items-center gap-[0.5rem]">
+            {wallets.map((wallet) => (
+              <Button
+                variant={"secondary"}
+                key={wallet.name}
+                className="bg-gray-800 cursor-pointer font-[700] text-[0.875rem] leading-[100%] flex flex-col items-center justify-center gap-[0.79rem]  w-full h-[3.25rem]"
+                style={{
+                  boxShadow:
+                    "0px -8px 0px 0px #0000003D inset, 0px 8px 0px 0px #FFFFFF29 inset",
+                }}
+                onClick={() => {
+                  openNotificationDrawer({ data: "success" });
+                  props.onClose();
+                  connect(
+                    { wallet },
+                    {
+                      onSuccess: onConnect,
+                    },
+                  );
+                }}
+              >
+                {wallet.name}
+              </Button>
+            ))}
           </div>
-        </SheetContent>
-      </Sheet>
+        </div>
+      </BottomSheet>
 
       <NotificationModal
         isOpen={notificationIsOpen}

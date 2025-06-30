@@ -1,3 +1,4 @@
+import UserPlayerDp from "@/components/general/user-player-dp";
 import FinishFlag from "@/components/svg/finish-flag";
 import RaceDotGrid from "@/components/svg/race-dot-grid";
 import UserPlayer from "@/components/svg/user-player";
@@ -37,7 +38,10 @@ const RaceTrack = () => {
             <Tick color="#00FF00" />
           </div>
           <div className="flex gap-[0.5rem] items-center">
-            <UserPlayer width={24} height={24} />
+            <UserPlayerDp
+              imageUrl=""
+              classNames="border-[1.83px] rounded-[0.3075rem] size-[2rem]"
+            />
             <span className="font-offbit text-success-foreground font-[700] text-[0.875rem] leading-[100%] tracking-[0.04em]">
               +0.15%
             </span>
@@ -50,7 +54,10 @@ const RaceTrack = () => {
             <Tick color="#FF9999" />
           </div>
           <div className="flex gap-[0.5rem] items-center">
-            <UserPlayer width={24} height={24} />
+            <UserPlayerDp
+              imageUrl=""
+              classNames="border-[1.83px] rounded-[0.3075rem] size-[2rem]"
+            />
             <span className="font-offbit text-loss-foreground font-[700] text-[0.875rem] leading-[100%] tracking-[0.04em]">
               +0.15%
             </span>
