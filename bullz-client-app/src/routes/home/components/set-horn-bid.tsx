@@ -27,7 +27,7 @@ const SetHornBid = (props: SetHornBidProps) => {
   return (
     <>
       <BottomSheet isOpen={props.isOpen} onClose={props.onClose}>
-        <div className="w-[24.375rem] mx-auto ">
+        <div>
           <div className="space-y-[1rem] flex flex-col items-center">
             <GameController />
             <p className="font-offbit text-white text-[1.375rem] font-[700] leading-[100%] tracking-[0.04em]">
@@ -36,7 +36,10 @@ const SetHornBid = (props: SetHornBidProps) => {
           </div>
           {!isLocked && (
             <>
-              <Tabs defaultValue="account" className="w-full mx-auto mt-[1rem]">
+              <Tabs
+                defaultValue="bull-run"
+                className="w-full mx-auto mt-[1rem]"
+              >
                 <TabsList className="bg-gray-850 mx-auto w-full">
                   <TabsTrigger
                     className="font-offbit rounded-none text-[1.0625rem] font-[700] leading-[100%] tracking-[0.04em] text-center"
