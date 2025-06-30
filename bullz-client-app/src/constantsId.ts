@@ -1,0 +1,55 @@
+export const DEVNET_PACKAGE_ID = "0xTODO";
+export const TESTNET_PACKAGE_ID = "0xTODO";
+export const MAINNET_PACKAGE_ID = "0xTODO";
+
+
+export const DEVNET_FEE_CONFIG_ID = "0xTODO";
+export const TESTNET_FEE_CONFIG_ID = "0xTODO";
+export const MAINNET_FEE_CONFIG_ID = "0xTODO";
+
+
+export const DEVNET_FEES_ID = "0xTODO";
+export const TESTNET_FEES_ID = "0xTODO";
+export const MAINNET_FEES_ID = "0xTODO";
+
+
+export const DEVNET_OWNER_CAP_ID = "0xTODO";
+export const TESTNET_OWNER_CAP_ID = "0xTODO";
+export const MAINNET_OWNER_CAP_ID = "0xTODO";
+
+
+export const DEVNET_ACTIVE_SQUAD_REGISTRY_ID = "0xTODO";
+export const TESTNET_ACTIVE_SQUAD_REGISTRY_ID = "0xTODO";
+export const MAINNET_ACTIVE_SQUAD_REGISTRY_ID = "0xTODO";
+
+export const DEVNET_ESCROW_REGISTRY_ID = "0xTODO";
+export const TESTNET_ESCROW_REGISTRY_ID = "0xTODO";
+export const MAINNET_ESCROW_REGISTRY_ID = "0xTODO";
+
+
+export const DEVNET_ADMIN_REGISTRY_ID = "0xTODO";
+export const TESTNET_ADMIN_REGISTRY_ID = "0xTODO";
+export const MAINNET_ADMIN_REGISTRY_ID = "0xTODO";
+
+
+export const DEVNET_SQUAD_REGISTRY_ID = "0xTODO";
+export const TESTNET_SQUAD_REGISTRY_ID = "0xTODO";
+export const MAINNET_SQUAD_REGISTRY_ID = "0xTODO";
+
+
+export const DEVNET_SIGNER_REGISTRY_ID = "0xTODO";
+export const TESTNET_SIGNER_REGISTRY_ID = "0xTODO";
+export const MAINNET_SIGNER_REGISTRY_ID = "0xTODO";
+
+
+// export const DEVNET_COUNTER_PACKAGE_ID = "0xTODO";
+// export const TESTNET_COUNTER_PACKAGE_ID = "0xTODO";
+// export const MAINNET_COUNTER_PACKAGE_ID = "0xTODO";
+
+
+// export const DEVNET_COUNTER_PACKAGE_ID = "0xTODO";
+// export const TESTNET_COUNTER_PACKAGE_ID = "0xTODO";
+// export const MAINNET_COUNTER_PACKAGE_ID = "0xTODO";
+
+
+
