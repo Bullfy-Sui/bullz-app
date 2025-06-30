@@ -1,0 +1,54 @@
+import { TokenResponse } from "@/common-api-services/token-price.ts/types";
+import SuiLogo from "@/components/svg/sui.logo";
+import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
+
+export const TokenCardSkeleton = () => {
+  return (
+    <div className="flex items-center space-x-4">
+      <Skeleton className="h-12 w-12 rounded-full" />
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-[250px]" />
+        <Skeleton className="h-4 w-[200px]" />
+      </div>
+    </div>
+  );
+};
+
+interface TokenCardProps extends TokenResponse {
+  onClick?: () => void;
+}
+
+const TokenCard = (props: TokenCardProps) => {
+  return (
+    <>
+      <div
+        onClick={props.onClick}
+        className="bg-gray-900 border border-white/10  flex items-center  justify-between px-[1rem] py-[0.5rem] cursor-pointer"
+      >
+        <div className="flex gap-[0.75rem]">
+          {/* <SolanaLogo /> */}
+          <SuiLogo className="size-[2.75rem] rounded-full" />
+          <div>
+            <p className="text-[1rem] leading-[1.375rem] font-[600] flex items-center gap-[0.25rem] capitalize">
+              {props?.name.split("/")[0].toLowerCase()}
+            </p>
+            <span className="text-sm leading-[1.125rem] text-[#9DA4AE] ">
+              ${Number(props?.price_30s.toFixed(4)).toLocaleString()}
+            </span>
+          </div>
+        </div>
+        <div
+          className={cn(" font-[700] text-[1.0625rem] tracking-[0.04em]", {
+            " text-loss-foreground": props.fluctuation_pct < 0,
+            " text-success-foreground": props.fluctuation_pct > 0,
+          })}
+        >
+          {props.fluctuation_pct.toFixed(2)}%
+        </div>
+      </div>
+    </>
+  );
+};
+
+export default TokenCard;
