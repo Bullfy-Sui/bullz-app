@@ -3,7 +3,6 @@ import GameController from "@/components/icons/game-controller";
 import BullTrophy from "@/components/svg/bull-trophy";
 import SuiLogo from "@/components/svg/sui.logo";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 interface Props {
   isOpen: boolean;
