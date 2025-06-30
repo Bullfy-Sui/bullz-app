@@ -50,7 +50,7 @@ const SquadPage = () => {
   return (
     <NavWrapper>
       <>
-        <div className="flex flex-col h-full justify-between relative pt-[4rem] ">
+        <div className="flex flex-col h-full justify-between relative">
           <div className="h-[70dvh] overflow-y-scroll px-[1.5rem]">
             <PriceList />
           </div>

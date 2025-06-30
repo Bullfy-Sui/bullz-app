@@ -10,6 +10,7 @@ import Pitch from "../squad/components/pitch";
 import SquadItem from "../squad/components/squad-item";
 import { formationLayouts } from "../squad/constants";
 import { FormationLayoutKey } from "../squad/types";
+import { useNavigate } from "react-router";
 
 export interface HornForm {
   wager_amount: number;
@@ -19,6 +20,7 @@ export interface HornForm {
 
 export default function Home() {
   const { data: squadData, isLoading } = useGetUserSquads();
+  const navigate = useNavigate();
 
   const form = useForm<HornForm>({
     defaultValues: { squad: squadData?.data[0] },
@@ -43,7 +45,7 @@ export default function Home() {
       <FormProvider {...form}>
         <form
           id="submit-bid-form"
-          className="flex flex-col justify-between px-[1rem]"
+          className="flex flex-col justify-between "
           onSubmit={onSubmit}
         >
           <div className="flex max-w-[23.875rem] mx-auto items-center justify-between h-[3.5rem] w-full mb-[0.5625rem] bg-gray-850 p-[0.5rem] border border-gray-700">
@@ -100,7 +102,7 @@ export default function Home() {
                 ))}
               </div>
               <AddNewSquadButton
-                onClick={() => onOpen()}
+                onClick={() => navigate("squad/new")}
                 classNames="h-[6rem] w-[6rem]"
               />
             </div>

@@ -100,7 +100,7 @@ const NewSquadPage = () => {
     <>
       <FormProvider {...form}>
         <form id="create-squad-form" onSubmit={onSubmit}>
-          <TitleBar title="Create a team" onClick={onClose} />
+          <TitleBar title="Create a team" onClick={() => navigate("/squad")} />
           <div className=" flex flex-col justify-between h-full">
             <div className=" border border-gray-800 bg-background flex gap-[0.625rem] items-center justify-between mb-[1.625rem] mt-[1rem] h-[2.5rem]">
               {Object.values(SquadFormation).map((value) => (

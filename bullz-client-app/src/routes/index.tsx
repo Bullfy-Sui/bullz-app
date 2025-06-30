@@ -33,8 +33,10 @@ export const router = createBrowserRouter([
       },
       {
         path: "squad",
-        Component: SquadPage,
-        children: [{ path: "new", Component: NewSquadPage }],
+        children: [
+          { index: true, Component: SquadPage },
+          { path: "new", Component: NewSquadPage },
+        ],
       },
     ],
   },
