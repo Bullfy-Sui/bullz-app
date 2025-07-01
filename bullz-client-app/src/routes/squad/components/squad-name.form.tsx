@@ -60,11 +60,12 @@ const SquadNameForm = (props: SquadNameFormProps) => {
             form="create-squad-form"
             className="h-[3rem] w-full px-[1.5rem] mb-0"
           >
-            {props.isLoading ? "Laoding.." : "Create team"}
+            {props.isLoading ? "Loading..." : "Create team"}
           </Button>
           <Button
             variant={"secondary"}
             disabled={props.isLoading}
+            onClick={props.onClose}
             className="h-[3rem] w-full px-[1.5rem]"
           >
             CANCEL

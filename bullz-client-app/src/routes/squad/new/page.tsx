@@ -25,6 +25,7 @@ import { formationLayouts, SquadFormation } from "../constants";
 import { FormationLayoutKey, SquadForm } from "../types";
 import SquadNameForm from "../components/squad-name.form";
 import { useNavigate } from "react-router";
+import { useQueryClient } from "@tanstack/react-query";
 
 const NewSquadPage = () => {
   const [layout, setLayout] = useState(formationLayouts.OneThreeOneTwo);
@@ -61,14 +62,29 @@ const NewSquadPage = () => {
 
   console.log(playerArray.fields, playerArrayWatch);
 
+  const queryClient = useQueryClient();
+
   const onSubmit = form.handleSubmit((values) => {
     console.log("Creating squad with values:", values);
+    
+    // Open the notification modal immediately in loading state
+    openNotification({ data: "loading" });
+    
     fullSquadCreation.mutate(
       { squadForm: values },
       {
         onSuccess: (result) => {
           console.log("Squad created successfully:", result);
           closeNameForm();
+          
+          // Invalidate user squads query to refresh the squad list
+          queryClient.invalidateQueries({ queryKey: ["user-squads"] });
+          
+          // Reset the mutation state after a brief delay
+          setTimeout(() => {
+            fullSquadCreation.reset();
+          }, 100);
+          
           openNotification({ data: "success" });
         },
         onError: (error) => {
@@ -81,7 +97,7 @@ const NewSquadPage = () => {
   });
 
   const modalContent = useNotificationsModal({
-    status: creationStatus.isAllSuccess ? "success" : creationStatus.hasAnyError ? "error" : "loading",
+    status: noticationModalData || "loading",
     successContent: {
       title: "TEAM CREATED",
       description:
@@ -102,7 +118,7 @@ const NewSquadPage = () => {
     },
     loadingContent: {
       title: "CREATING TEAM",
-      description: creationStatus.isAnyLoading 
+      description: fullSquadCreation.isPending 
         ? "CREATING YOUR BULL ON THE BLOCKCHAIN..." 
         : "PROCESSING...",
       buttonLabel: "",
@@ -195,7 +211,7 @@ const NewSquadPage = () => {
             </SheetContent>
           </Sheet>
           <SquadNameForm
-            isLoading={creationStatus.isAnyLoading}
+            isLoading={fullSquadCreation.isPending}
             isOpen={nameFormIsOpen}
             onClose={closeNameForm}
           />
@@ -207,8 +223,7 @@ const NewSquadPage = () => {
         onClose={closeNotification}
         onButtonClick={modalContent?.onButtonClick}
         buttonLabel={modalContent?.buttonLabel}
-        // @ts-expect-error - -
-        status={noticationModalData}
+        status={modalContent?.status || "loading"}
         title={modalContent?.title}
         description={modalContent?.description}
       />
