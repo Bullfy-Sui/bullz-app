@@ -296,39 +296,142 @@ export const useGetUserSquads = () => {
   return useQuery({
     queryKey: ["user-squads", currentAccount?.address, squadRegistryId],
     queryFn: async (): Promise<SquadData[]> => {
-      if (!currentAccount?.address) {
+      console.log("🔍 Fetching user squads...");
+      
+      if (!currentAccount?.address || !squadRegistryId) {
+        console.log("❌ Missing account or registry ID");
         return [];
       }
 
       try {
-        // Get squad registry object
+        // Get squad registry object to get table IDs
         const squadRegistryObject = await suiClient.getObject({
           id: squadRegistryId,
           options: { showContent: true },
         });
 
         if (!squadRegistryObject.data?.content || squadRegistryObject.data.content.dataType !== "moveObject") {
+          console.log("❌ Failed to fetch squad registry");
           return [];
         }
 
         const registryFields = squadRegistryObject.data.content.fields as any;
-        const ownerSquadsTable = registryFields.owner_squads;
+        const ownerSquadsTableId = registryFields.owner_squads.fields.id.id;
+        const squadsTableId = registryFields.squads.fields.id.id;
 
-        // Check if user has squads
-        const hasSquads = await suiClient.multiGetObjects({
-          ids: [ownerSquadsTable.fields.id.id],
-          options: { showContent: true },
-        });
+        console.log("📋 Owner squads table ID:", ownerSquadsTableId);
+        console.log("📋 Squads table ID:", squadsTableId);
 
-        // For now, return empty array - full implementation would require
-        // querying the table contents which requires more complex dynamic field access
-        return [];
+        // Check if user has squads by querying the owner_squads table
+        try {
+          const ownerSquadsFields = await suiClient.getDynamicFields({
+            parentId: ownerSquadsTableId,
+          });
+
+          console.log("🔍 Owner squads fields:", ownerSquadsFields);
+
+          // Find the user's entry in the owner_squads table
+          const userSquadEntry = ownerSquadsFields.data.find(field => {
+            if (field.name.type === "address" && field.name.value === currentAccount.address) {
+              return true;
+            }
+            return false;
+          });
+
+          if (!userSquadEntry) {
+            console.log("📝 User has no squads");
+            return [];
+          }
+
+          console.log("🎯 Found user squad entry:", userSquadEntry);
+
+          // Get the squad IDs for this user
+          const userSquadIdsObject = await suiClient.getObject({
+            id: userSquadEntry.objectId,
+            options: { showContent: true },
+          });
+
+          if (!userSquadIdsObject.data?.content || userSquadIdsObject.data.content.dataType !== "moveObject") {
+            console.log("❌ Failed to fetch user squad IDs");
+            return [];
+          }
+
+          const squadIds = (userSquadIdsObject.data.content.fields as any).value;
+          console.log("🎯 User squad IDs:", squadIds);
+
+          if (!squadIds || squadIds.length === 0) {
+            console.log("📝 User has no squads");
+            return [];
+          }
+
+          // Fetch each squad's details
+          const squadsData: SquadData[] = [];
+
+          for (const squadId of squadIds) {
+            try {
+              // Get the squad from the squads table using dynamic field query
+              const squadFields = await suiClient.getDynamicFields({
+                parentId: squadsTableId,
+              });
+
+              const squadEntry = squadFields.data.find(field => {
+                if (field.name.type === "u64" && field.name.value === squadId.toString()) {
+                  return true;
+                }
+                return false;
+              });
+
+              if (!squadEntry) {
+                console.log(`❌ Squad ${squadId} not found in squads table`);
+                continue;
+              }
+
+              // Get the squad object details
+              const squadObject = await suiClient.getObject({
+                id: squadEntry.objectId,
+                options: { showContent: true },
+              });
+
+              if (!squadObject.data?.content || squadObject.data.content.dataType !== "moveObject") {
+                console.log(`❌ Failed to fetch squad ${squadId} details`);
+                continue;
+              }
+
+              const squadData = (squadObject.data.content.fields as any).value.fields;
+              console.log(`📊 Squad ${squadId} data:`, squadData);
+
+              const squad: SquadData = {
+                squad_id: Number(squadData.squad_id),
+                name: squadData.name,
+                owner: squadData.owner,
+                players: squadData.players || [],
+                life: Number(squadData.life),
+                death_time: squadData.death_time ? Number(squadData.death_time) : undefined,
+              };
+
+              squadsData.push(squad);
+
+            } catch (error) {
+              console.error(`❌ Error fetching squad ${squadId}:`, error);
+            }
+          }
+
+          console.log("✅ Final squads data:", squadsData);
+          return squadsData;
+
+        } catch (error) {
+          console.log("❌ Error checking owner squads table:", error);
+          return [];
+        }
+
       } catch (error) {
-        console.error("Failed to fetch user squads:", error);
+        console.error("❌ Error fetching user squads:", error);
         return [];
       }
     },
     enabled: !!currentAccount?.address && !!squadRegistryId,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    retry: 1,
   });
 };
 

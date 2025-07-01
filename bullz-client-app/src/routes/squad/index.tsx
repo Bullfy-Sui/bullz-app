@@ -4,11 +4,14 @@ import PriceList from "@/components/general/token/price-list";
 import NavWrapper from "@/components/layout/nav-wrapper";
 import { useDisclosure } from "@/lib/hooks/use-diclosure";
 import { NotificationStatus } from "@/lib/hooks/use-notifications-modal";
-import { useGetSquadCreationFee, useCanCreateSquad } from "@/lib/hooks/use-squad-contract";
+import { useGetSquadCreationFee, useCanCreateSquad, useGetUserSquads } from "@/lib/hooks/use-squad-contract";
+import { useCurrentAccount } from "@mysten/dapp-kit";
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import AddNewSquadButton from "./components/add-new-squad-button";
+import SquadItem from "./components/squad-item";
+import { SquadResponseItem } from "./api-services/types";
 
 const SquadPage = () => {
   const { onOpen, onClose, isOpen } = useDisclosure();
@@ -19,6 +22,7 @@ const SquadPage = () => {
     disclosedData: notificationStatus,
   } = useDisclosure<NotificationStatus>();
   const [isCreating] = useState(false);
+  const [selectedSquadId, setSelectedSquadId] = useState<number | null>(null);
   const navigate = useNavigate();
   const {
     isOpen: guideIsOpen,
@@ -26,9 +30,35 @@ const SquadPage = () => {
     onOpen: openGuide,
   } = useDisclosure();
 
+  // Wallet connection
+  const currentAccount = useCurrentAccount();
+
   // Smart contract hooks
   const { data: feeData, isLoading: isLoadingFee } = useGetSquadCreationFee();
   const { data: canCreate, isLoading: isCheckingBalance } = useCanCreateSquad();
+  const { data: userSquads, isLoading: isLoadingSquads, error: squadsError } = useGetUserSquads();
+
+  // Convert SquadData to SquadResponseItem format for UI compatibility
+  const convertedSquads: SquadResponseItem[] = userSquads?.map(squad => ({
+    squad: {
+      id: squad.squad_id.toString(),
+      name: squad.name,
+      owner_id: squad.owner,
+      wallet_address: squad.owner,
+      formation: "4-3-3", // Default formation
+      total_value: 0, // Default value
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    players: squad.players.map((playerName, index) => ({
+      id: `${squad.squad_id}-${index}`,
+      name: playerName,
+      position: index + 1,
+      squad_id: squad.squad_id.toString(),
+      token_price_id: playerName,
+      multiplier: 1,
+    }))
+  })) || [];
 
   const handleAddButtonClick = () => {
     onClose();
@@ -61,14 +91,39 @@ const SquadPage = () => {
             style={{
               boxShadow: "0px 4px 0px 0px #FFFFFF29 inset",
             }}
-            className="bg-gray-850 h-[9.5rem] w-full p-[1.5rem] py-0 flex flex-col justify-center"
+            className="bg-gray-850 min-h-[9.5rem] w-full p-[1.5rem] py-0 flex flex-col justify-center"
           >
             <span className="text-gray-300 font-[700] block text-[0.875rem] leading-[100%] mb-[0.5rem]">
               YOUR BULLZ
             </span>
-            <div className="flex items-center">
-              <AddNewSquadButton onClick={onOpen} disabled={isLoading} />
-            </div>
+            
+            {isLoadingSquads ? (
+              <div className="flex items-center">
+                <span className="text-gray-400 text-sm">Loading squads...</span>
+              </div>
+            ) : squadsError ? (
+              <div className="flex items-center">
+                <span className="text-red-400 text-sm">Error loading squads</span>
+              </div>
+            ) : convertedSquads.length > 0 ? (
+              <div className="flex items-center gap-[0.5rem] overflow-x-auto">
+                <div className="flex items-center gap-[0.5rem]">
+                  {convertedSquads.map((squad) => (
+                    <SquadItem
+                      key={squad.squad.id}
+                      onClick={() => setSelectedSquadId(Number(squad.squad.id))}
+                      team={squad}
+                      selected={selectedSquadId === Number(squad.squad.id)}
+                    />
+                  ))}
+                </div>
+                <AddNewSquadButton onClick={onOpen} disabled={isLoading} />
+              </div>
+            ) : (
+              <div className="flex items-center">
+                <AddNewSquadButton onClick={onOpen} disabled={isLoading} />
+              </div>
+            )}
           </div>
         </div>
 
