@@ -18,7 +18,7 @@ import {
   useForm,
   useWatch,
 } from "react-hook-form";
-import { useCreateSquad } from "../api-services";
+import { useFullSquadCreation, useSquadCreationStatus } from "@/lib/hooks/use-full-squad-creation";
 import Pitch, { Multiplier, Postition } from "../components/pitch";
 import SelectSquadPlayers from "../components/select-squad.players";
 import { formationLayouts, SquadFormation } from "../constants";
@@ -42,12 +42,11 @@ const NewSquadPage = () => {
     isOpen: notificationIsOpen,
     disclosedData: noticationModalData,
   } = useDisclosure<NotificationStatus>();
-  const {
-    mutate: createSquad,
-    isPending: creating,
-    isSuccess: creationSuccess,
-    isError: creationError,
-  } = useCreateSquad();
+  
+  // Smart contract hooks
+  const fullSquadCreation = useFullSquadCreation();
+  const creationStatus = useSquadCreationStatus();
+  
   const {
     isOpen: nameFormIsOpen,
     onClose: closeNameForm,
@@ -63,36 +62,51 @@ const NewSquadPage = () => {
   console.log(playerArray.fields, playerArrayWatch);
 
   const onSubmit = form.handleSubmit((values) => {
-    console.log(values);
-    createSquad(values, {
-      onSuccess: () => {
-        closeNameForm();
-        openNotification({ data: "success" });
-      },
-      onError: () => {
-        closeNameForm();
-        openNotification({ data: "error" });
-      },
-    });
+    console.log("Creating squad with values:", values);
+    fullSquadCreation.mutate(
+      { squadForm: values },
+      {
+        onSuccess: (result) => {
+          console.log("Squad created successfully:", result);
+          closeNameForm();
+          openNotification({ data: "success" });
+        },
+        onError: (error) => {
+          console.error("Squad creation failed:", error);
+          closeNameForm();
+          openNotification({ data: "error" });
+        },
+      }
+    );
   });
 
   const modalContent = useNotificationsModal({
-    status: creationSuccess ? "success" : creationError ? "error" : "loading",
+    status: creationStatus.isAllSuccess ? "success" : creationStatus.hasAnyError ? "error" : "loading",
     successContent: {
       title: "TEAM CREATED",
       description:
-        "NOW, SELECT YOUR TEAM AND LOCK HORNS TO FIND SOMEONE TO PLAY WITH.",
+        "YOUR BULL HAS BEEN CREATED ON THE BLOCKCHAIN. YOU CAN NOW LOCK HORNS WITH OTHER PLAYERS.",
       buttonLabel: "SHOW MY TEAM",
       onButtonClick: () => {
-        navigate("/");
+        navigate("/squad");
         closeNotification();
       },
     },
     errorContent: {
-      title: "Error",
-      description: "Sorry, we couldn’t create your team.",
+      title: "CREATION FAILED",
+      description: "SORRY, WE COULDN'T CREATE YOUR TEAM ON THE BLOCKCHAIN. PLEASE TRY AGAIN.",
       buttonLabel: "Try Again",
-      onButtonClick: () => createSquad(form.getValues()),
+      onButtonClick: () => {
+        closeNotification();
+      },
+    },
+    loadingContent: {
+      title: "CREATING TEAM",
+      description: creationStatus.isAnyLoading 
+        ? "CREATING YOUR BULL ON THE BLOCKCHAIN..." 
+        : "PROCESSING...",
+      buttonLabel: "",
+      onButtonClick: () => {},
     },
   });
 
@@ -181,7 +195,7 @@ const NewSquadPage = () => {
             </SheetContent>
           </Sheet>
           <SquadNameForm
-            isLoading={creating}
+            isLoading={creationStatus.isAnyLoading}
             isOpen={nameFormIsOpen}
             onClose={closeNameForm}
           />

@@ -4,6 +4,7 @@ import PriceList from "@/components/general/token/price-list";
 import NavWrapper from "@/components/layout/nav-wrapper";
 import { useDisclosure } from "@/lib/hooks/use-diclosure";
 import { NotificationStatus } from "@/lib/hooks/use-notifications-modal";
+import { useGetSquadCreationFee, useCanCreateSquad } from "@/lib/hooks/use-squad-contract";
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
@@ -25,16 +26,13 @@ const SquadPage = () => {
     onOpen: openGuide,
   } = useDisclosure();
 
-  // Simulate checking wallet balance (you can replace this with actual wallet integration)
-  const checkWalletBalance = () => {
-    // Simulate insufficient balance - you can replace this with actual balance check
-    const hasInsufficientBalance = Math.random() > 0.5; // 50% chance for demo
-    return hasInsufficientBalance;
-  };
+  // Smart contract hooks
+  const { data: feeData, isLoading: isLoadingFee } = useGetSquadCreationFee();
+  const { data: canCreate, isLoading: isCheckingBalance } = useCanCreateSquad();
 
   const handleAddButtonClick = () => {
     onClose();
-    if (checkWalletBalance()) {
+    if (!canCreate) {
       openNotification({ data: "error" });
     } else {
       openNotification({ data: "success" });
@@ -46,6 +44,10 @@ const SquadPage = () => {
       openGuide();
     }
   }, []);
+
+  // Show loading state while checking fee or balance
+  const isLoading = isLoadingFee || isCheckingBalance;
+  const displayFee = feeData ? feeData.feeInSui.toFixed(3) : "...";
 
   return (
     <NavWrapper>
@@ -65,7 +67,7 @@ const SquadPage = () => {
               YOUR BULLZ
             </span>
             <div className="flex items-center">
-              <AddNewSquadButton onClick={onOpen} />
+              <AddNewSquadButton onClick={onOpen} disabled={isLoading} />
             </div>
           </div>
         </div>
@@ -74,7 +76,7 @@ const SquadPage = () => {
           isOpen={isOpen}
           onClose={onClose}
           onCreate={handleAddButtonClick}
-          cost={1}
+          cost={parseFloat(displayFee)}
           isCreating={isCreating}
         />
 
@@ -102,7 +104,7 @@ const SquadPage = () => {
           description={
             notificationStatus === "success"
               ? "NOW CHOOSE TOKENS TO MAKE UP YOUR BULL, THEN LOCK HORNS WITH OTHER PLAYERS TO START WINNING"
-              : "YOU NEED AT LEAST 1 SUI IN YOUR WALLET TO CREATE A BULL. FUND YOUR WALLET AND TRY AGAIN"
+              : `YOU NEED AT LEAST ${displayFee} SUI IN YOUR WALLET TO CREATE A BULL. FUND YOUR WALLET AND TRY AGAIN`
           }
           onClose={() => closeNotification()}
           buttonLabel={notificationStatus === "success" ? "LET'S GO!" : "CLOSE"}
