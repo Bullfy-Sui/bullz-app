@@ -1,12 +1,18 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
 
+// Use proxy in development, direct URL in production
+const baseURL = import.meta.env.DEV 
+  ? "/api/v1"  // Use proxy in development
+  : import.meta.env.VITE_BASE_URL || "http://localhost:8081/api/v1";
+
 export const BASE_AXIOS = axios.create({
-  baseURL: "http://localhost:8081/api/v1",
+  baseURL: baseURL,
   timeout: 50000,
   headers: {
     Accept: "application/json",
   },
 });
+
 export const COUNTRY_AXIOS = axios.create({
   baseURL: "https://countriesnow.space/api/v0.1",
   timeout: 50000,
