@@ -7,35 +7,77 @@ import LiveSessions from "./live";
 import LiveSessionPage from "./live/[session_id]/page";
 import SquadPage from "./squad";
 import NewSquadPage from "./squad/new/page";
+import ProtectedRoute from "@/components/ui/hoc/protected-route";
+import RedirectToLogin from "@/components/ui/hoc/redirect-to-login";
 
 export const router = createBrowserRouter([
   {
     Component: RootProvider,
     children: [
-      { index: true, Component: Home },
+      { 
+        index: true, 
+        Component: RedirectToLogin 
+      },
       {
         path: "login",
         Component: LoginPage,
       },
-      { path: "session", Component: SessionPage },
+      { 
+        path: "home",
+        Component: () => (
+          <ProtectedRoute>
+            <Home />
+          </ProtectedRoute>
+        )
+      },
+      { 
+        path: "session", 
+        Component: () => (
+          <ProtectedRoute>
+            <SessionPage />
+          </ProtectedRoute>
+        )
+      },
       {
         path: "live",
         children: [
           {
             index: true,
-            Component: LiveSessions,
+            Component: () => (
+              <ProtectedRoute>
+                <LiveSessions />
+              </ProtectedRoute>
+            ),
           },
           {
             path: ":session_id",
-            Component: LiveSessionPage,
+            Component: () => (
+              <ProtectedRoute>
+                <LiveSessionPage />
+              </ProtectedRoute>
+            ),
           },
         ],
       },
       {
         path: "squad",
         children: [
-          { index: true, Component: SquadPage },
-          { path: "new", Component: NewSquadPage },
+          { 
+            index: true, 
+            Component: () => (
+              <ProtectedRoute>
+                <SquadPage />
+              </ProtectedRoute>
+            )
+          },
+          { 
+            path: "new", 
+            Component: () => (
+              <ProtectedRoute>
+                <NewSquadPage />
+              </ProtectedRoute>
+            )
+          },
         ],
       },
     ],

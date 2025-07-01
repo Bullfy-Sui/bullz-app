@@ -32,15 +32,15 @@ const ConnectDrawer = (props: ConnectDrawerProps) => {
     isOpen: notificationIsOpen,
     disclosedData: notificationModalStatus,
   } = useDisclosure<NotificationStatus | null>(
-    loading ? "loading" : connectionStatus,
+    loading ? "loading" : (connectionStatus as NotificationStatus | null),
   );
 
   const modalContent = useNotificationsModal({
-    status: notificationModalStatus,
+    status: notificationModalStatus || "loading",
     errorContent: {
       title: "FAILED",
       description:
-        "WE COULDN’T CONNECT YOUR WALLET. TRY AGAIN OR USE A DIFFERENT WALLET",
+        "WE COULDN'T CONNECT YOUR WALLET. TRY AGAIN OR USE A DIFFERENT WALLET",
       buttonLabel: "Close",
       onButtonClick: () => {
         console.log("error");
@@ -52,7 +52,7 @@ const ConnectDrawer = (props: ConnectDrawerProps) => {
       buttonLabel: "Continue",
       onButtonClick: () => {
         console.log("connected");
-        navigate("/");
+        navigate("/squad");
         closeNotificationDrawer();
       },
     },
@@ -66,7 +66,7 @@ const ConnectDrawer = (props: ConnectDrawerProps) => {
     },
   });
 
-  const onConnect = (res) => {
+  const onConnect = (res: any) => {
     console.log(res);
     console.log("connected");
     setAddress(res.accounts[0].address);
@@ -113,10 +113,9 @@ const ConnectDrawer = (props: ConnectDrawerProps) => {
         onClose={() => {}}
         onButtonClick={modalContent?.onButtonClick}
         buttonLabel={modalContent?.buttonLabel}
-        isLoading={connectingWallet}
         title={modalContent?.title}
         description={modalContent?.description}
-        status={notificationModalStatus}
+        status={notificationModalStatus || "loading"}
       />
     </>
   );
