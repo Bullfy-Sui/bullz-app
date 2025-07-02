@@ -2,10 +2,9 @@
 
 module bullfy::fee_collector {
     use sui::coin::{Self, Coin};
-    use sui::balance::{Self};
+    use sui::balance::{Self, Balance};
     use sui::sui::SUI;
     use sui::event;
-    use sui::balance::Balance;
     use bullfy::admin::AdminCap;
 
     // Error codes with descriptive messages
