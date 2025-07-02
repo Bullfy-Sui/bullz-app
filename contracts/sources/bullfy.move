@@ -35,6 +35,7 @@ module bullfy::squad_manager {
         squad_id: u64,
         name: String,
         players: vector<String>,
+        formation: String,         // Team formation (e.g., "4-3-3", "3-5-2")
         life: u64,               // Life points (starts at 5)
         death_time: Option<u64>, // Timestamp when squad died (life reached 0)
     }
@@ -147,6 +148,7 @@ module bullfy::squad_manager {
             squad_id,
             name: string::utf8(b""),  // Create with empty name - will be set when adding players
             players: vector::empty<String>(),  // Create with empty players vector
+            formation: string::utf8(b""),  // Create with empty formation - will be set when adding players
             life: INITIAL_SQUAD_LIFE,         // Start with 5 life points
             death_time: option::none(),       // Not dead initially
         };
@@ -425,6 +427,7 @@ module bullfy::squad_manager {
         registry: &mut SquadRegistry,
         squad_id: u64,
         squad_name: String,
+        formation: String,
         player_names: vector<String>,
         ctx: &mut TxContext
     ) {
@@ -464,6 +467,9 @@ module bullfy::squad_manager {
         // Set the squad name
         squad.name = squad_name;
         
+        // Set the formation
+        squad.formation = formation;
+        
         // Add all players to the squad
         let mut k = 0;
         while (k < vector::length(&player_names)) {
@@ -483,6 +489,11 @@ module bullfy::squad_manager {
      // Get squad name
     public fun get_squad_name(squad: &Squad): &String {
         &squad.name
+    }
+
+    // Get squad formation
+    public fun get_squad_formation(squad: &Squad): &String {
+        &squad.formation
     }
 
     // Get squad players
