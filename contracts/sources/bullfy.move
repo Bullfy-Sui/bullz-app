@@ -11,12 +11,12 @@ module bullfy::squad_manager {
     use bullfy::payment_utils;
 
     // Error constants (module-specific only)
-    const E_SQUAD_NOT_FOUND: u64 = 4001;
-   // const E_CANNOT_REVIVE_YET: u64 = 4003;
-    const E_REVIVAL_NOT_NEEDED: u64 = 4004;
-    const E_INVALID_SQUAD_NAME: u64 = 4005;
+    const ESquadNotFound: u64 = 4001;
+   // const ECannotReviveYet: u64 = 4003;
+    const ERevivalNotNeeded: u64 = 4004;
+    const EInvalidSquadName: u64 = 4005;
 
-    // Error constants kept for backward compatibility
+    // Error constants with proper E prefix
     const EOwnerDoesNotHaveSquad: u64 = 4008;
     const ESquadNotDead: u64 = 4009;
     const EMustAddExactlySevenPlayers: u64 = 4011;
@@ -246,13 +246,13 @@ module bullfy::squad_manager {
         let current_time = clock::timestamp_ms(clock);
 
         // Validate squad exists and is owned by sender
-        assert!(table::contains(&squad_registry.squads, squad_id), E_SQUAD_NOT_FOUND);
+        assert!(table::contains(&squad_registry.squads, squad_id), ESquadNotFound);
         let squad = table::borrow_mut(&mut squad_registry.squads, squad_id);
         assert!(squad.owner == owner, common_errors::unauthorized());
         
         // Check if squad needs revival
-        assert!(squad.life == 0, E_REVIVAL_NOT_NEEDED);
-        assert!(option::is_some(&squad.death_time), E_REVIVAL_NOT_NEEDED);
+        assert!(squad.life == 0, ERevivalNotNeeded);
+        assert!(option::is_some(&squad.death_time), ERevivalNotNeeded);
         
         let death_time = *option::borrow(&squad.death_time);
         let time_since_death = current_time - death_time;
@@ -357,8 +357,8 @@ module bullfy::squad_manager {
         if (option::is_some(&new_squad_name)) {
             let squad_name = option::extract(&mut new_squad_name);
             // Validate squad name
-            assert!(string::length(&squad_name) >= MIN_SQUAD_NAME_LENGTH, E_INVALID_SQUAD_NAME);
-            assert!(string::length(&squad_name) <= MAX_SQUAD_NAME_LENGTH, E_INVALID_SQUAD_NAME);
+            assert!(string::length(&squad_name) >= MIN_SQUAD_NAME_LENGTH, EInvalidSquadName);
+            assert!(string::length(&squad_name) <= MAX_SQUAD_NAME_LENGTH, EInvalidSquadName);
             
             squad.name = squad_name;
             name_changed = true;
@@ -438,8 +438,8 @@ module bullfy::squad_manager {
         assert!(squad.owner == tx_context::sender(ctx), EOwnerDoesNotHaveSquad);
         
         // Validate squad name
-        assert!(string::length(&squad_name) >= MIN_SQUAD_NAME_LENGTH, E_INVALID_SQUAD_NAME);
-        assert!(string::length(&squad_name) <= MAX_SQUAD_NAME_LENGTH, E_INVALID_SQUAD_NAME);
+        assert!(string::length(&squad_name) >= MIN_SQUAD_NAME_LENGTH, EInvalidSquadName);
+        assert!(string::length(&squad_name) <= MAX_SQUAD_NAME_LENGTH, EInvalidSquadName);
         
         // Must be exactly 7 players
         assert!(vector::length(&player_names) == 7, EMustAddExactlySevenPlayers);

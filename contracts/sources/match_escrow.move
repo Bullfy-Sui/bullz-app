@@ -16,15 +16,15 @@ module bullfy::match_escrow {
     use bullfy::fee_calculator;
 
     // Error constants (module-specific only)
-    const E_BID_NOT_FOUND: u64 = 3001;
-    const E_CANNOT_MATCH_OWN_BID: u64 = 3002;
-    const E_BID_AMOUNT_MISMATCH: u64 = 3003;
-    const E_DURATION_MISMATCH: u64 = 3004;
-    const E_MATCH_NOT_FOUND: u64 = 3005;
-    const E_MATCH_NOT_ACTIVE: u64 = 3006;
-    const E_MATCH_ALREADY_COMPLETED: u64 = 3007;
-    const E_INVALID_WINNER: u64 = 3008;
-    const E_MATCH_NOT_ENDED_YET: u64 = 3009;
+    const EBidNotFound: u64 = 3001;
+    const ECannotMatchOwnBid: u64 = 3002;
+    const EBidAmountMismatch: u64 = 3003;
+    const EDurationMismatch: u64 = 3004;
+    const EMatchNotFound: u64 = 3005;
+    const EMatchNotActive: u64 = 3006;
+    const EMatchAlreadyCompleted: u64 = 3007;
+    const EInvalidWinner: u64 = 3008;
+    const EMatchNotEndedYet: u64 = 3009;
 
     // Constants
     const MIN_BID_AMOUNT: u64 = 1_000_000; // 0.001 SUI in MIST
@@ -262,8 +262,8 @@ module bullfy::match_escrow {
         let current_time = clock::timestamp_ms(clock);
 
         // Validate both bids exist
-        assert!(table::contains(&registry.bid_id_to_index, bid1_id), E_BID_NOT_FOUND);
-        assert!(table::contains(&registry.bid_id_to_index, bid2_id), E_BID_NOT_FOUND);
+        assert!(table::contains(&registry.bid_id_to_index, bid1_id), EBidNotFound);
+        assert!(table::contains(&registry.bid_id_to_index, bid2_id), EBidNotFound);
 
         // Get bid info (without mutable borrow first)
         let (bid1_creator, bid1_squad_id, bid1_amount, bid1_duration, bid1_fee_amount);
@@ -273,15 +273,15 @@ module bullfy::match_escrow {
             let bid2_index = *table::borrow(&registry.bid_id_to_index, bid2_id);
 
             // Validate bid status
-            assert!(vector::borrow(&registry.active_bids, bid1_index).status == BidStatus::Open, E_BID_NOT_FOUND);
-            assert!(vector::borrow(&registry.active_bids, bid2_index).status == BidStatus::Open, E_BID_NOT_FOUND);
+            assert!(vector::borrow(&registry.active_bids, bid1_index).status == BidStatus::Open, EBidNotFound);
+            assert!(vector::borrow(&registry.active_bids, bid2_index).status == BidStatus::Open, EBidNotFound);
 
             // Validate different creators
-            assert!(vector::borrow(&registry.active_bids, bid1_index).creator != vector::borrow(&registry.active_bids, bid2_index).creator, E_CANNOT_MATCH_OWN_BID);
+            assert!(vector::borrow(&registry.active_bids, bid1_index).creator != vector::borrow(&registry.active_bids, bid2_index).creator, ECannotMatchOwnBid);
 
             // Validate matching amounts and durations
-            assert!(vector::borrow(&registry.active_bids, bid1_index).bid_amount == vector::borrow(&registry.active_bids, bid2_index).bid_amount, E_BID_AMOUNT_MISMATCH);
-            assert!(vector::borrow(&registry.active_bids, bid1_index).duration == vector::borrow(&registry.active_bids, bid2_index).duration, E_DURATION_MISMATCH);
+            assert!(vector::borrow(&registry.active_bids, bid1_index).bid_amount == vector::borrow(&registry.active_bids, bid2_index).bid_amount, EBidAmountMismatch);
+            assert!(vector::borrow(&registry.active_bids, bid1_index).duration == vector::borrow(&registry.active_bids, bid2_index).duration, EDurationMismatch);
 
             bid1_creator = vector::borrow(&registry.active_bids, bid1_index).creator;
             bid1_squad_id = vector::borrow(&registry.active_bids, bid1_index).squad_id;
@@ -405,12 +405,12 @@ module bullfy::match_escrow {
     ) {
         let sender = tx_context::sender(ctx);
         
-        assert!(table::contains(&registry.bid_id_to_index, bid_id), E_BID_NOT_FOUND);
+        assert!(table::contains(&registry.bid_id_to_index, bid_id), EBidNotFound);
         let bid_index = *table::borrow(&registry.bid_id_to_index, bid_id);
         
         // Validate authorization and status
         assert!(vector::borrow(&registry.active_bids, bid_index).creator == sender, common_errors::unauthorized());
-        assert!(vector::borrow(&registry.active_bids, bid_index).status == BidStatus::Open, E_BID_NOT_FOUND);
+        assert!(vector::borrow(&registry.active_bids, bid_index).status == BidStatus::Open, EBidNotFound);
 
         // Update status and refund both bid and fee amounts
         let bid = vector::borrow_mut(&mut registry.active_bids, bid_index);
@@ -461,20 +461,20 @@ module bullfy::match_escrow {
         // Validate signer authorization
         assert!(match_signer::validate_match_signer(signer_cap, ctx), common_errors::unauthorized());
         
-        assert!(table::contains(&registry.match_id_to_index, match_id), E_MATCH_NOT_FOUND);
+        assert!(table::contains(&registry.match_id_to_index, match_id), EMatchNotFound);
         let match_index = *table::borrow(&registry.match_id_to_index, match_id);
         let match_obj = vector::borrow_mut(&mut registry.active_matches, match_index);
         
         // Validate match status
-        assert!(match_obj.status == MatchStatus::Active, E_MATCH_NOT_ACTIVE);
-        assert!(!match_obj.prize_claimed, E_MATCH_ALREADY_COMPLETED);
+        assert!(match_obj.status == MatchStatus::Active, EMatchNotActive);
+        assert!(!match_obj.prize_claimed, EMatchAlreadyCompleted);
         
         // IMPORTANT: Validate that the match time has ended
         let current_time = clock::timestamp_ms(clock);
-        assert!(current_time >= match_obj.ends_at, E_MATCH_NOT_ENDED_YET);
+        assert!(current_time >= match_obj.ends_at, EMatchNotEndedYet);
         
         // Validate winner
-        assert!(winner == match_obj.player1 || winner == match_obj.player2, E_INVALID_WINNER);
+        assert!(winner == match_obj.player1 || winner == match_obj.player2, EInvalidWinner);
         
         let loser = if (winner == match_obj.player1) {
             match_obj.player2
@@ -534,7 +534,7 @@ module bullfy::match_escrow {
         // Validate signer authorization
         assert!(match_signer::validate_match_signer(signer_cap, ctx), common_errors::unauthorized());
         
-        assert!(table::contains(&registry.match_id_to_index, match_id), E_MATCH_NOT_FOUND);
+        assert!(table::contains(&registry.match_id_to_index, match_id), EMatchNotFound);
         let match_index = *table::borrow(&registry.match_id_to_index, match_id);
         
         // Get all needed data before mutable borrow
@@ -543,9 +543,9 @@ module bullfy::match_escrow {
             let match_obj = vector::borrow(&registry.active_matches, match_index);
             
             // Validate claiming of the prize
-            assert!(match_obj.status == MatchStatus::Completed, E_MATCH_NOT_ACTIVE);
-            assert!(!match_obj.prize_claimed, E_MATCH_ALREADY_COMPLETED);
-            assert!(option::is_some(&match_obj.winner), E_MATCH_NOT_ACTIVE);
+            assert!(match_obj.status == MatchStatus::Completed, EMatchNotActive);
+            assert!(!match_obj.prize_claimed, EMatchAlreadyCompleted);
+            assert!(option::is_some(&match_obj.winner), EMatchNotActive);
 
             bid1_id = match_obj.bid1_id;
             bid2_id = match_obj.bid2_id;

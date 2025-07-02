@@ -14,20 +14,20 @@ module bullfy::squad_player_challenge {
     use bullfy::fee_calculator;
 
     // Error constants (module-specific only)
-    const E_UNAUTHORIZED: u64 = 2001;
-    const E_CHALLENGE_NOT_SCHEDULED: u64 = 2002;
-    const E_CHALLENGE_ALREADY_COMPLETED: u64 = 2003;
-    const E_CHALLENGE_FULL: u64 = 2004;
-    const E_ALREADY_JOINED: u64 = 2005;
-    const E_INVALID_PARTICIPANT_COUNT: u64 = 2006;
-    const E_INVALID_START_TIME: u64 = 2007;
-    const E_CHALLENGE_NOT_STARTED: u64 = 2008;
-    const E_CHALLENGE_NOT_READY: u64 = 2009;
-    const E_CHALLENGE_EXPIRED: u64 = 2010;
-    const E_INVALID_WINNER: u64 = 2011;
-    const E_SQUAD_ALREADY_USED: u64 = 2012;
-    const E_SQUAD_ACTIVE_IN_CHALLENGE: u64 = 2013;
-    const E_INSUFFICIENT_BID: u64 = 2014;
+    const EUnauthorized: u64 = 2001;
+    const EChallengeNotScheduled: u64 = 2002;
+    const EChallengeAlreadyCompleted: u64 = 2003;
+    const EChallengeFull: u64 = 2004;
+    const EAlreadyJoined: u64 = 2005;
+    const EInvalidParticipantCount: u64 = 2006;
+    const EInvalidStartTime: u64 = 2007;
+    const EChallengeNotStarted: u64 = 2008;
+    const EChallengeNotReady: u64 = 2009;
+    const EChallengeExpired: u64 = 2010;
+    const EInvalidWinner: u64 = 2011;
+    const ESquadAlreadyUsed: u64 = 2012;
+    const ESquadActiveInChallenge: u64 = 2013;
+    const EInsufficientBid: u64 = 2014;
 
     // Constants
     const MIN_PARTICIPANTS: u64 = 2;
@@ -175,12 +175,12 @@ module bullfy::squad_player_challenge {
         validators::validate_squad_ownership_and_life(squad_registry, creator_squad_id, creator);
 
         // Check if squad is already active in another challenge
-        assert!(!table::contains(&active_squad_registry.active_squads, creator_squad_id), E_SQUAD_ACTIVE_IN_CHALLENGE);
+        assert!(!table::contains(&active_squad_registry.active_squads, creator_squad_id), ESquadActiveInChallenge);
 
         // Validate inputs using common validators
         validators::validate_bid_amount(bid_amount, MIN_BID_AMOUNT);
-        assert!(max_participants >= MIN_PARTICIPANTS, E_INVALID_PARTICIPANT_COUNT);
-        assert!(scheduled_start_time > current_time, E_INVALID_START_TIME);
+        assert!(max_participants >= MIN_PARTICIPANTS, EInvalidParticipantCount);
+        assert!(scheduled_start_time > current_time, EInvalidStartTime);
         validators::validate_duration(duration, MIN_DURATION, MAX_DURATION);
         
         // Calculate required payment using fee calculator
@@ -188,7 +188,7 @@ module bullfy::squad_player_challenge {
         
         // Validate creator's bid
         let creator_bid_amount = coin::value(&creator_bid);
-        assert!(creator_bid_amount >= total_required, E_INSUFFICIENT_BID);
+        assert!(creator_bid_amount >= total_required, EInsufficientBid);
 
         // Handle creator's payment using common payment utils
         let (actual_bid, fee_payment) = payment_utils::handle_payment_with_fee(
@@ -281,29 +281,29 @@ module bullfy::squad_player_challenge {
         validators::validate_squad_ownership_and_life(squad_registry, participant_squad_id, participant);
 
         // Check if squad is already active in another challenge
-        assert!(!table::contains(&active_squad_registry.active_squads, participant_squad_id), E_SQUAD_ACTIVE_IN_CHALLENGE);
+        assert!(!table::contains(&active_squad_registry.active_squads, participant_squad_id), ESquadActiveInChallenge);
 
         // Check if this squad is already being used in this challenge
         let mut i = 0;
         while (i < vector::length(&challenge.participants)) {
             let existing_participant = *vector::borrow(&challenge.participants, i);
             let existing_squad_id = *table::borrow(&challenge.participant_squads, existing_participant);
-            assert!(existing_squad_id != participant_squad_id, E_SQUAD_ALREADY_USED);
+            assert!(existing_squad_id != participant_squad_id, ESquadAlreadyUsed);
             i = i + 1;
         };
 
         // Validate challenge state
-        assert!(challenge.status == ChallengeStatus::Scheduled, E_CHALLENGE_NOT_SCHEDULED);
-        assert!(challenge.current_participants < challenge.max_participants, E_CHALLENGE_FULL);
-        assert!(!vector::contains(&challenge.participants, &participant), E_ALREADY_JOINED);
-        assert!(current_time < challenge.scheduled_start_time, E_CHALLENGE_EXPIRED);
+        assert!(challenge.status == ChallengeStatus::Scheduled, EChallengeNotScheduled);
+        assert!(challenge.current_participants < challenge.max_participants, EChallengeFull);
+        assert!(!vector::contains(&challenge.participants, &participant), EAlreadyJoined);
+        assert!(current_time < challenge.scheduled_start_time, EChallengeExpired);
 
         // Calculate required payment using fee calculator
         let (fee_amount, total_required) = fee_calculator::calculate_upfront_fee(challenge.bid_amount, fee_config);
         
         // Validate bid amount
         let participant_bid_amount = coin::value(&participant_bid);
-        assert!(participant_bid_amount >= total_required, E_INSUFFICIENT_BID);
+        assert!(participant_bid_amount >= total_required, EInsufficientBid);
 
         // Handle participant's payment using common payment utils
         let (actual_bid, fee_payment) = payment_utils::handle_payment_with_fee(
@@ -370,12 +370,12 @@ module bullfy::squad_player_challenge {
         let current_time = clock::timestamp_ms(clock);
 
         // Validate authorization (creator or any participant can start)
-        assert!(vector::contains(&challenge.participants, &sender), E_UNAUTHORIZED);
+        assert!(vector::contains(&challenge.participants, &sender), EUnauthorized);
         
         // Validate challenge state
-        assert!(challenge.status == ChallengeStatus::Scheduled, E_CHALLENGE_NOT_SCHEDULED);
-        assert!(current_time >= challenge.scheduled_start_time, E_CHALLENGE_NOT_STARTED);
-        assert!(challenge.current_participants >= MIN_PARTICIPANTS, E_CHALLENGE_NOT_READY);
+        assert!(challenge.status == ChallengeStatus::Scheduled, EChallengeNotScheduled);
+        assert!(current_time >= challenge.scheduled_start_time, EChallengeNotStarted);
+        assert!(challenge.current_participants >= MIN_PARTICIPANTS, EChallengeNotReady);
 
         // Update challenge status
         challenge.status = ChallengeStatus::Active;
@@ -427,11 +427,11 @@ module bullfy::squad_player_challenge {
         let current_time = clock::timestamp_ms(clock);
 
         // Validate authorization (only creator can complete for now)
-        assert!(sender == challenge.creator, E_UNAUTHORIZED);
+        assert!(sender == challenge.creator, EUnauthorized);
         
         // Validate challenge state
-        assert!(challenge.status == ChallengeStatus::Active, E_CHALLENGE_ALREADY_COMPLETED);
-        assert!(vector::contains(&challenge.participants, &winner), E_INVALID_WINNER);
+        assert!(challenge.status == ChallengeStatus::Active, EChallengeAlreadyCompleted);
+        assert!(vector::contains(&challenge.participants, &winner), EInvalidWinner);
 
         // Calculate prize distribution
         let total_pool = balance::value(&challenge.bid_pool);
@@ -492,13 +492,13 @@ module bullfy::squad_player_challenge {
         let current_time = clock::timestamp_ms(clock);
 
         // Validate authorization (only creator can cancel)
-        assert!(sender == challenge.creator, E_UNAUTHORIZED);
+        assert!(sender == challenge.creator, EUnauthorized);
         
         // Validate challenge state (can cancel if scheduled or active)
         assert!(
             challenge.status == ChallengeStatus::Scheduled || 
             challenge.status == ChallengeStatus::Active, 
-            E_CHALLENGE_ALREADY_COMPLETED
+            EChallengeAlreadyCompleted
         );
 
         // Update status
@@ -589,8 +589,8 @@ module bullfy::squad_player_challenge {
         let current_time = clock::timestamp_ms(clock);
         let grace_period = 3600000; // 1 hour grace period
         
-        assert!(challenge.status == ChallengeStatus::Scheduled, E_CHALLENGE_NOT_SCHEDULED);
-        assert!(current_time > challenge.scheduled_start_time + grace_period, E_CHALLENGE_NOT_STARTED);
+        assert!(challenge.status == ChallengeStatus::Scheduled, EChallengeNotScheduled);
+        assert!(current_time > challenge.scheduled_start_time + grace_period, EChallengeNotStarted);
 
         // Calculate refund amount before processing refunds
         let total_refund = balance::value(&challenge.bid_pool);
