@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useDisclosure } from "@/lib/hooks/use-diclosure";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
 import SetHornBid from "./components/set-horn-bid";
-import { useGetUserSquads } from "../squad/api-services";
+import { useGetUserSquads } from "@/lib/hooks/use-squad-contract";
 import { SquadResponseItem } from "../squad/api-services/types";
 import AddNewSquadButton from "../squad/components/add-new-squad-button";
 import Pitch from "../squad/components/pitch";
@@ -11,6 +11,7 @@ import SquadItem from "../squad/components/squad-item";
 import { formationLayouts } from "../squad/constants";
 import { FormationLayoutKey } from "../squad/types";
 import { useNavigate } from "react-router";
+import { useMemo, useEffect } from "react";
 
 export interface HornForm {
   wager_amount: number;
@@ -19,11 +20,64 @@ export interface HornForm {
 }
 
 export default function Home() {
-  const { data: squadData, isLoading } = useGetUserSquads();
+  const { data: userSquads, isLoading } = useGetUserSquads();
   const navigate = useNavigate();
 
+  // Convert SquadData[] to SquadResponse format for compatibility
+  const squadData = useMemo(() => {
+    console.log("🔄 Converting userSquads:", userSquads);
+    
+    if (!userSquads || userSquads.length === 0) {
+      console.log("❌ No user squads found");
+      return { data: [] };
+    }
+
+    const convertedSquads: SquadResponseItem[] = userSquads.map(squad => {
+      const formation = "OneThreeTwoOne" as FormationLayoutKey;
+      const layout = formationLayouts[formation];
+      
+      // Flatten the layout to get all positions with their multipliers
+      const allPositions: [number, number][] = layout.flat().map(posArray => [posArray[0], posArray[1]] as [number, number]);
+      
+      // Map players to positions with correct multipliers
+      const players = squad.players.slice(0, 7).map((playerName, index) => {
+        const [position, multiplier] = allPositions[index] || [index + 1, 1.0];
+        return {
+          id: `${squad.squad_id}-${position}`,
+          name: playerName,
+          position: position,
+          squad_id: squad.squad_id.toString(),
+          token_price_id: playerName,
+          multiplier: multiplier,
+        };
+      });
+
+      console.log(`🏟️ Squad "${squad.name}" players:`, players);
+
+      return {
+        squad: {
+          id: squad.squad_id.toString(),
+          name: squad.name,
+          owner_id: squad.owner,
+          wallet_address: squad.owner,
+          formation: formation,
+          total_value: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        players: players
+      };
+    });
+
+    console.log("✅ Converted squads:", convertedSquads);
+    return { data: convertedSquads };
+  }, [userSquads]);
+
   const form = useForm<HornForm>({
-    defaultValues: { squad: squadData?.data[0] },
+    defaultValues: {
+      wager_amount: 1, // Start with 1 SUI
+      time_limit: 60, // Start with 1 minute (60 seconds)
+    },
   });
 
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -31,13 +85,38 @@ export default function Home() {
   const squadWatch = useWatch({
     control: form.control,
     name: "squad",
-    // defaultValue: squadData?.data[0],
   });
+
+  // Debug squadWatch changes
+  useEffect(() => {
+    console.log("👀 squadWatch changed:", squadWatch);
+    if (squadWatch?.players) {
+      console.log("🏃‍♂️ Squad players:", squadWatch.players);
+    }
+  }, [squadWatch]);
+
+  // Set the first squad when squads are loaded
+  useEffect(() => {
+    if (squadData?.data[0] && !squadWatch) {
+      console.log("🎯 Setting first squad:", squadData.data[0].squad.name);
+      form.setValue("squad", squadData.data[0]);
+    }
+  }, [squadData?.data, squadWatch, form]);
 
   const onSubmit = form.handleSubmit((data) => {
     console.log(data);
     // router.push("/session");
   });
+
+  if (isLoading) {
+    return (
+      <NavWrapper>
+        <div className="flex items-center justify-center h-64">
+          <p className="text-white font-offbit">Loading squads...</p>
+        </div>
+      </NavWrapper>
+    );
+  }
 
   return (
     <NavWrapper>
@@ -51,7 +130,7 @@ export default function Home() {
           <div className="flex max-w-[23.875rem] mx-auto items-center justify-between h-[3.5rem] w-full mb-[0.5625rem] bg-gray-850 p-[0.5rem] border border-gray-700">
             <div>
               <p className="font-offbit text-[1.375rem] font-[700] leading-[100%] mb-[0.25rem] capitalize">
-                {/* {squadWatch?.squad.name} */}
+                {squadWatch?.squad.name || "Select Squad"}
               </p>
               <span className="block text-gray-400 text-[0.875rem] font-[700] leading-[100%] tracking-[0.04em]">
                 10% WIN RATE
@@ -60,24 +139,28 @@ export default function Home() {
             <Button
               type="button"
               className="h-[2.5rem] px-[1.5rem]"
-              onClick={() => {}}
+              onClick={() => onOpen()}
+              disabled={!squadWatch?.squad?.id}
             >
               PLAY NOW
             </Button>
           </div>
 
-          <Pitch
-            layout={
-              formationLayouts[
-                squadWatch?.squad.formation as FormationLayoutKey
-              ]
-            }
-            players={squadWatch?.players}
-            onPlayerClick={(player) => {
-              console.log(player);
-            }}
-            ctaLabel="Lock horns"
-          />
+          {squadWatch && (
+            <Pitch
+              layout={
+                formationLayouts[
+                  squadWatch?.squad.formation as FormationLayoutKey
+                ]
+              }
+              players={squadWatch?.players}
+              onPlayerClick={(player) => {
+                console.log("Player clicked:", player);
+              }}
+              ctaLabel="Lock horns"
+              ctaOnClick={squadWatch?.squad?.id ? () => onOpen() : undefined}
+            />
+          )}
 
           <div
             style={{
@@ -90,14 +173,17 @@ export default function Home() {
             </span>
             <div className="flex items-center gap-[0.5rem] ">
               <div className="flex items-center gap-[0.5rem] w-min overflow-x-scroll ">
-                {squadData?.data.map((squad) => (
+                {squadData?.data.map((squad, index) => (
                   <SquadItem
                     key={squad.squad.id}
                     onClick={() => {
+                      console.log("🎯 Squad clicked:", squad.squad.name);
                       form.setValue("squad", squad);
+                      console.log("📝 Form value set to:", squad);
                     }}
                     team={squad}
                     selected={squadWatch?.squad.id === squad.squad.id}
+                    life={userSquads?.[index]?.life}
                   />
                 ))}
               </div>

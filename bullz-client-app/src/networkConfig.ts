@@ -12,6 +12,12 @@ import {
   DEVNET_FEES_ID,
   TESTNET_FEES_ID,
   MAINNET_FEES_ID,
+  DEVNET_ESCROW_REGISTRY_ID,
+  TESTNET_ESCROW_REGISTRY_ID,
+  MAINNET_ESCROW_REGISTRY_ID,
+  DEVNET_ACTIVE_SQUAD_REGISTRY_ID,
+  TESTNET_ACTIVE_SQUAD_REGISTRY_ID,
+  MAINNET_ACTIVE_SQUAD_REGISTRY_ID,
 } from "./constantsId.ts";
 import { createNetworkConfig } from "@mysten/dapp-kit";
 
@@ -24,6 +30,8 @@ const { networkConfig, useNetworkVariable, useNetworkVariables } =
         squadRegistryId: DEVNET_SQUAD_REGISTRY_ID,
         feeConfigId: DEVNET_FEE_CONFIG_ID,
         feesId: DEVNET_FEES_ID,
+        escrowRegistryId: DEVNET_ESCROW_REGISTRY_ID,
+        activeSquadRegistryId: DEVNET_ACTIVE_SQUAD_REGISTRY_ID,
       },
     },
     testnet: {
@@ -33,6 +41,8 @@ const { networkConfig, useNetworkVariable, useNetworkVariables } =
         squadRegistryId: TESTNET_SQUAD_REGISTRY_ID,
         feeConfigId: TESTNET_FEE_CONFIG_ID,
         feesId: TESTNET_FEES_ID,
+        escrowRegistryId: TESTNET_ESCROW_REGISTRY_ID,
+        activeSquadRegistryId: TESTNET_ACTIVE_SQUAD_REGISTRY_ID,
       },
     },
     mainnet: {
@@ -42,6 +52,8 @@ const { networkConfig, useNetworkVariable, useNetworkVariables } =
         squadRegistryId: MAINNET_SQUAD_REGISTRY_ID,
         feeConfigId: MAINNET_FEE_CONFIG_ID,
         feesId: MAINNET_FEES_ID,
+        escrowRegistryId: MAINNET_ESCROW_REGISTRY_ID,
+        activeSquadRegistryId: MAINNET_ACTIVE_SQUAD_REGISTRY_ID,
       },
     },
   });

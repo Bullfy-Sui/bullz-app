@@ -308,29 +308,179 @@ export const useGetUserSquads = () => {
 export const useCanCreateSquad = () => {
   const suiClient = useSuiClient();
   const currentAccount = useCurrentAccount();
-  const { data: feeData } = useGetSquadCreationFee();
+  const feeConfigId = useNetworkVariable("feeConfigId");
+  const { data: squadCreationFee } = useGetSquadCreationFee();
 
   return useQuery({
-    queryKey: ["can-create-squad", currentAccount?.address, feeData?.feeInMist],
+    queryKey: ["can-create-squad", currentAccount?.address, feeConfigId],
     queryFn: async () => {
-      if (!currentAccount?.address || !feeData?.feeInMist) {
+      if (!currentAccount?.address || !squadCreationFee) {
         return false;
       }
 
       try {
+        // Get user's SUI balance
         const balance = await suiClient.getBalance({
           owner: currentAccount.address,
+          coinType: "0x2::sui::SUI",
         });
 
-        const totalBalance = Number(balance.totalBalance);
-        const requiredAmount = Number(feeData.feeInMist);
+        const userBalanceInMist = BigInt(balance.totalBalance);
+        const requiredFeeInMist = BigInt(squadCreationFee.feeInMist);
 
-        return totalBalance >= requiredAmount;
+        // Check if user has enough balance for squad creation fee
+        return userBalanceInMist >= requiredFeeInMist;
       } catch (error) {
-        console.error("Failed to check balance:", error);
+        console.error("Error checking squad creation balance:", error);
         return false;
       }
     },
-    enabled: !!currentAccount?.address && !!feeData?.feeInMist,
+    enabled: !!currentAccount?.address && !!squadCreationFee,
+  });
+};
+
+// Hook for creating a bid for horn locking
+export const useCreateBid = () => {
+  const suiClient = useSuiClient();
+  const currentAccount = useCurrentAccount();
+  const { mutate: signAndExecute } = useSignAndExecuteTransaction();
+  const packageId = useNetworkVariable("packageId");
+  const escrowRegistryId = useNetworkVariable("escrowRegistryId");
+  const squadRegistryId = useNetworkVariable("squadRegistryId");
+  const activeSquadRegistryId = useNetworkVariable("activeSquadRegistryId");
+  const feeConfigId = useNetworkVariable("feeConfigId");
+
+  return useMutation({
+    mutationKey: ["create-bid"],
+    mutationFn: async ({
+      squadId,
+      bidAmountInSui,
+      durationInMinutes,
+    }: {
+      squadId: number;
+      bidAmountInSui: number;
+      durationInMinutes: number;
+    }) => {
+      if (!currentAccount?.address) {
+        throw new Error("Wallet not connected");
+      }
+
+      // Convert SUI to MIST and minutes to milliseconds
+      const bidAmountInMist = Math.floor(bidAmountInSui * Number(MIST_PER_SUI));
+      const durationInMs = durationInMinutes * 60 * 1000;
+
+      console.log(`Creating bid: Squad ${squadId}, Amount ${bidAmountInSui} SUI (${bidAmountInMist} MIST), Duration ${durationInMinutes}min (${durationInMs}ms)`);
+
+      // Get fee configuration to calculate total required payment
+      const feeConfigObject = await suiClient.getObject({
+        id: feeConfigId,
+        options: { showContent: true },
+      });
+
+      if (!feeConfigObject.data?.content || feeConfigObject.data.content.dataType !== "moveObject") {
+        throw new Error("Failed to fetch fee configuration");
+      }
+
+      const feeConfig = feeConfigObject.data.content.fields as any;
+      const bidFeeRate = Number(feeConfig.bid_fee_rate) / 10000; // Convert basis points to decimal
+      const feeAmountInMist = Math.floor(bidAmountInMist * bidFeeRate);
+      const totalRequiredInMist = bidAmountInMist + feeAmountInMist;
+
+      console.log(`Fee calculation: ${bidFeeRate * 100}% = ${feeAmountInMist} MIST, Total required: ${totalRequiredInMist} MIST`);
+
+      // Create transaction
+      const tx = new Transaction();
+
+      // Split coins for payment (bid amount + fee)
+      const [payment] = tx.splitCoins(tx.gas, [totalRequiredInMist]);
+
+      // Call create_bid function
+      tx.moveCall({
+        package: packageId,
+        module: "match_escrow",
+        function: "create_bid",
+        arguments: [
+          tx.object(escrowRegistryId),
+          tx.object(squadRegistryId),
+          tx.object(activeSquadRegistryId),
+          tx.object(feeConfigId),
+          tx.pure.u64(squadId),
+          tx.pure.u64(bidAmountInMist),
+          tx.pure.u64(durationInMs),
+          payment,
+          tx.object("0x6"), // Clock object
+        ],
+      });
+
+      // Execute transaction
+      return new Promise((resolve, reject) => {
+        signAndExecute(
+          { transaction: tx },
+          {
+            onSuccess: (result) => {
+              console.log("Bid created successfully:", result);
+              resolve({
+                result,
+                squadId,
+                bidAmountInSui,
+                durationInMinutes,
+              });
+            },
+            onError: (error) => {
+              console.error("Failed to create bid:", error);
+              reject(error);
+            },
+          }
+        );
+      });
+    },
+  });
+};
+
+// Hook for getting user's active bids
+export const useGetUserBids = () => {
+  const suiClient = useSuiClient();
+  const currentAccount = useCurrentAccount();
+  const escrowRegistryId = useNetworkVariable("escrowRegistryId");
+
+  return useQuery({
+    queryKey: ["user-bids", currentAccount?.address, escrowRegistryId],
+    queryFn: async () => {
+      if (!currentAccount?.address || !escrowRegistryId) {
+        return [];
+      }
+
+      try {
+        // Get escrow registry to check for user's bids
+        const escrowRegistry = await suiClient.getObject({
+          id: escrowRegistryId,
+          options: { showContent: true },
+        });
+
+        if (!escrowRegistry.data?.content || escrowRegistry.data.content.dataType !== "moveObject") {
+          console.log("Failed to fetch escrow registry");
+          return [];
+        }
+
+        const registryFields = escrowRegistry.data.content.fields as any;
+        const activeBids = registryFields.active_bids || [];
+
+        // Filter bids created by current user
+        const userBids = activeBids.filter((bid: any) => bid.creator === currentAccount.address);
+
+        return userBids.map((bid: any) => ({
+          id: bid.id,
+          squadId: Number(bid.squad_id),
+          bidAmount: Number(bid.bid_amount),
+          duration: Number(bid.duration),
+          createdAt: Number(bid.created_at),
+          status: bid.status,
+        }));
+      } catch (error) {
+        console.error("Error fetching user bids:", error);
+        return [];
+      }
+    },
+    enabled: !!currentAccount?.address && !!escrowRegistryId,
   });
 }; 

@@ -8,7 +8,6 @@ import LiveSessionPage from "./live/[session_id]/page";
 import SquadPage from "./squad";
 import NewSquadPage from "./squad/new/page";
 import ProtectedRoute from "@/components/ui/hoc/protected-route";
-import RedirectToLogin from "@/components/ui/hoc/redirect-to-login";
 
 export const router = createBrowserRouter([
   {
@@ -16,7 +15,11 @@ export const router = createBrowserRouter([
     children: [
       { 
         index: true, 
-        Component: RedirectToLogin 
+        Component: () => (
+          <ProtectedRoute>
+            <Home />
+          </ProtectedRoute>
+        )
       },
       {
         path: "login",

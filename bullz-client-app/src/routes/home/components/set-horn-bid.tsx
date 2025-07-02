@@ -5,10 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState } from "react";
+import { useFormContext, useWatch } from "react-hook-form";
 import BullHornBid from "./bull-horn-bid";
 import FreeHornBid from "./free-horn-bid";
 import LockedHorns from "./locked-horns";
 import BottomSheet from "@/components/general/bottom-sheet";
+import { useCreateBid } from "@/lib/hooks/use-squad-contract";
+import { HornForm } from "../index";
 
 interface SetHornBidProps {
   isOpen: boolean;
@@ -16,13 +19,63 @@ interface SetHornBidProps {
 }
 
 const SetHornBid = (props: SetHornBidProps) => {
-  // const squadWatch = useWatch({ control: formContext.control, name: "squad" });
-  // const wagerAmountWatch = useWatch({
-  //   control: formContext.control,
-  //   name: "wager_amount",
-  // });
+  const formContext = useFormContext<HornForm>();
+  const createBid = useCreateBid();
+  
+  const squadWatch = useWatch({ control: formContext.control, name: "squad" });
+  const wagerAmountWatch = useWatch({
+    control: formContext.control,
+    name: "wager_amount",
+  });
+  const timeLimitWatch = useWatch({
+    control: formContext.control,
+    name: "time_limit",
+  });
 
   const [isLocked, setIsLocked] = useState(false);
+  const [currentTab, setCurrentTab] = useState("bull-run");
+
+  const handleLockHorns = async () => {
+    try {
+      if (!squadWatch?.squad?.id) {
+        console.error("No squad selected");
+        return;
+      }
+
+      if (currentTab === "bull-run") {
+        // Bull-run mode: Create actual bid with wager
+        if (!wagerAmountWatch || !timeLimitWatch) {
+          console.error("Missing wager amount or time limit");
+          return;
+        }
+
+        // Convert time from seconds to minutes (assuming the input is in seconds)
+        const timeInMinutes = Math.max(1, Math.floor(timeLimitWatch / 60));
+        
+        console.log("Creating bid:", {
+          squadId: Number(squadWatch.squad.id),
+          bidAmountInSui: Number(wagerAmountWatch),
+          durationInMinutes: timeInMinutes,
+        });
+
+        await createBid.mutateAsync({
+          squadId: Number(squadWatch.squad.id),
+          bidAmountInSui: Number(wagerAmountWatch),
+          durationInMinutes: timeInMinutes,
+        });
+
+        console.log("Bid created successfully!");
+      } else {
+        // Free-run mode: Just simulate locking without real bid
+        console.log("Free-run mode: No real bid created");
+      }
+      
+      setIsLocked(true);
+    } catch (error) {
+      console.error("Failed to lock horns:", error);
+      // Keep the modal open on error so user can try again
+    }
+  };
 
   return (
     <>
@@ -38,6 +91,8 @@ const SetHornBid = (props: SetHornBidProps) => {
             <>
               <Tabs
                 defaultValue="bull-run"
+                value={currentTab}
+                onValueChange={setCurrentTab}
                 className="w-full mx-auto mt-[1rem]"
               >
                 <TabsList className="bg-gray-850 mx-auto w-full">
@@ -65,14 +120,16 @@ const SetHornBid = (props: SetHornBidProps) => {
                 <Button
                   type="button"
                   className="w-full text-[1.0625rem]"
-                  onClick={() => setIsLocked(true)}
+                  onClick={handleLockHorns}
+                  disabled={createBid.isPending}
                 >
-                  LOCK HORNS
+                  {createBid.isPending ? "CREATING BID..." : "LOCK HORNS"}
                 </Button>
                 <Button
                   type="button"
                   className="w-full text-[1.0625rem]"
                   variant={"secondary"}
+                  onClick={props.onClose}
                 >
                   CANCEL
                 </Button>
