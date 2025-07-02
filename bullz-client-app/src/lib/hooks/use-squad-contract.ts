@@ -361,78 +361,129 @@ export const useCreateBid = () => {
       bidAmountInSui: number;
       durationInMinutes: number;
     }) => {
-      if (!currentAccount?.address) {
-        throw new Error("Wallet not connected");
+      try {
+        if (!currentAccount?.address) {
+          throw new Error("Wallet not connected");
+        }
+
+        // Validate network variables
+        if (!packageId || !escrowRegistryId || !squadRegistryId || !activeSquadRegistryId || !feeConfigId) {
+          console.error("Missing network variables:", {
+            packageId,
+            escrowRegistryId,
+            squadRegistryId,
+            activeSquadRegistryId,
+            feeConfigId,
+          });
+          throw new Error("Missing required network configuration");
+        }
+
+        // Convert SUI to MIST and minutes to milliseconds
+        const bidAmountInMist = Math.floor(bidAmountInSui * Number(MIST_PER_SUI));
+        const durationInMs = durationInMinutes * 60 * 1000;
+
+        console.log(`Creating bid: Squad ${squadId}, Amount ${bidAmountInSui} SUI (${bidAmountInMist} MIST), Duration ${durationInMinutes}min (${durationInMs}ms)`);
+
+        // Validate bid amount meets minimum
+        const MIN_BID_AMOUNT = 1_000_000; // 0.001 SUI in MIST
+        if (bidAmountInMist < MIN_BID_AMOUNT) {
+          throw new Error(`Bid amount must be at least ${MIN_BID_AMOUNT / Number(MIST_PER_SUI)} SUI`);
+        }
+
+        // Validate duration
+        const MIN_DURATION = 60_000; // 1 minute in milliseconds
+        const MAX_DURATION = 1_800_000; // 30 minutes in milliseconds
+        if (durationInMs < MIN_DURATION || durationInMs > MAX_DURATION) {
+          throw new Error(`Duration must be between 1-30 minutes`);
+        }
+
+        // Get fee configuration to calculate total required payment
+        console.log("Fetching fee configuration...");
+        const feeConfigObject = await suiClient.getObject({
+          id: feeConfigId,
+          options: { showContent: true },
+        });
+
+        if (!feeConfigObject.data?.content || feeConfigObject.data.content.dataType !== "moveObject") {
+          throw new Error("Failed to fetch fee configuration");
+        }
+
+        const feeConfig = feeConfigObject.data.content.fields as any;
+        console.log("Fee config:", feeConfig);
+        
+        if (!feeConfig.upfront_fee_bps) {
+          throw new Error("Fee configuration missing upfront_fee_bps field");
+        }
+
+        const bidFeeRate = Number(feeConfig.upfront_fee_bps) / 10000; // Convert basis points to decimal
+        const feeAmountInMist = Math.floor(bidAmountInMist * bidFeeRate);
+        const totalRequiredInMist = bidAmountInMist + feeAmountInMist;
+
+        console.log(`Fee calculation: ${bidFeeRate * 100}% = ${feeAmountInMist} MIST, Total required: ${totalRequiredInMist} MIST`);
+
+        // Check user's balance
+        const balance = await suiClient.getBalance({
+          owner: currentAccount.address,
+          coinType: "0x2::sui::SUI",
+        });
+
+        const userBalanceInMist = BigInt(balance.totalBalance);
+        if (userBalanceInMist < BigInt(totalRequiredInMist)) {
+          throw new Error(`Insufficient balance. Need ${totalRequiredInMist / Number(MIST_PER_SUI)} SUI, have ${Number(userBalanceInMist) / Number(MIST_PER_SUI)} SUI`);
+        }
+
+        // Create transaction
+        console.log("Creating transaction...");
+        const tx = new Transaction();
+
+        // Split coins for payment (bid amount + fee)
+        const [payment] = tx.splitCoins(tx.gas, [totalRequiredInMist]);
+
+        // Call create_bid function
+        tx.moveCall({
+          package: packageId,
+          module: "match_escrow",
+          function: "create_bid",
+          arguments: [
+            tx.object(escrowRegistryId),
+            tx.object(squadRegistryId),
+            tx.object(activeSquadRegistryId),
+            tx.object(feeConfigId),
+            tx.pure.u64(squadId),
+            tx.pure.u64(bidAmountInMist),
+            tx.pure.u64(durationInMs),
+            payment,
+            tx.object("0x6"), // Clock object
+          ],
+        });
+
+        console.log("Executing transaction...");
+
+        // Execute transaction
+        return new Promise((resolve, reject) => {
+          signAndExecute(
+            { transaction: tx },
+            {
+              onSuccess: (result) => {
+                console.log("Bid created successfully:", result);
+                resolve({
+                  result,
+                  squadId,
+                  bidAmountInSui,
+                  durationInMinutes,
+                });
+              },
+              onError: (error) => {
+                console.error("Failed to create bid:", error);
+                reject(new Error(`Transaction failed: ${error.message || error}`));
+              },
+            }
+          );
+        });
+      } catch (error) {
+        console.error("Error in create bid:", error);
+        throw error;
       }
-
-      // Convert SUI to MIST and minutes to milliseconds
-      const bidAmountInMist = Math.floor(bidAmountInSui * Number(MIST_PER_SUI));
-      const durationInMs = durationInMinutes * 60 * 1000;
-
-      console.log(`Creating bid: Squad ${squadId}, Amount ${bidAmountInSui} SUI (${bidAmountInMist} MIST), Duration ${durationInMinutes}min (${durationInMs}ms)`);
-
-      // Get fee configuration to calculate total required payment
-      const feeConfigObject = await suiClient.getObject({
-        id: feeConfigId,
-        options: { showContent: true },
-      });
-
-      if (!feeConfigObject.data?.content || feeConfigObject.data.content.dataType !== "moveObject") {
-        throw new Error("Failed to fetch fee configuration");
-      }
-
-      const feeConfig = feeConfigObject.data.content.fields as any;
-      const bidFeeRate = Number(feeConfig.bid_fee_rate) / 10000; // Convert basis points to decimal
-      const feeAmountInMist = Math.floor(bidAmountInMist * bidFeeRate);
-      const totalRequiredInMist = bidAmountInMist + feeAmountInMist;
-
-      console.log(`Fee calculation: ${bidFeeRate * 100}% = ${feeAmountInMist} MIST, Total required: ${totalRequiredInMist} MIST`);
-
-      // Create transaction
-      const tx = new Transaction();
-
-      // Split coins for payment (bid amount + fee)
-      const [payment] = tx.splitCoins(tx.gas, [totalRequiredInMist]);
-
-      // Call create_bid function
-      tx.moveCall({
-        package: packageId,
-        module: "match_escrow",
-        function: "create_bid",
-        arguments: [
-          tx.object(escrowRegistryId),
-          tx.object(squadRegistryId),
-          tx.object(activeSquadRegistryId),
-          tx.object(feeConfigId),
-          tx.pure.u64(squadId),
-          tx.pure.u64(bidAmountInMist),
-          tx.pure.u64(durationInMs),
-          payment,
-          tx.object("0x6"), // Clock object
-        ],
-      });
-
-      // Execute transaction
-      return new Promise((resolve, reject) => {
-        signAndExecute(
-          { transaction: tx },
-          {
-            onSuccess: (result) => {
-              console.log("Bid created successfully:", result);
-              resolve({
-                result,
-                squadId,
-                bidAmountInSui,
-                durationInMinutes,
-              });
-            },
-            onError: (error) => {
-              console.error("Failed to create bid:", error);
-              reject(error);
-            },
-          }
-        );
-      });
     },
   });
 };
@@ -451,6 +502,8 @@ export const useGetUserBids = () => {
       }
 
       try {
+        console.log("🔍 Fetching user bids...");
+        
         // Get escrow registry to check for user's bids
         const escrowRegistry = await suiClient.getObject({
           id: escrowRegistryId,
@@ -458,29 +511,169 @@ export const useGetUserBids = () => {
         });
 
         if (!escrowRegistry.data?.content || escrowRegistry.data.content.dataType !== "moveObject") {
-          console.log("Failed to fetch escrow registry");
+          console.log("❌ Failed to fetch escrow registry");
           return [];
         }
 
         const registryFields = escrowRegistry.data.content.fields as any;
-        const activeBids = registryFields.active_bids || [];
+        console.log("📋 Escrow registry fields:", registryFields);
 
-        // Filter bids created by current user
-        const userBids = activeBids.filter((bid: any) => bid.creator === currentAccount.address);
+        // Check if user has active bids using the user_active_bids table
+        const userActiveBidsTableId = registryFields.user_active_bids.fields.id.id;
+        console.log("📋 User active bids table ID:", userActiveBidsTableId);
 
-        return userBids.map((bid: any) => ({
-          id: bid.id,
-          squadId: Number(bid.squad_id),
-          bidAmount: Number(bid.bid_amount),
-          duration: Number(bid.duration),
-          createdAt: Number(bid.created_at),
-          status: bid.status,
-        }));
+        try {
+          // Get dynamic fields for user active bids table
+          const userBidsFields = await suiClient.getDynamicFields({
+            parentId: userActiveBidsTableId,
+          });
+
+          console.log("🔍 User bids fields:", userBidsFields);
+
+          // Find the user's entry in the user_active_bids table
+          const userBidEntry = userBidsFields.data.find(field => {
+            if (field.name.type === "address" && field.name.value === currentAccount.address) {
+              return true;
+            }
+            return false;
+          });
+
+          if (!userBidEntry) {
+            console.log("📝 User has no active bids");
+            return [];
+          }
+
+          console.log("🎯 Found user bid entry:", userBidEntry);
+
+          // Get the bid indices for this user
+          const userBidIndicesObject = await suiClient.getObject({
+            id: userBidEntry.objectId,
+            options: { showContent: true },
+          });
+
+          if (!userBidIndicesObject.data?.content || userBidIndicesObject.data.content.dataType !== "moveObject") {
+            console.log("❌ Failed to fetch user bid indices");
+            return [];
+          }
+
+          const bidIndices = (userBidIndicesObject.data.content.fields as any).value;
+          console.log("🎯 User bid indices:", bidIndices);
+
+          if (!bidIndices || bidIndices.length === 0) {
+            console.log("📝 User has no active bids");
+            return [];
+          }
+
+          // Get active bids from the registry
+          const activeBids = registryFields.active_bids || [];
+          console.log("📊 Total active bids:", activeBids.length);
+
+          // Get user's bids by indices
+          const userBids = bidIndices.map((index: number) => {
+            if (index < activeBids.length) {
+              const bid = activeBids[index];
+              console.log(`📊 Bid at index ${index}:`, bid);
+              
+              return {
+                id: bid.fields.id.id,
+                squadId: Number(bid.fields.squad_id),
+                bidAmount: Number(bid.fields.bid_amount),
+                duration: Number(bid.fields.duration),
+                createdAt: Number(bid.fields.created_at),
+                status: bid.fields.status,
+                creator: bid.fields.creator,
+              };
+            }
+            return null;
+          }).filter(Boolean);
+
+          console.log("✅ Final user bids:", userBids);
+          return userBids;
+
+        } catch (error) {
+          console.log("❌ Error checking user active bids table:", error);
+          return [];
+        }
       } catch (error) {
-        console.error("Error fetching user bids:", error);
+        console.error("❌ Error fetching user bids:", error);
         return [];
       }
     },
     enabled: !!currentAccount?.address && !!escrowRegistryId,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    retry: 1,
+  });
+};
+
+// Hook for cancelling a bid
+export const useCancelBid = () => {
+  const suiClient = useSuiClient();
+  const currentAccount = useCurrentAccount();
+  const { mutate: signAndExecute } = useSignAndExecuteTransaction();
+  const packageId = useNetworkVariable("packageId");
+  const escrowRegistryId = useNetworkVariable("escrowRegistryId");
+  const activeSquadRegistryId = useNetworkVariable("activeSquadRegistryId");
+
+  return useMutation({
+    mutationKey: ["cancel-bid"],
+    mutationFn: async ({ bidId }: { bidId: string }) => {
+      try {
+        if (!currentAccount?.address) {
+          throw new Error("Wallet not connected");
+        }
+
+        // Validate network variables
+        if (!packageId || !escrowRegistryId || !activeSquadRegistryId) {
+          console.error("Missing network variables:", {
+            packageId,
+            escrowRegistryId,
+            activeSquadRegistryId,
+          });
+          throw new Error("Missing required network configuration");
+        }
+
+        console.log(`Cancelling bid: ${bidId}`);
+
+        // Create transaction
+        const tx = new Transaction();
+
+        // Call cancel_bid function
+        tx.moveCall({
+          package: packageId,
+          module: "match_escrow",
+          function: "cancel_bid",
+          arguments: [
+            tx.object(escrowRegistryId),
+            tx.object(activeSquadRegistryId),
+            tx.pure.id(bidId),
+          ],
+        });
+
+        console.log("Executing cancel bid transaction...");
+
+        // Execute transaction
+        return new Promise((resolve, reject) => {
+          signAndExecute(
+            { transaction: tx },
+            {
+              onSuccess: (result) => {
+                console.log("Bid cancelled successfully:", result);
+                resolve({
+                  result,
+                  bidId,
+                });
+              },
+              onError: (error) => {
+                console.error("Failed to cancel bid:", error);
+                reject(new Error(`Transaction failed: ${error.message || error}`));
+              },
+            }
+          );
+        });
+      } catch (error) {
+        console.error("Error in cancel bid:", error);
+        throw error;
+      }
+    },
   });
 }; 

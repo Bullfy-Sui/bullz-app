@@ -10,7 +10,7 @@ import BullHornBid from "./bull-horn-bid";
 import FreeHornBid from "./free-horn-bid";
 import LockedHorns from "./locked-horns";
 import BottomSheet from "@/components/general/bottom-sheet";
-import { useCreateBid } from "@/lib/hooks/use-squad-contract";
+import { useCreateBid, useGetUserBids } from "@/lib/hooks/use-squad-contract";
 import { HornForm } from "../index";
 
 interface SetHornBidProps {
@@ -21,6 +21,7 @@ interface SetHornBidProps {
 const SetHornBid = (props: SetHornBidProps) => {
   const formContext = useFormContext<HornForm>();
   const createBid = useCreateBid();
+  const { refetch: refetchUserBids } = useGetUserBids();
   
   const squadWatch = useWatch({ control: formContext.control, name: "squad" });
   const wagerAmountWatch = useWatch({
@@ -35,24 +36,47 @@ const SetHornBid = (props: SetHornBidProps) => {
   const [isLocked, setIsLocked] = useState(false);
   const [currentTab, setCurrentTab] = useState("bull-run");
 
+  // Debug component state
+  console.log("🏗️ SetHornBid component state:", {
+    isOpen: props.isOpen,
+    squadWatch,
+    wagerAmountWatch,
+    timeLimitWatch,
+    currentTab,
+    isLocked,
+    createBidPending: createBid.isPending,
+  });
+
   const handleLockHorns = async () => {
+    console.log("🚀 LOCK HORNS button clicked!");
+    console.log("🔍 Debug data:", {
+      squadWatch,
+      wagerAmountWatch,
+      timeLimitWatch,
+      currentTab,
+      isLocked,
+      isPending: createBid.isPending,
+    });
+
     try {
       if (!squadWatch?.squad?.id) {
-        console.error("No squad selected");
+        console.error("❌ No squad selected");
+        alert("Please select a squad first!");
         return;
       }
 
       if (currentTab === "bull-run") {
         // Bull-run mode: Create actual bid with wager
         if (!wagerAmountWatch || !timeLimitWatch) {
-          console.error("Missing wager amount or time limit");
+          console.error("❌ Missing wager amount or time limit");
+          alert("Please set wager amount and time limit!");
           return;
         }
 
-        // Convert time from seconds to minutes (assuming the input is in seconds)
-        const timeInMinutes = Math.max(1, Math.floor(timeLimitWatch / 60));
+        // Convert time from seconds to minutes (the form stores time in seconds)
+        const timeInMinutes = Math.max(1, Math.round(timeLimitWatch / 60));
         
-        console.log("Creating bid:", {
+        console.log("✅ Creating bid:", {
           squadId: Number(squadWatch.squad.id),
           bidAmountInSui: Number(wagerAmountWatch),
           durationInMinutes: timeInMinutes,
@@ -64,15 +88,19 @@ const SetHornBid = (props: SetHornBidProps) => {
           durationInMinutes: timeInMinutes,
         });
 
-        console.log("Bid created successfully!");
+        console.log("✅ Bid created successfully!");
+        
+        // Refetch user bids to update the tracking
+        await refetchUserBids();
       } else {
         // Free-run mode: Just simulate locking without real bid
-        console.log("Free-run mode: No real bid created");
+        console.log("✅ Free-run mode: No real bid created");
       }
       
       setIsLocked(true);
     } catch (error) {
-      console.error("Failed to lock horns:", error);
+      console.error("❌ Failed to lock horns:", error);
+      alert(`Failed to create bid: ${error instanceof Error ? error.message : String(error)}`);
       // Keep the modal open on error so user can try again
     }
   };
@@ -119,12 +147,19 @@ const SetHornBid = (props: SetHornBidProps) => {
               <div className="w-full space-y-[1rem] mt-[1rem] ">
                 <Button
                   type="button"
-                  className="w-full text-[1.0625rem]"
-                  onClick={handleLockHorns}
+                  className="w-full text-[1.0625rem] cursor-pointer hover:opacity-90 transition-opacity"
+                  onClick={(e) => {
+                    console.log("🖱️ Button click event triggered");
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleLockHorns();
+                  }}
                   disabled={createBid.isPending}
+                  style={{ pointerEvents: 'auto' }}
                 >
                   {createBid.isPending ? "CREATING BID..." : "LOCK HORNS"}
                 </Button>
+                
                 <Button
                   type="button"
                   className="w-full text-[1.0625rem]"
@@ -136,7 +171,15 @@ const SetHornBid = (props: SetHornBidProps) => {
               </div>
             </>
           )}
-          {isLocked && <LockedHorns onCancel={() => props.onClose()} />}
+          {isLocked && (
+            <LockedHorns 
+              onCancel={() => {
+                setIsLocked(false);
+                props.onClose();
+              }} 
+              squadId={squadWatch?.squad?.id ? Number(squadWatch.squad.id) : undefined}
+            />
+          )}
         </div>
       </BottomSheet>
     </>

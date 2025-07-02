@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useDisclosure } from "@/lib/hooks/use-diclosure";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
 import SetHornBid from "./components/set-horn-bid";
-import { useGetUserSquads } from "@/lib/hooks/use-squad-contract";
+import { useGetUserSquads, useGetUserBids } from "@/lib/hooks/use-squad-contract";
 import { SquadResponseItem } from "../squad/api-services/types";
 import AddNewSquadButton from "../squad/components/add-new-squad-button";
 import Pitch from "../squad/components/pitch";
@@ -12,6 +12,7 @@ import { formationLayouts } from "../squad/constants";
 import { FormationLayoutKey } from "../squad/types";
 import { useNavigate } from "react-router";
 import { useMemo, useEffect } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export interface HornForm {
   wager_amount: number;
@@ -21,6 +22,7 @@ export interface HornForm {
 
 export default function Home() {
   const { data: userSquads, isLoading } = useGetUserSquads();
+  const { data: userBids, isLoading: isLoadingBids } = useGetUserBids();
   const navigate = useNavigate();
 
   // Convert SquadData[] to SquadResponse format for compatibility
@@ -75,8 +77,21 @@ export default function Home() {
 
   const form = useForm<HornForm>({
     defaultValues: {
-      wager_amount: 1, // Start with 1 SUI
-      time_limit: 60, // Start with 1 minute (60 seconds)
+      squad: {
+        squad: {
+          id: "",
+          name: "",
+          owner_id: "",
+          wallet_address: "",
+          formation: "OneThreeTwoOne",
+          total_value: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        players: [],
+      },
+      wager_amount: 1,
+      time_limit: 60, // 1 minute in seconds
     },
   });
 
@@ -103,6 +118,28 @@ export default function Home() {
     }
   }, [squadData?.data, squadWatch, form]);
 
+  // Initialize form when userSquads data becomes available
+  useEffect(() => {
+    if (userSquads && userSquads.length > 0 && !squadWatch.squad.id) {
+      const firstSquad = userSquads[0];
+      form.setValue("squad", {
+        squad: {
+          id: firstSquad.squad_id.toString(),
+          name: firstSquad.name,
+          owner_id: firstSquad.owner,
+          wallet_address: firstSquad.owner,
+          formation: "OneThreeTwoOne",
+          total_value: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        players: [],
+      });
+    }
+  }, [userSquads, squadWatch.squad.id, form]);
+
+  const hasActiveBids = userBids && userBids.length > 0;
+
   const onSubmit = form.handleSubmit((data) => {
     console.log(data);
     // router.push("/session");
@@ -110,11 +147,9 @@ export default function Home() {
 
   if (isLoading) {
     return (
-      <NavWrapper>
-        <div className="flex items-center justify-center h-64">
-          <p className="text-white font-offbit">Loading squads...</p>
-        </div>
-      </NavWrapper>
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="font-offbit text-white">Loading squads...</p>
+      </div>
     );
   }
 
@@ -157,8 +192,7 @@ export default function Home() {
               onPlayerClick={(player) => {
                 console.log("Player clicked:", player);
               }}
-              ctaLabel="Lock horns"
-              ctaOnClick={squadWatch?.squad?.id ? () => onOpen() : undefined}
+              ctaLabel=""
             />
           )}
 
@@ -193,6 +227,45 @@ export default function Home() {
               />
             </div>
           </div>
+
+          <Tabs defaultValue="tokens" className="w-full">
+            <TabsList className="bg-gray-850 mx-auto w-full mb-[1rem]">
+              <TabsTrigger
+                className="font-offbit text-[1.0625rem] font-[700] leading-[100%] tracking-[0.04em] text-center"
+                value="tokens"
+              >
+                COINS
+              </TabsTrigger>
+              <TabsTrigger
+                className="font-offbit text-[1.0625rem] font-[700] leading-[100%] tracking-[0.04em] text-center"
+                value="pitch"
+              >
+                PITCH
+              </TabsTrigger>
+              {hasActiveBids && (
+                <TabsTrigger
+                  className="font-offbit text-[1.0625rem] font-[700] leading-[100%] tracking-[0.04em] text-center"
+                  value="bids"
+                >
+                  ACTIVE BIDS
+                </TabsTrigger>
+              )}
+            </TabsList>
+
+            <TabsContent value="tokens" className="px-0">
+              {/* Token price list component */}
+            </TabsContent>
+
+            <TabsContent value="pitch" className="px-0">
+              {/* Squad pitch component */}
+            </TabsContent>
+
+            {hasActiveBids && (
+              <TabsContent value="bids" className="px-0">
+                {/* Active bids list component */}
+              </TabsContent>
+            )}
+          </Tabs>
 
           <SetHornBid isOpen={isOpen} onClose={onClose} />
         </form>

@@ -60,6 +60,10 @@ Manages football squads for the Bullfy platform, including creation, life manage
   - Fields: `squad_id: u64`, `players_added: vector<String>`, `total_players: u64`
   - Traits: `copy, drop`
 
+- **SquadUpdated**
+  - Fields: `squad_id: u64`, `updated_by: address`, `name_changed: bool`, `players_changed: bool`, `new_name: String`, `new_players: vector<String>`, `total_players: u64`
+  - Traits: `copy, drop`
+
 ### Constants
 
 - **MIN_SQUAD_NAME_LENGTH**: `u64 = 1`
@@ -114,6 +118,40 @@ Manages football squads for the Bullfy platform, including creation, life manage
   - **Returns**: None (entry function)
   - **Validation**: Owner only, duplicate checking, exact count requirement
   - **Emits**: `PlayersAddedToSquad` event
+
+- **update_squad**
+  - **Purpose**: Updates squad name and/or players (flexible update function)
+  - **Arguments**:
+    - `registry: &mut SquadRegistry` — Registry for squad management
+    - `squad_id: u64` — ID of the squad to update
+    - `new_squad_name: Option<String>` — Optional new squad name (1-50 characters)
+    - `new_player_names: Option<vector<String>>` — Optional new player list (exactly 7 players)
+    - `ctx: &mut TxContext` — Transaction context
+  - **Returns**: None (entry function)
+  - **Validation**: Owner only, at least one field must be updated, duplicate checking for players
+  - **Emits**: `SquadUpdated` event
+
+- **update_squad_name**
+  - **Purpose**: Helper function to update only squad name
+  - **Arguments**:
+    - `registry: &mut SquadRegistry` — Registry for squad management
+    - `squad_id: u64` — ID of the squad to update
+    - `new_squad_name: String` — New squad name (1-50 characters)
+    - `ctx: &mut TxContext` — Transaction context
+  - **Returns**: None (entry function)
+  - **Validation**: Owner only, name length validation
+  - **Emits**: `SquadUpdated` event
+
+- **update_squad_players**
+  - **Purpose**: Helper function to update only squad players
+  - **Arguments**:
+    - `registry: &mut SquadRegistry` — Registry for squad management
+    - `squad_id: u64` — ID of the squad to update
+    - `new_player_names: vector<String>` — New player list (exactly 7 players)
+    - `ctx: &mut TxContext` — Transaction context
+  - **Returns**: None (entry function)
+  - **Validation**: Owner only, exact count requirement, duplicate checking
+  - **Emits**: `SquadUpdated` event
 
 #### Public View Functions
 

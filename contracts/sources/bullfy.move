@@ -92,6 +92,17 @@ module bullfy::squad_manager {
         total_players: u64,
     }
 
+    // Event emitted when squad is updated.
+    public struct SquadUpdated has copy, drop {
+        squad_id: u64,
+        updated_by: address,
+        name_changed: bool,
+        players_changed: bool,
+        new_name: String,
+        new_players: vector<String>,
+        total_players: u64,
+    }
+
     // Initializes the registries.
     fun init(ctx: &mut TxContext) {
         let squad_registry = SquadRegistry {
@@ -320,6 +331,93 @@ module bullfy::squad_manager {
     // Helper function to check if instant revival is available (squad is dead)
     public fun can_revive_instant(squad: &Squad): bool {
         squad.life == 0 && option::is_some(&squad.death_time)
+    }
+
+    // Updates squad name and/or players (only squad owner can update)
+    public entry fun update_squad(
+        registry: &mut SquadRegistry,
+        squad_id: u64,
+        mut new_squad_name: Option<String>,
+        mut new_player_names: Option<vector<String>>,
+        ctx: &mut TxContext
+    ) {
+        let sender = tx_context::sender(ctx);
+        assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
+        let squad = table::borrow_mut(&mut registry.squads, squad_id);
+        
+        // Only squad owner can update
+        assert!(squad.owner == sender, common_errors::unauthorized());
+        
+        let mut name_changed = false;
+        let mut players_changed = false;
+        
+        // Update squad name if provided
+        if (option::is_some(&new_squad_name)) {
+            let squad_name = option::extract(&mut new_squad_name);
+            // Validate squad name
+            assert!(string::length(&squad_name) >= MIN_SQUAD_NAME_LENGTH, E_INVALID_SQUAD_NAME);
+            assert!(string::length(&squad_name) <= MAX_SQUAD_NAME_LENGTH, E_INVALID_SQUAD_NAME);
+            
+            squad.name = squad_name;
+            name_changed = true;
+        };
+        
+        // Update players if provided
+        if (option::is_some(&new_player_names)) {
+            let player_names = option::extract(&mut new_player_names);
+            
+            // Must be exactly 7 players if updating
+            assert!(vector::length(&player_names) == 7, EMustAddExactlySevenPlayers);
+            
+            // Replace all players
+            squad.players = player_names;
+            players_changed = true;
+        };
+        
+        // At least one field must be updated
+        assert!(name_changed || players_changed, common_errors::invalid_argument());
+        
+        event::emit(SquadUpdated {
+            squad_id,
+            updated_by: sender,
+            name_changed,
+            players_changed,
+            new_name: squad.name,
+            new_players: squad.players,
+            total_players: vector::length(&squad.players),
+        });
+    }
+
+    // Helper function to update only squad name
+    public entry fun update_squad_name(
+        registry: &mut SquadRegistry,
+        squad_id: u64,
+        new_squad_name: String,
+        ctx: &mut TxContext
+    ) {
+        update_squad(
+            registry,
+            squad_id,
+            option::some(new_squad_name),
+            option::none(),
+            ctx
+        );
+    }
+
+    // Helper function to update only squad players
+    public entry fun update_squad_players(
+        registry: &mut SquadRegistry,
+        squad_id: u64,
+        new_player_names: vector<String>,
+        ctx: &mut TxContext
+    ) {
+        update_squad(
+            registry,
+            squad_id,
+            option::none(),
+            option::some(new_player_names),
+            ctx
+        );
     }
 
     // Adds 7 players to a squad in one call and sets the squad name (only squad owner can add players).
