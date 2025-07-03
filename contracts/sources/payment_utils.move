@@ -1,5 +1,5 @@
 module bullfy::payment_utils {
-    use sui::coin::{Self, Coin};
+    use sui::coin::Coin;
     use sui::sui::SUI;
     use bullfy::common_errors;
 
@@ -8,22 +8,24 @@ module bullfy::payment_utils {
         mut payment: Coin<SUI>,
         main_amount: u64,
         fee_amount: u64,
-        recipient: address,
+        payer: address,
         ctx: &mut TxContext
     ): (Coin<SUI>, Coin<SUI>) {
-        let payment_amount = coin::value(&payment);
+        let payment_amount = payment.value();
         let total_required = main_amount + fee_amount;
-        assert!(payment_amount >= total_required, common_errors::insufficient_payment());
+        
+        // Validate payment amount is sufficient
+        validate_payment_amount(payment_amount, total_required);
         
         if (payment_amount == total_required) {
             // Exact payment - split into main and fee
-            let fee_coin = coin::split(&mut payment, fee_amount, ctx);
+            let fee_coin = payment.split(fee_amount, ctx);
             (payment, fee_coin)
         } else {
             // Overpaid - split exact amounts and return change
-            let fee_coin = coin::split(&mut payment, fee_amount, ctx);
-            let main_coin = coin::split(&mut payment, main_amount, ctx);
-            sui::transfer::public_transfer(payment, recipient); // Return change
+            let fee_coin = payment.split(fee_amount, ctx);
+            let main_coin = payment.split(main_amount, ctx);
+            sui::transfer::public_transfer(payment, payer); // Return change
             (main_coin, fee_coin)
         }
     }

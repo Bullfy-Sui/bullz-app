@@ -1,7 +1,7 @@
 module bullfy::squad_manager {
     use sui::clock::{Self, Clock};
     use sui::event;
-    use sui::coin::{Self, Coin};
+    use sui::coin::Coin;
     use sui::sui::SUI;
     use sui::table::{Self, Table};
     use std::string::{Self, String};
@@ -9,6 +9,7 @@ module bullfy::squad_manager {
     use bullfy::admin::{Self, FeeConfig};
     use bullfy::common_errors;
     use bullfy::payment_utils;
+    use bullfy::user_stats::{Self, UserStatsRegistry};
 
     // Error constants (module-specific only)
     const ESquadNotFound: u64 = 4001;
@@ -116,23 +117,25 @@ module bullfy::squad_manager {
     }
 
     // Creates a new squad with empty players vector and 5 life points.
-    public entry fun create_squad(
+    entry fun create_squad(
         squad_registry: &mut SquadRegistry,
+        user_stats_registry: &mut UserStatsRegistry,
         fee_config: &FeeConfig,
         fees: &mut fee_collector::Fees,
         mut payment: Coin<SUI>,
+        clock: &Clock,
         ctx: &mut TxContext
     ) {
         let owner = tx_context::sender(ctx);
         
         // Calculate and handle squad creation fee using payment utils
         let creation_fee = admin::get_squad_creation_fee(fee_config);
-        payment_utils::validate_payment_amount(coin::value(&payment), creation_fee);
+        payment_utils::validate_payment_amount(payment.value(), creation_fee);
         
         // Handle exact payment (no change expected for creation fee)
-        if (coin::value(&payment) > creation_fee) {
-            let change_amount = coin::value(&payment) - creation_fee;
-            let change = coin::split(&mut payment, change_amount, ctx);
+        if (payment.value() > creation_fee) {
+            let change_amount = payment.value() - creation_fee;
+            let change = payment.split(change_amount, ctx);
             sui::transfer::public_transfer(change, owner);
         };
 
@@ -163,6 +166,16 @@ module bullfy::squad_manager {
         
         let owner_squads = table::borrow_mut(&mut squad_registry.owner_squads, owner);
         vector::push_back(owner_squads, squad_id);
+
+        // Update user stats for squad creation
+        user_stats::update_squad_stats(
+            user_stats_registry,
+            owner,
+            true, // squad_created
+            false, // squad_revived
+            clock,
+            ctx
+        );
 
         event::emit(SquadCreated { 
             owner,
@@ -233,8 +246,9 @@ module bullfy::squad_manager {
     // Revives a dead squad with automatic fee calculation based on wait time
     // - If less than 24 hours since death: instant revival fee (higher)
     // - If 24+ hours since death: standard revival fee (lower)
-    public entry fun revive_squad(
+    entry fun revive_squad(
         squad_registry: &mut SquadRegistry,
+        user_stats_registry: &mut UserStatsRegistry,
         fee_config: &FeeConfig,
         fees: &mut fee_collector::Fees,
         squad_id: u64,
@@ -267,12 +281,12 @@ module bullfy::squad_manager {
         };
 
         // Validate payment amount
-        payment_utils::validate_payment_amount(coin::value(&payment), revival_fee);
+        payment_utils::validate_payment_amount(payment.value(), revival_fee);
         
         // Handle payment with change return
-        if (coin::value(&payment) > revival_fee) {
-            let change_amount = coin::value(&payment) - revival_fee;
-            let change = coin::split(&mut payment, change_amount, ctx);
+        if (payment.value() > revival_fee) {
+            let change_amount = payment.value() - revival_fee;
+            let change = payment.split(change_amount, ctx);
             sui::transfer::public_transfer(change, owner);
         };
 
@@ -282,6 +296,16 @@ module bullfy::squad_manager {
         // Revive the squad
         squad.life = INITIAL_SQUAD_LIFE;
         squad.death_time = option::none();
+
+        // Update user stats for squad revival
+        user_stats::update_squad_stats(
+            user_stats_registry,
+            owner,
+            false, // squad_created
+            true, // squad_revived
+            clock,
+            ctx
+        );
         
         event::emit(SquadRevived {
             squad_id,
@@ -336,12 +360,12 @@ module bullfy::squad_manager {
     }
 
     // Updates squad name and/or players (only squad owner can update)
-    public entry fun update_squad(
+    entry fun update_squad(
         registry: &mut SquadRegistry,
         squad_id: u64,
         mut new_squad_name: Option<String>,
         mut new_player_names: Option<vector<String>>,
-        ctx: &mut TxContext
+        ctx: &TxContext
     ) {
         let sender = tx_context::sender(ctx);
         assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
@@ -391,11 +415,11 @@ module bullfy::squad_manager {
     }
 
     // Helper function to update only squad name
-    public entry fun update_squad_name(
+    entry fun update_squad_name(
         registry: &mut SquadRegistry,
         squad_id: u64,
         new_squad_name: String,
-        ctx: &mut TxContext
+        ctx: &TxContext
     ) {
         update_squad(
             registry,
@@ -407,11 +431,11 @@ module bullfy::squad_manager {
     }
 
     // Helper function to update only squad players
-    public entry fun update_squad_players(
+    entry fun update_squad_players(
         registry: &mut SquadRegistry,
         squad_id: u64,
         new_player_names: vector<String>,
-        ctx: &mut TxContext
+        ctx: &TxContext
     ) {
         update_squad(
             registry,
@@ -423,13 +447,13 @@ module bullfy::squad_manager {
     }
 
     // Adds 7 players to a squad in one call and sets the squad name (only squad owner can add players).
-    public entry fun add_players_to_squad(
+    entry fun add_players_to_squad(
         registry: &mut SquadRegistry,
         squad_id: u64,
         squad_name: String,
         formation: String,
         player_names: vector<String>,
-        ctx: &mut TxContext
+        ctx: &TxContext
     ) {
         assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
         let squad = table::borrow_mut(&mut registry.squads, squad_id);

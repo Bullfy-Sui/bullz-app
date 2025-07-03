@@ -126,8 +126,8 @@ module bullfy::admin {
         // because we dont create in the init function
     }
 
-    // Create a new AdminCap and transfer it to the specified address
-    public entry fun create_admin_cap(
+    // Creates an admin capability.
+    entry fun create_admin_cap(
         _: &OwnerCap,
         registry: &mut AdminRegistry,
         admin: address,
@@ -161,8 +161,8 @@ module bullfy::admin {
         });
     }
 
-    // Revoke an admin's capability
-    public entry fun revoke_admin_cap(
+    // Revokes an admin capability.
+    entry fun revoke_admin_cap(
         _: &OwnerCap,
         registry: &mut AdminRegistry,
         admin_cap: AdminCap,
@@ -187,11 +187,11 @@ module bullfy::admin {
         });
     }
 
-    // Admin can deactivate themselves temporarily
-    public entry fun deactivate_admin(
+    // Deactivate an admin
+    entry fun deactivate_admin(
         admin_cap: &mut AdminCap,
         clock: &Clock,
-        ctx: &mut TxContext
+        ctx: &TxContext
     ) {
         let sender = tx_context::sender(ctx);
         let current_time = clock::timestamp_ms(clock);
@@ -209,11 +209,11 @@ module bullfy::admin {
         });
     }
 
-    // Admin can reactivate themselves
-    public entry fun reactivate_admin(
+    // Reactivate an admin
+    entry fun reactivate_admin(
         admin_cap: &mut AdminCap,
         clock: &Clock,
-        ctx: &mut TxContext
+        ctx: &TxContext
     ) {
         let sender = tx_context::sender(ctx);
         let current_time = clock::timestamp_ms(clock);
@@ -237,16 +237,16 @@ module bullfy::admin {
         admin_cap.admin_address == sender && admin_cap.is_active
     }
 
-    // Transfer OwnerCap to a new owner
-    public entry fun transfer_owner_cap(
+    // Transfer the owner capability to a new address
+    entry fun transfer_owner_cap(
         owner_cap: OwnerCap,
         new_owner: address
     ) {
         transfer::transfer(owner_cap, new_owner);
     }
 
-    // Update the upfront fee percentage (admin only)
-    public entry fun update_fee_percentage(
+    // Update the fee percentage for squads
+    entry fun update_fee_percentage(
         admin_cap: &AdminCap,
         fee_config: &mut FeeConfig,
         new_fee_bps: u64,
@@ -271,8 +271,8 @@ module bullfy::admin {
         });
     }
 
-    // Update the squad creation fee (admin only)
-    public entry fun update_squad_creation_fee(
+    // Update the squad creation fee
+    entry fun update_squad_creation_fee(
         admin_cap: &AdminCap,
         fee_config: &mut FeeConfig,
         new_fee: u64,
@@ -297,8 +297,8 @@ module bullfy::admin {
         });
     }
 
-    // Update revival fees (admin only)
-    public entry fun update_revival_fees(
+    // Update the revival fees
+    entry fun update_revival_fees(
         admin_cap: &AdminCap,
         fee_config: &mut FeeConfig,
         new_standard_fee: u64,

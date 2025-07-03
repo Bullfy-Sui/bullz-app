@@ -57,7 +57,7 @@ module bullfy::match_signer {
     }
 
     // Create a new MatchSignerCap for a backend service (admin only)
-    public entry fun create_match_signer(
+    entry fun create_match_signer(
         _: &AdminCap,
         registry: &mut SignerRegistry,
         signer_address: address,
@@ -94,7 +94,7 @@ module bullfy::match_signer {
     }
 
     // Create a new MatchSignerCap using OwnerCap (for initial setup)
-    public entry fun create_match_signer_with_owner(
+    entry fun create_match_signer_with_owner(
         _: &OwnerCap,
         registry: &mut SignerRegistry,
         signer_address: address,
@@ -131,12 +131,12 @@ module bullfy::match_signer {
     }
 
     // Revoke a MatchSignerCap (admin only)
-    public entry fun revoke_match_signer(
+    entry fun revoke_match_signer(
         _: &AdminCap,
         registry: &mut SignerRegistry,
         signer_cap: MatchSignerCap,
         clock: &sui::clock::Clock,
-        ctx: &mut TxContext
+        ctx: &TxContext
     ) {
         let sender = tx_context::sender(ctx);
         let current_time = sui::clock::timestamp_ms(clock);
@@ -161,12 +161,12 @@ module bullfy::match_signer {
     }
 
     // Revoke a MatchSignerCap using OwnerCap
-    public entry fun revoke_match_signer_with_owner(
+    entry fun revoke_match_signer_with_owner(
         _: &OwnerCap,
         registry: &mut SignerRegistry,
         signer_cap: MatchSignerCap,
         clock: &sui::clock::Clock,
-        ctx: &mut TxContext
+        ctx: &TxContext
     ) {
         let sender = tx_context::sender(ctx);
         let current_time = sui::clock::timestamp_ms(clock);
@@ -191,10 +191,10 @@ module bullfy::match_signer {
     }
 
     // Deactivate a signer (temporarily disable without revoking)
-    public entry fun deactivate_signer(
+    entry fun deactivate_signer(
         signer_cap: &mut MatchSignerCap,
         clock: &sui::clock::Clock,
-        ctx: &mut TxContext
+        ctx: &TxContext
     ) {
         let sender = tx_context::sender(ctx);
         let current_time = sui::clock::timestamp_ms(clock);
@@ -212,10 +212,10 @@ module bullfy::match_signer {
     }
 
     // Reactivate a signer
-    public entry fun reactivate_signer(
+    entry fun reactivate_signer(
         signer_cap: &mut MatchSignerCap,
         clock: &sui::clock::Clock,
-        ctx: &mut TxContext
+        ctx: &TxContext
     ) {
         let sender = tx_context::sender(ctx);
         let current_time = sui::clock::timestamp_ms(clock);
