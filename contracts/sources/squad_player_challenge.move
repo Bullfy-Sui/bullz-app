@@ -13,6 +13,8 @@ module bullfy::squad_player_challenge {
     use bullfy::payment_utils;
     use bullfy::fee_calculator;
     use bullfy::user_stats::{Self, UserStatsRegistry};
+    use bullfy::match_signer::{Self, MatchSignerCap};
+    use bullfy::common_errors;
 
     // Error constants (module-specific only)
     const EUnauthorized: u64 = 2001;
@@ -29,12 +31,22 @@ module bullfy::squad_player_challenge {
     const ESquadAlreadyUsed: u64 = 2012;
     const ESquadActiveInChallenge: u64 = 2013;
     const EInsufficientBid: u64 = 2014;
+    const EPrivateChallengeNotAllowed: u64 = 2015;
+    const ENotChallengeCreator: u64 = 2016;
+    const EAlreadyInAllowedList: u64 = 2017;
+    const ENotInAllowedList: u64 = 2018;
 
     // Constants
     const MIN_PARTICIPANTS: u64 = 2;
     const MIN_BID_AMOUNT: u64 = 1_000_000; // 0.001 SUI 
     const MIN_DURATION: u64 = 300_000; // 5 minutes in milliseconds
     const MAX_DURATION: u64 = 2_592_000_000; // 30 days in milliseconds
+
+    // Challenge privacy enum
+    public enum ChallengePrivacy has copy, drop, store {
+        Public,     // Anyone can join
+        Private,    // Only invited participants can join
+    }
 
     // Challenge status enum
     public enum ChallengeStatus has copy, drop, store {
@@ -55,6 +67,8 @@ module bullfy::squad_player_challenge {
     public struct Challenge has key, store {
         id: UID,
         creator: address,
+        privacy: ChallengePrivacy,          // Privacy setting
+        allowed_participants: vector<address>, // For private challenges
         bid_amount: u64,                    // Required bid to join
         max_participants: u64,              // Maximum number of participants
         current_participants: u64,          // Current number of participants
@@ -72,6 +86,12 @@ module bullfy::squad_player_challenge {
         status: ChallengeStatus,           // Current status
         created_at: u64,                   // Creation timestamp
         updated_at: u64,                   // Last update timestamp
+        // NEW: Squad token price recording fields
+        participant_initial_token_sums: Table<address, u64>, // Sum of each participant's squad token values at start
+        participant_final_token_sums: Table<address, u64>,   // Sum of each participant's squad token values at end
+        participant_percentage_increases: Table<address, u64>, // Each participant's percentage increase (scaled by 10000)
+        participant_squad_token_prices: Table<address, vector<u64>>, // Token prices for each participant's squad at challenge start
+        participant_squad_final_token_prices: Table<address, vector<u64>>, // Token prices for each participant's squad at challenge completion
     }
 
     // Events
@@ -79,10 +99,13 @@ module bullfy::squad_player_challenge {
         challenge_id: ID,
         creator: address,
         creator_squad_id: u64,
+        privacy: u8,                       // 0 = Public, 1 = Private
         bid_amount: u64,
         max_participants: u64,
         scheduled_start_time: u64,
         duration: u64,
+        creator_initial_token_sum: u64,    // NEW: Creator's initial token sum
+        creator_squad_token_prices: vector<u64>, // NEW: Creator's squad token prices
     }
 
     public struct ParticipantJoined has copy, drop {
@@ -92,6 +115,8 @@ module bullfy::squad_player_challenge {
         bid_amount: u64,
         total_participants: u64,
         total_pool: u64,
+        participant_initial_token_sum: u64, // NEW: Participant's initial token sum
+        participant_squad_token_prices: vector<u64>, // NEW: Participant's squad token prices
     }
 
     public struct ChallengeStarted has copy, drop {
@@ -106,12 +131,28 @@ module bullfy::squad_player_challenge {
         challenge_id: ID,
         winner: address,
         prize_amount: u64,
+        winner_initial_sum: u64,           // NEW: Winner's initial token sum
+        winner_final_sum: u64,             // NEW: Winner's final token sum
+        winner_percentage_increase: u64,   // NEW: Winner's percentage increase (scaled by 10000)
+        winner_final_token_prices: vector<u64>, // NEW: Winner's final token prices
     }
 
     public struct ChallengeCancelled has copy, drop {
         challenge_id: ID,
         reason: String,
         refund_amount: u64,
+    }
+
+    public struct ParticipantAllowed has copy, drop {
+        challenge_id: ID,
+        participant: address,
+        added_by: address,
+    }
+
+    public struct ParticipantDisallowed has copy, drop {
+        challenge_id: ID,
+        participant: address,
+        removed_by: address,
     }
 
     public struct SquadRegisteredInChallenge has copy, drop {
@@ -155,7 +196,7 @@ module bullfy::squad_player_challenge {
         transfer::share_object(registry);
     }
 
-    // Create a new challenge with future scheduling and bid requirements
+    // Create a new challenge with privacy settings and token price recording
     entry fun create_challenge(
         squad_registry: &SquadRegistry,
         active_squad_registry: &mut ActiveSquadRegistry,
@@ -165,6 +206,8 @@ module bullfy::squad_player_challenge {
         max_participants: u64,
         scheduled_start_time: u64,
         duration: u64,
+        is_private: bool,                  // Privacy setting
+        creator_squad_token_prices: vector<u64>, // Creator's squad token prices at challenge creation
         creator_bid: Coin<SUI>,
         clock: &Clock,
         ctx: &mut TxContext
@@ -200,10 +243,19 @@ module bullfy::squad_player_challenge {
             ctx
         );
 
+        // Determine privacy setting
+        let privacy = if (is_private) {
+            ChallengePrivacy::Private
+        } else {
+            ChallengePrivacy::Public
+        };
+
         // Create the challenge
         let mut challenge = Challenge {
             id: object::new(ctx),
             creator,
+            privacy,                       // Set privacy
+            allowed_participants: vector::empty(), // Empty for now
             bid_amount,
             max_participants,
             current_participants: 1, // Creator is first participant
@@ -221,14 +273,22 @@ module bullfy::squad_player_challenge {
             status: ChallengeStatus::Scheduled,
             created_at: current_time,
             updated_at: current_time,
+            // Initialize token price tracking tables
+            participant_initial_token_sums: table::new(ctx),
+            participant_final_token_sums: table::new(ctx),
+            participant_percentage_increases: table::new(ctx),
+            participant_squad_token_prices: table::new(ctx),
+            participant_squad_final_token_prices: table::new(ctx),
         };
 
         let challenge_id = object::id(&challenge);
 
-        // Record creator's bid and squad
+        // Record creator's bid, fee, squad, and token data
         table::add(&mut challenge.participant_bids, creator, bid_amount);
         table::add(&mut challenge.participant_fees, creator, fee_amount);
         table::add(&mut challenge.participant_squads, creator, creator_squad_id);
+        // Only store the price vector, not the sum
+        table::add(&mut challenge.participant_squad_token_prices, creator, creator_squad_token_prices);
 
         // Register squad as active in this challenge
         table::add(&mut active_squad_registry.active_squads, creator_squad_id, challenge_id);
@@ -254,17 +314,20 @@ module bullfy::squad_player_challenge {
             challenge_id,
             creator,
             creator_squad_id,
+            privacy: if (is_private) { 1 } else { 0 }, // Privacy in event
             bid_amount,
             max_participants,
             scheduled_start_time,
             duration,
+            creator_initial_token_sum: 0, // Not calculated here
+            creator_squad_token_prices: creator_squad_token_prices, // For reference
         });
 
         // Share the challenge object
         transfer::share_object(challenge);
     }
 
-    // Join an existing challenge by paying the required bid
+    // Join an existing challenge by paying the required bid with token price recording
     entry fun join_challenge(
         squad_registry: &SquadRegistry,
         active_squad_registry: &mut ActiveSquadRegistry,
@@ -283,6 +346,16 @@ module bullfy::squad_player_challenge {
 
         // Check if squad is already active in another challenge
         assert!(!table::contains(&active_squad_registry.active_squads, participant_squad_id), ESquadActiveInChallenge);
+
+        // Check privacy permissions
+        if (challenge.privacy == ChallengePrivacy::Private) {
+            // For private challenges, participant must be in allowed list or be the creator
+            assert!(
+                participant == challenge.creator || 
+                vector::contains(&challenge.allowed_participants, &participant),
+                EPrivateChallengeNotAllowed
+            );
+        };
 
         // Check if this squad is already being used in this challenge
         let mut i = 0;
@@ -358,33 +431,52 @@ module bullfy::squad_player_challenge {
             bid_amount: challenge.bid_amount,
             total_participants: challenge.current_participants,
             total_pool: balance::value(&challenge.bid_pool),
+            participant_initial_token_sum: 0, // Not calculated here
+            participant_squad_token_prices: vector::empty<u64>(), // Not provided at join
         });
     }
 
-    // Start a scheduled challenge when the time comes
+    // Start a scheduled challenge when the time comes, and record initial token sums from frontend price feeds
     entry fun start_challenge(
+        signer_cap: &MatchSignerCap,
         challenge: &mut Challenge,
+        participant_squad_token_prices: vector<vector<u64>>, // Provided by frontend at start time
         clock: &Clock,
         ctx: &TxContext
     ) {
-        let sender = tx_context::sender(ctx);
         let current_time = clock::timestamp_ms(clock);
 
-        // Validate authorization (creator or any participant can start)
-        assert!(vector::contains(&challenge.participants, &sender), EUnauthorized);
+        // Validate signer capability (only authorized signers can start challenges)
+        assert!(match_signer::validate_match_signer(signer_cap, ctx), common_errors::unauthorized());
         
-        // Validate challenge state
+        // Validate challenge state and timing
         assert!(challenge.status == ChallengeStatus::Scheduled, EChallengeNotScheduled);
         assert!(current_time >= challenge.scheduled_start_time, EChallengeNotStarted);
         assert!(challenge.current_participants >= MIN_PARTICIPANTS, EChallengeNotReady);
 
-        // Update challenge status
+        // For each participant, record their initial token sum and price vector
+        let mut i = 0;
+        while (i < vector::length(&challenge.participants)) {
+            let participant = *vector::borrow(&challenge.participants, i);
+            let prices = *vector::borrow(&participant_squad_token_prices, i);
+            let mut sum = 0;
+            let mut j = 0;
+            while (j < vector::length(&prices)) {
+                sum = sum + *vector::borrow(&prices, j);
+                j = j + 1;
+            };
+            table::add(&mut challenge.participant_initial_token_sums, participant, sum);
+            table::add(&mut challenge.participant_squad_token_prices, participant, prices);
+            i = i + 1;
+        };
+
+        // Update challenge status and timing
         challenge.status = ChallengeStatus::Active;
         challenge.actual_start_time = option::some(current_time);
         challenge.end_time = option::some(current_time + challenge.duration);
         challenge.updated_at = current_time;
 
-        // Emit start event
+        // Emit challenge started event
         event::emit(ChallengeStarted {
             challenge_id: object::id(challenge),
             start_time: current_time,
@@ -404,7 +496,6 @@ module bullfy::squad_player_challenge {
             if (table::contains(&active_squad_registry.active_squads, squad_id)) {
                 table::remove(&mut active_squad_registry.active_squads, squad_id);
                 
-                // Emit squad unregistration event
                 event::emit(SquadUnregisteredFromChallenge {
                     squad_id,
                     challenge_id,
@@ -415,31 +506,77 @@ module bullfy::squad_player_challenge {
         };
     }
 
-    // Complete a challenge and distribute prizes
+    // Complete a challenge and distribute prizes with final token price recording
     entry fun complete_challenge(
+        signer_cap: &MatchSignerCap,
         active_squad_registry: &mut ActiveSquadRegistry,
         user_stats_registry: &mut UserStatsRegistry,
         challenge: &mut Challenge,
         fees: &mut Fees,
-        winner: address,
+        participant_squad_final_token_prices: vector<vector<u64>>, // NEW: Final token prices for all participants' squads
         clock: &Clock,
         ctx: &mut TxContext
     ) {
-        let sender = tx_context::sender(ctx);
         let current_time = clock::timestamp_ms(clock);
 
-        // Validate authorization (only creator can complete for now)
-        assert!(sender == challenge.creator, EUnauthorized);
+        // Validate signer capability (only authorized signers can complete challenges)
+        assert!(match_signer::validate_match_signer(signer_cap, ctx), common_errors::unauthorized());
         
         // Validate challenge state
         assert!(challenge.status == ChallengeStatus::Active, EChallengeAlreadyCompleted);
-        assert!(vector::contains(&challenge.participants, &winner), EInvalidWinner);
 
-        // Calculate prize distribution
+        // NEW: Calculate final token sums and percentage increases for all participants
+        let mut i = 0;
+        let mut best_performer = challenge.creator;
+        let mut best_percentage = 0u64;
+        
+        while (i < vector::length(&challenge.participants)) {
+            let participant = *vector::borrow(&challenge.participants, i);
+            let final_token_prices = *vector::borrow(&participant_squad_final_token_prices, i);
+            
+            // Calculate final token sum for this participant
+            let mut final_sum = 0;
+            let mut j = 0;
+            while (j < vector::length(&final_token_prices)) {
+                final_sum = final_sum + *vector::borrow(&final_token_prices, j);
+                j = j + 1;
+            };
+            
+            // Get initial sum for percentage calculation
+            let initial_sum = *table::borrow(&challenge.participant_initial_token_sums, participant);
+            
+            // Calculate percentage increase (scaled by 10000 for precision: 100% = 10000)
+            let percentage_increase = if (initial_sum > 0) {
+                if (final_sum >= initial_sum) {
+                    ((final_sum - initial_sum) * 10000) / initial_sum
+                } else {
+                    // Negative percentage (loss) - represent as 0 for now
+                    0
+                }
+            } else {
+                0 // Avoid division by zero
+            };
+            
+            // Record final data
+            table::add(&mut challenge.participant_final_token_sums, participant, final_sum);
+            table::add(&mut challenge.participant_percentage_increases, participant, percentage_increase);
+            table::add(&mut challenge.participant_squad_final_token_prices, participant, final_token_prices);
+            
+            // Track best performer
+            if (percentage_increase > best_percentage) {
+                best_percentage = percentage_increase;
+                best_performer = participant;
+            };
+            
+            i = i + 1;
+        };
+
+        let winner = best_performer;
+
+        // Calculate prize distribution amounts
         let total_pool = balance::value(&challenge.bid_pool);
         let collected_fees = balance::value(&challenge.fee_vault);
 
-        // Store data for stats update
         let challenge_duration = challenge.duration;
         let wager_amount = challenge.bid_amount;
 
@@ -451,7 +588,7 @@ module bullfy::squad_player_challenge {
         // Remove all squads from active registry
         remove_squads_from_active_registry(active_squad_registry, challenge);
 
-        // Update user statistics for all participants
+        // Update user stats for all participants
         let mut i = 0;
         while (i < vector::length(&challenge.participants)) {
             let participant = *vector::borrow(&challenge.participants, i);
@@ -473,19 +610,19 @@ module bullfy::squad_player_challenge {
             i = i + 1;
         };
 
-        // Distribute prizes
+        // Transfer prize to winner
         if (total_pool > 0) {
             let winner_coin = coin::from_balance(balance::split(&mut challenge.bid_pool, total_pool), ctx);
             transfer::public_transfer(winner_coin, winner);
         };
 
-        // Transfer collected upfront fees to fee collector
+        // Transfer collected fees to fee collector
         if (collected_fees > 0) {
             let upfront_fees_coin = coin::from_balance(balance::split(&mut challenge.fee_vault, collected_fees), ctx);
             fee_collector::collect(fees, upfront_fees_coin, ctx);
         };
         
-        // Emit fees transferred event if any fees were collected
+        // Emit fee transfer event
         if (collected_fees > 0) {
             event::emit(FeesTransferredToCollector {
                 challenge_id: object::id(challenge),
@@ -494,11 +631,21 @@ module bullfy::squad_player_challenge {
             });
         };
 
-        // Emit completion event
+        // NEW: Get winner's token performance data for event
+        let winner_initial_sum = *table::borrow(&challenge.participant_initial_token_sums, winner);
+        let winner_final_sum = *table::borrow(&challenge.participant_final_token_sums, winner);
+        let winner_percentage_increase = *table::borrow(&challenge.participant_percentage_increases, winner);
+        let winner_final_token_prices = *table::borrow(&challenge.participant_squad_final_token_prices, winner);
+
+        // Emit challenge completion event
         event::emit(ChallengeCompleted {
             challenge_id: object::id(challenge),
             winner,
             prize_amount: total_pool,
+            winner_initial_sum,           // NEW: Winner's initial token sum
+            winner_final_sum,             // NEW: Winner's final token sum
+            winner_percentage_increase,   // NEW: Winner's percentage increase
+            winner_final_token_prices, // NEW: Winner's final token prices
         });
     }
 
@@ -523,17 +670,17 @@ module bullfy::squad_player_challenge {
             EChallengeAlreadyCompleted
         );
 
-        // Update status
-        challenge.status = ChallengeStatus::Cancelled;
-        challenge.updated_at = current_time;
-
         // Calculate refund amount before processing refunds
         let total_refund = balance::value(&challenge.bid_pool);
+
+        // Update challenge status and timestamp
+        challenge.status = ChallengeStatus::Cancelled;
+        challenge.updated_at = current_time;
 
         // Remove all squads from active registry
         remove_squads_from_active_registry(active_squad_registry, challenge);
 
-        // Refund all participants
+        // Refund all participants their bids and fees
         refund_participants(challenge, ctx);
 
         // Emit cancellation event
@@ -549,18 +696,19 @@ module bullfy::squad_player_challenge {
         let mut i = 0;
         let mut total_fees_refunded = 0u64;
         
+        // Refund each participant their bid and fee amounts
         while (i < vector::length(&challenge.participants)) {
             let participant = *vector::borrow(&challenge.participants, i);
             let bid_amount = *table::borrow(&challenge.participant_bids, participant);
             let fee_amount = *table::borrow(&challenge.participant_fees, participant);
             
-            // Refund bid
+            // Refund the bid amount
             if (bid_amount > 0) {
                 let refund_coin = coin::from_balance(balance::split(&mut challenge.bid_pool, bid_amount), ctx);
                 transfer::public_transfer(refund_coin, participant);
             };
             
-            // Refund fee
+            // Refund the fee amount
             if (fee_amount > 0) {
                 let fee_refund_coin = coin::from_balance(balance::split(&mut challenge.fee_vault, fee_amount), ctx);
                 transfer::public_transfer(fee_refund_coin, participant);
@@ -570,7 +718,7 @@ module bullfy::squad_player_challenge {
             i = i + 1;
         };
         
-        // Emit fees refunded event
+        // Emit fees refunded event if any fees were refunded
         if (total_fees_refunded > 0) {
             event::emit(FeesRefunded {
                 challenge_id: object::id(challenge),
@@ -579,7 +727,7 @@ module bullfy::squad_player_challenge {
             });
         };
         
-        // Clean up tables (optional, but good practice)
+        // Clean up participant data structures
         while (!vector::is_empty(&challenge.participants)) {
             let participant = vector::pop_back(&mut challenge.participants);
             if (table::contains(&challenge.participant_bids, participant)) {
@@ -592,11 +740,14 @@ module bullfy::squad_player_challenge {
                 table::remove(&mut challenge.participant_squads, participant);
             };
         };
+        
+        // Reset participant count
         challenge.current_participants = 0;
     }
 
     // Auto-expire challenge if it hasn't started after scheduled time + grace period
     entry fun expire_challenge(
+        signer_cap: &MatchSignerCap,
         active_squad_registry: &mut ActiveSquadRegistry,
         challenge: &mut Challenge,
         clock: &Clock,
@@ -605,21 +756,27 @@ module bullfy::squad_player_challenge {
         let current_time = clock::timestamp_ms(clock);
         let grace_period = 3600000; // 1 hour grace period
         
+        // Validate signer capability (only authorized signers can expire challenges)
+        assert!(match_signer::validate_match_signer(signer_cap, ctx), common_errors::unauthorized());
+        
+        // Validate challenge state and timing
         assert!(challenge.status == ChallengeStatus::Scheduled, EChallengeNotScheduled);
         assert!(current_time > challenge.scheduled_start_time + grace_period, EChallengeNotStarted);
 
         // Calculate refund amount before processing refunds
         let total_refund = balance::value(&challenge.bid_pool);
 
-        // Cancel and refund
+        // Update challenge status
         challenge.status = ChallengeStatus::Cancelled;
         challenge.updated_at = current_time;
 
         // Remove all squads from active registry
         remove_squads_from_active_registry(active_squad_registry, challenge);
         
+        // Refund all participants
         refund_participants(challenge, ctx);
 
+        // Emit cancellation event
         event::emit(ChallengeCancelled {
             challenge_id: object::id(challenge),
             reason: string::utf8(b"Expired - not started within grace period"),
@@ -773,5 +930,207 @@ module bullfy::squad_player_challenge {
         } else {
             table::add(&mut active_squad_registry.active_squads, squad_id, new_challenge_id);
         };
+    }
+
+    // NEW: Privacy management functions for private challenges
+
+    // ADD a single participant to the allowed list of a private challenge
+    entry fun allow_participant(
+        challenge: &mut Challenge,
+        participant_to_allow: address,
+        clock: &Clock,
+        ctx: &TxContext
+    ) {
+        let sender = tx_context::sender(ctx);
+        let current_time = clock::timestamp_ms(clock);
+
+        // Only challenge creator can manage allowed participants
+        assert!(sender == challenge.creator, ENotChallengeCreator);
+        
+        // Can only modify allowed list before challenge starts
+        assert!(challenge.status == ChallengeStatus::Scheduled, EChallengeNotScheduled);
+        
+        // Must be a private challenge
+        assert!(challenge.privacy == ChallengePrivacy::Private, EPrivateChallengeNotAllowed);
+        
+        // Check if participant is already in allowed list
+        assert!(!vector::contains(&challenge.allowed_participants, &participant_to_allow), EAlreadyInAllowedList);
+        
+        // Check if we have room for more allowed participants
+        assert!(has_remaining_allowed_slots(challenge), EChallengeFull);
+
+        // ADD participant to allowed list
+        vector::push_back(&mut challenge.allowed_participants, participant_to_allow);
+        challenge.updated_at = current_time;
+
+        // Emit event
+        event::emit(ParticipantAllowed {
+            challenge_id: object::id(challenge),
+            participant: participant_to_allow,
+            added_by: sender,
+        });
+    }
+
+    // ADD multiple participants to the allowed list of a private challenge
+    entry fun allow_multiple_participants(
+        challenge: &mut Challenge,
+        participants_to_allow: vector<address>,
+        clock: &Clock,
+        ctx: &TxContext
+    ) {
+        let sender = tx_context::sender(ctx);
+        let current_time = clock::timestamp_ms(clock);
+
+        // Only challenge creator can manage allowed participants
+        assert!(sender == challenge.creator, ENotChallengeCreator);
+        
+        // Can only modify allowed list before challenge starts
+        assert!(challenge.status == ChallengeStatus::Scheduled, EChallengeNotScheduled);
+        
+        // Must be a private challenge
+        assert!(challenge.privacy == ChallengePrivacy::Private, EPrivateChallengeNotAllowed);
+
+        // Check if we have room for all participants
+        let participants_count = vector::length(&participants_to_allow);
+        let remaining_slots = get_remaining_allowed_slots(challenge);
+        assert!(participants_count <= remaining_slots, EChallengeFull);
+
+        // ADD each participant to allowed list
+        let mut i = 0;
+        while (i < participants_count) {
+            let participant = *vector::borrow(&participants_to_allow, i);
+            
+            // Skip if already in allowed list (don't error, just skip)
+            if (!vector::contains(&challenge.allowed_participants, &participant)) {
+                vector::push_back(&mut challenge.allowed_participants, participant);
+                
+                // Emit event for each participant added
+                event::emit(ParticipantAllowed {
+                    challenge_id: object::id(challenge),
+                    participant,
+                    added_by: sender,
+                });
+            };
+            
+            i = i + 1;
+        };
+
+        challenge.updated_at = current_time;
+    }
+
+    // REMOVE a participant from the allowed list of a private challenge
+    entry fun disallow_participant(
+        challenge: &mut Challenge,
+        participant_to_remove: address,
+        clock: &Clock,
+        ctx: &TxContext
+    ) {
+        let sender = tx_context::sender(ctx);
+        let current_time = clock::timestamp_ms(clock);
+
+        // Only challenge creator can manage allowed participants
+        assert!(sender == challenge.creator, ENotChallengeCreator);
+        
+        // Can only modify allowed list before challenge starts
+        assert!(challenge.status == ChallengeStatus::Scheduled, EChallengeNotScheduled);
+        
+        // Must be a private challenge
+        assert!(challenge.privacy == ChallengePrivacy::Private, EPrivateChallengeNotAllowed);
+        
+        // Check if participant is in allowed list
+        let (found, index) = vector::index_of(&challenge.allowed_participants, &participant_to_remove);
+        assert!(found, ENotInAllowedList);
+
+        // REMOVE participant from allowed list
+        vector::remove(&mut challenge.allowed_participants, index);
+        challenge.updated_at = current_time;
+
+        // Emit event
+        event::emit(ParticipantDisallowed {
+            challenge_id: object::id(challenge),
+            participant: participant_to_remove,
+            removed_by: sender,
+        });
+    }
+
+    // Check if a challenge is private
+    public fun is_private_challenge(challenge: &Challenge): bool {
+        challenge.privacy == ChallengePrivacy::Private
+    }
+
+    // Check if a challenge is public  
+    public fun is_public_challenge(challenge: &Challenge): bool {
+        challenge.privacy == ChallengePrivacy::Public
+    }
+
+    // Get challenge privacy type as string
+    public fun get_privacy_string(challenge: &Challenge): String {
+        if (challenge.privacy == ChallengePrivacy::Private) {
+            string::utf8(b"Private")
+        } else {
+            string::utf8(b"Public")
+        }
+    }
+
+    // Check if a participant is allowed to join a private challenge
+    public fun is_participant_allowed(challenge: &Challenge, participant: address): bool {
+        if (challenge.privacy == ChallengePrivacy::Public) {
+            true
+        } else {
+            participant == challenge.creator || 
+            vector::contains(&challenge.allowed_participants, &participant)
+        }
+    }
+
+    // Get the list of allowed participants for a private challenge
+    public fun get_allowed_participants(challenge: &Challenge): &vector<address> {
+        &challenge.allowed_participants
+    }
+
+    // Get the count of allowed participants for a private challenge
+    public fun get_allowed_participants_count(challenge: &Challenge): u64 {
+        vector::length(&challenge.allowed_participants)
+    }
+
+    // Check if there are remaining slots for allowed participants
+    public fun has_remaining_allowed_slots(challenge: &Challenge): bool {
+        if (challenge.privacy == ChallengePrivacy::Public) {
+            true
+        } else {
+            let total_allowed = vector::length(&challenge.allowed_participants) + 1; // +1 for creator
+            total_allowed < challenge.max_participants
+        }
+    }
+
+    // Get remaining slots for allowed participants
+    public fun get_remaining_allowed_slots(challenge: &Challenge): u64 {
+        if (challenge.privacy == ChallengePrivacy::Public) {
+            if (challenge.current_participants < challenge.max_participants) {
+                challenge.max_participants - challenge.current_participants
+            } else {
+                0
+            }
+        } else {
+            let total_allowed = vector::length(&challenge.allowed_participants) + 1; // +1 for creator
+            if (total_allowed < challenge.max_participants) {
+                challenge.max_participants - total_allowed
+            } else {
+                0
+            }
+        }
+    }
+
+    // Check if a participant can join based on privacy settings
+    public fun can_participant_join(challenge: &Challenge, participant: address): bool {
+        if (challenge.status != ChallengeStatus::Scheduled) return false;
+        if (challenge.current_participants >= challenge.max_participants) return false;
+        if (vector::contains(&challenge.participants, &participant)) return false;
+        
+        if (challenge.privacy == ChallengePrivacy::Private) {
+            participant == challenge.creator || 
+            vector::contains(&challenge.allowed_participants, &participant)
+        } else {
+            true
+        }
     }
 }
