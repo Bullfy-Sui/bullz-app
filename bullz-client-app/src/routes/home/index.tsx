@@ -3,7 +3,10 @@ import { Button } from "@/components/ui/button";
 import { useDisclosure } from "@/lib/hooks/use-diclosure";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
 import SetHornBid from "./components/set-horn-bid";
-import { useGetUserSquads, useGetUserBids } from "@/lib/hooks/use-squad-contract";
+import {
+  useGetUserSquads,
+  useGetUserBids,
+} from "@/lib/hooks/use-squad-contract";
 import { SquadResponseItem } from "../squad/api-services/types";
 import AddNewSquadButton from "../squad/components/add-new-squad-button";
 import Pitch from "../squad/components/pitch";
@@ -28,19 +31,21 @@ export default function Home() {
   // Convert SquadData[] to SquadResponse format for compatibility
   const squadData = useMemo(() => {
     console.log("🔄 Converting userSquads:", userSquads);
-    
+
     if (!userSquads || userSquads.length === 0) {
       console.log("❌ No user squads found");
       return { data: [] };
     }
 
-    const convertedSquads: SquadResponseItem[] = userSquads.map(squad => {
+    const convertedSquads: SquadResponseItem[] = userSquads.map((squad) => {
       const formation = "OneThreeTwoOne" as FormationLayoutKey;
       const layout = formationLayouts[formation];
-      
+
       // Flatten the layout to get all positions with their multipliers
-      const allPositions: [number, number][] = layout.flat().map(posArray => [posArray[0], posArray[1]] as [number, number]);
-      
+      const allPositions: [number, number][] = layout
+        .flat()
+        .map((posArray) => [posArray[0], posArray[1]] as [number, number]);
+
       // Map players to positions with correct multipliers
       const players = squad.players.slice(0, 7).map((playerName, index) => {
         const [position, multiplier] = allPositions[index] || [index + 1, 1.0];
@@ -67,7 +72,7 @@ export default function Home() {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
-        players: players
+        players: players,
       };
     });
 
@@ -145,13 +150,13 @@ export default function Home() {
     // router.push("/session");
   });
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="font-offbit text-white">Loading squads...</p>
-      </div>
-    );
-  }
+  // if (isLoading) {
+  //   return (
+  //     <div className="flex items-center justify-center min-h-screen">
+  //       <p className="font-offbit text-white">Loading squads...</p>
+  //     </div>
+  //   );
+  // }
 
   return (
     <NavWrapper>

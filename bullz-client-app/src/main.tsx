@@ -1,3 +1,5 @@
+//main.tsx
+
 import "@mysten/dapp-kit/dist/index.css";
 import "@radix-ui/themes/styles.css";
 import React from "react";
@@ -29,7 +31,7 @@ const getDefaultNetwork = (): "devnet" | "testnet" | "mainnet" => {
   } else if (import.meta.env.PROD) {
     // Production mode - check hostname or default to mainnet
     const hostname = window.location.hostname;
-    
+
     if (hostname.includes("testnet") || hostname.includes("test")) {
       return "testnet";
     } else if (hostname.includes("devnet") || hostname.includes("dev")) {
@@ -50,7 +52,10 @@ console.log(`🌐 Auto-selected network: ${defaultNetwork}`);
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <SuiClientProvider networks={networkConfig} defaultNetwork={defaultNetwork}>
+      <SuiClientProvider
+        networks={networkConfig}
+        defaultNetwork={defaultNetwork}
+      >
         <WalletProvider slushWallet={{ name: "bullz" }} autoConnect>
           <RouterProvider router={router} />
         </WalletProvider>
