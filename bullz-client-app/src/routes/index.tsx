@@ -8,38 +8,40 @@ import LiveSessionPage from "./live/[session_id]/page";
 import SquadPage from "./squad";
 import NewSquadPage from "./squad/new/page";
 import ProtectedRoute from "@/components/ui/hoc/protected-route";
+import TeamInfoPage from "./teams/[team_id]/page";
+import RankingPage from "./ranking/page";
 
 export const router = createBrowserRouter([
   {
     Component: RootProvider,
     children: [
-      { 
-        index: true, 
+      {
+        index: true,
         Component: () => (
           <ProtectedRoute>
             <Home />
           </ProtectedRoute>
-        )
+        ),
       },
       {
         path: "login",
         Component: LoginPage,
       },
-      { 
+      {
         path: "home",
         Component: () => (
           <ProtectedRoute>
             <Home />
           </ProtectedRoute>
-        )
+        ),
       },
-      { 
-        path: "session", 
+      {
+        path: "session",
         Component: () => (
           <ProtectedRoute>
             <SessionPage />
           </ProtectedRoute>
-        )
+        ),
       },
       {
         path: "live",
@@ -65,24 +67,34 @@ export const router = createBrowserRouter([
       {
         path: "squad",
         children: [
-          { 
-            index: true, 
+          {
+            index: true,
             Component: () => (
               <ProtectedRoute>
                 <SquadPage />
               </ProtectedRoute>
-            )
+            ),
           },
-          { 
-            path: "new", 
+          {
+            path: "new",
             Component: () => (
               <ProtectedRoute>
                 <NewSquadPage />
               </ProtectedRoute>
-            )
+            ),
           },
         ],
       },
+      {
+        path: "teams",
+        children: [
+          {
+            path: ":team_id",
+            Component: () => <TeamInfoPage />,
+          },
+        ],
+      },
+      { path: "ranking", children: [{ index: true, Component: RankingPage }] },
     ],
   },
 ]);

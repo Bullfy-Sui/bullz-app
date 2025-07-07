@@ -1,5 +1,10 @@
 import { useAppStore } from "@/lib/store/app-store";
-import { useCurrentAccount, useDisconnectWallet, useSuiClient, useCurrentWallet } from "@mysten/dapp-kit";
+import {
+  useCurrentAccount,
+  useDisconnectWallet,
+  useSuiClient,
+  useCurrentWallet,
+} from "@mysten/dapp-kit";
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { MIST_PER_SUI } from "@mysten/sui/utils";
@@ -7,6 +12,8 @@ import DefaultDp from "../svg/default-dp";
 import SuiCoin from "../svg/sui-coin";
 import BullTrophy from "../svg/bull-trophy";
 import PlusCircle from "../icons/plus-circle.icon";
+import { Button } from "../ui/button";
+import SuiLogo from "../svg/sui.logo";
 
 const Header = () => {
   const { address, setAddress } = useAppStore();
@@ -47,9 +54,10 @@ const Header = () => {
         const balanceResult = await suiClient.getBalance({
           owner: walletAddress,
         });
-        
+
         // Convert MIST to SUI
-        const suiBalance = Number(balanceResult.totalBalance) / Number(MIST_PER_SUI);
+        const suiBalance =
+          Number(balanceResult.totalBalance) / Number(MIST_PER_SUI);
         setBalance(suiBalance.toFixed(2));
       } catch (error) {
         console.error("Failed to fetch balance:", error);
@@ -60,43 +68,43 @@ const Header = () => {
     };
 
     fetchBalance();
-    
+
     // Refresh balance every 10 seconds
     const intervalId = setInterval(fetchBalance, 10000);
-    
+
     return () => clearInterval(intervalId);
   }, [currentAccount?.address, address, suiClient]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setShowDropdown(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
   const handleDisconnect = () => {
-    disconnect(
-      undefined,
-      {
-        onSuccess: () => {
-          setAddress(""); // Clear address from app store
-          setBalance("0.00"); // Reset balance
-          setShowDropdown(false);
-          navigate("/login"); // Navigate to login page
-        },
-        onError: (error) => {
-          console.error("Failed to disconnect wallet:", error);
-          setShowDropdown(false);
-        },
-      }
-    );
+    disconnect(undefined, {
+      onSuccess: () => {
+        setAddress(""); // Clear address from app store
+        setBalance("0.00"); // Reset balance
+        setShowDropdown(false);
+        navigate("/login"); // Navigate to login page
+      },
+      onError: (error) => {
+        console.error("Failed to disconnect wallet:", error);
+        setShowDropdown(false);
+      },
+    });
   };
 
   const formatAddress = (addr: string) => {
@@ -106,10 +114,14 @@ const Header = () => {
 
   const getNetworkColor = (network: string) => {
     switch (network) {
-      case "mainnet": return "text-green-400";
-      case "testnet": return "text-yellow-400";
-      case "devnet": return "text-blue-400";
-      default: return "text-gray-400";
+      case "mainnet":
+        return "text-green-400";
+      case "testnet":
+        return "text-yellow-400";
+      case "devnet":
+        return "text-blue-400";
+      default:
+        return "text-gray-400";
     }
   };
 
@@ -131,17 +143,22 @@ const Header = () => {
             <span className="font-[600] leading-[100%] text-sm w-[7.5625rem] truncate">
               {formatAddress(displayAddress)}
             </span>
-            <span className={`text-[0.5rem] font-[500] ${getNetworkColor(currentNetwork)} leading-[100%] uppercase`}>
+            <span
+              className={`text-[0.5rem] font-[500] ${getNetworkColor(currentNetwork)} leading-[100%] uppercase`}
+            >
               {currentNetwork}
             </span>
           </div>
         </button>
-        
+
         {showDropdown && (
           <div className="absolute top-full left-0 mt-2 bg-gray-800 border border-gray-600 rounded-md shadow-lg min-w-[150px] z-60">
             <div className="p-2">
               <div className="px-3 py-2 text-xs text-gray-400 border-b border-gray-600">
-                Network: <span className={getNetworkColor(currentNetwork)}>{currentNetwork.toUpperCase()}</span>
+                Network:{" "}
+                <span className={getNetworkColor(currentNetwork)}>
+                  {currentNetwork.toUpperCase()}
+                </span>
               </div>
               <button
                 onClick={handleDisconnect}
@@ -153,22 +170,32 @@ const Header = () => {
           </div>
         )}
       </div>
-      
-      <div className="bg-[#141A28] rounded-l-[0.316875rem] text-white flex items-center">
-        <div className="flex items-center">
-          <SuiCoin />
-          <span className="leading-[150%] font-[600] text-[0.60625rem]">
+
+      <div className=" text-white flex items-center gap-[0.5rem]">
+        <div
+          style={{
+            boxShadow:
+              "0px -4px 0px 0px #0000003D inset, 0px 4px 0px 0px #FFFFFF29 inset",
+          }}
+          className="h-[2.25rem] gap-[0.25rem] w-max px-[0.75rem] bg-gray-800 flex items-center justify-center"
+        >
+          <SuiLogo className="w-[1.25rem] h-[1.25rem] rounded-full" />
+          <span className="leading-[100%] tracking-[0.04em] font-[700] text-[1.0625rem]">
             {isLoadingBalance ? "..." : balance}
           </span>
         </div>
-        <div className="flex items-center">
+
+        <div
+          style={{
+            boxShadow:
+              "0px -4px 0px 0px #0000003D inset, 0px 4px 0px 0px #FFFFFF29 inset",
+          }}
+          className="h-[2.25rem] w-max px-[0.75rem] bg-gray-800 flex items-center justify-center"
+        >
           <BullTrophy />
-          <span className="leading-[150%] font-[600] text-[0.60625rem]">
+          <span className="leading-[100%] tracking-[0.04em] font-[700] text-[1.0625rem]">
             4,123
           </span>
-        </div>
-        <div className="bg-gray-700 p-[0.316875rem] rounded-r-[0.316875rem] mr-[0.1875rem]">
-          <PlusCircle />
         </div>
       </div>
     </div>

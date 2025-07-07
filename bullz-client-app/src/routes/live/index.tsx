@@ -1,5 +1,6 @@
 import UserPlayerDp from "@/components/general/user-player-dp";
 import NavWrapper from "@/components/layout/nav-wrapper";
+import SuiLogo from "@/components/svg/sui.logo";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { NavLink } from "react-router";
@@ -43,13 +44,27 @@ const LiveSessions = () => {
           <TabsContent value="now" className="px-0"></TabsContent>
           <TabsContent value="ended" className="px-0"></TabsContent>
         </Tabs>
-        <NavLink
-          to={"90"}
-          className="flex items-center justify-between w-full py-[1.5rem] px-[0.5rem] border-b border-[#1F1F33]"
-        >
-          <Player />
-          <Player />
-        </NavLink>
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <NavLink
+            key={i}
+            to={i.toString()}
+            className="flex items-center justify-between w-full py-[1.5rem] px-[0.5rem] border-b border-[#1F1F33]"
+          >
+            <Player />
+            <div className="w-full">
+              <div className="flex justify-center gap-[0.25rem] items-start">
+                <SuiLogo className="w-[1.25rem] h-[1.25rem] rounded-full" />
+                <span className="text-[1.375rem] font-[700] font-offbit tracking-[0.04em] leading-[100%]">
+                  0.2
+                </span>
+              </div>
+              <div className="font-[700] w-full text-center flex items-center justify-center h-[2.25rem]  bg-gradient-to-l from-[#000019] via-[#1F1F33] to-[#000019]">
+                60s
+              </div>
+            </div>
+            <Player />
+          </NavLink>
+        ))}
       </main>
     </NavWrapper>
   );
