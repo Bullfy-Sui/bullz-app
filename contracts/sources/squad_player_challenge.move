@@ -5,16 +5,19 @@ module bullfy::squad_player_challenge {
     use sui::balance::{Self, Balance};
     use sui::sui::SUI;
     use sui::table::{Self, Table};
+    use std::vector;
     use std::string::{Self, String};
-    use bullfy::squad_manager::SquadRegistry;
+    use std::option::{Self, Option};
+    use bullfy::squad_manager::{Self, SquadRegistry, Squad};
     use bullfy::fee_collector::{Self, Fees};
+    use bullfy::fee_calculator;
     use bullfy::admin::{Self, FeeConfig};
     use bullfy::validators;
     use bullfy::payment_utils;
-    use bullfy::fee_calculator;
+    use bullfy::common_errors;
     use bullfy::user_stats::{Self, UserStatsRegistry};
     use bullfy::match_signer::{Self, MatchSignerCap};
-    use bullfy::common_errors;
+    use bullfy::math_utils;
 
     // Error constants (module-specific only)
     const EUnauthorized: u64 = 2001;
@@ -459,12 +462,10 @@ module bullfy::squad_player_challenge {
         while (i < vector::length(&challenge.participants)) {
             let participant = *vector::borrow(&challenge.participants, i);
             let prices = *vector::borrow(&participant_squad_token_prices, i);
-            let mut sum = 0;
-            let mut j = 0;
-            while (j < vector::length(&prices)) {
-                sum = sum + *vector::borrow(&prices, j);
-                j = j + 1;
-            };
+            
+            // Calculate initial token sum using safe math helper
+            let sum = calculate_initial_token_sum(&prices);
+            
             table::add(&mut challenge.participant_initial_token_sums, participant, sum);
             table::add(&mut challenge.participant_squad_token_prices, participant, prices);
             i = i + 1;
@@ -534,28 +535,14 @@ module bullfy::squad_player_challenge {
             let participant = *vector::borrow(&challenge.participants, i);
             let final_token_prices = *vector::borrow(&participant_squad_final_token_prices, i);
             
-            // Calculate final token sum for this participant
-            let mut final_sum = 0;
-            let mut j = 0;
-            while (j < vector::length(&final_token_prices)) {
-                final_sum = final_sum + *vector::borrow(&final_token_prices, j);
-                j = j + 1;
-            };
+            // Calculate final token sum for this participant using u256 to prevent overflow
+            let final_sum = calculate_final_token_sum(&final_token_prices);
             
             // Get initial sum for percentage calculation
             let initial_sum = *table::borrow(&challenge.participant_initial_token_sums, participant);
             
-            // Calculate percentage increase (scaled by 10000 for precision: 100% = 10000)
-            let percentage_increase = if (initial_sum > 0) {
-                if (final_sum >= initial_sum) {
-                    ((final_sum - initial_sum) * 10000) / initial_sum
-                } else {
-                    // Negative percentage (loss) - represent as 0 for now
-                    0
-                }
-            } else {
-                0 // Avoid division by zero
-            };
+            // Calculate percentage increase using u256 (scaled by 10000 for precision: 100% = 10000)
+            let percentage_increase = calculate_token_performance(initial_sum, final_sum);
             
             // Record final data
             table::add(&mut challenge.participant_final_token_sums, participant, final_sum);
@@ -1132,5 +1119,20 @@ module bullfy::squad_player_challenge {
         } else {
             true
         }
+    }
+
+    // Helper function to calculate initial token sum for a challenge participant
+    fun calculate_initial_token_sum(token_prices: &vector<u64>): u64 {
+        math_utils::safe_sum_vector(token_prices)
+    }
+
+    // Helper function to calculate final token sum for challenge completion  
+    fun calculate_final_token_sum(token_prices: &vector<u64>): u64 {
+        math_utils::safe_sum_vector(token_prices)
+    }
+
+    // Helper function to calculate percentage increase
+    fun calculate_token_performance(initial_sum: u64, final_sum: u64): u64 {
+        math_utils::calculate_percentage_increase(initial_sum, final_sum)
     }
 }

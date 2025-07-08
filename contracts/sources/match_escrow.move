@@ -16,6 +16,7 @@ module bullfy::match_escrow {
     use bullfy::payment_utils;
     use bullfy::fee_calculator;
     use bullfy::user_stats::{Self, UserStatsRegistry};
+    use bullfy::math_utils;
 
     // Error constants (module-specific only)
     const EBidNotFound: u64 = 3001;
@@ -313,24 +314,13 @@ module bullfy::match_escrow {
             bid2_fee_amount = balance::value(&vector::borrow(&registry.active_bids, bid2_index).fee_balance);
         };
 
-        // Calculate total prize and fees
-        let total_prize = bid1_amount * 2;
-        let total_fees = bid1_fee_amount + bid2_fee_amount;
+        // Calculate total prize and fees using safe math
+        let total_prize = calculate_total_prize(bid1_amount);
+        let total_fees = math_utils::safe_add(bid1_fee_amount, bid2_fee_amount);
 
-        // Calculate individual player token sums
-        let mut player1_token_sum = 0;
-        let mut i = 0;
-        while (i < vector::length(&squad1_token_prices)) {
-            player1_token_sum = player1_token_sum + *vector::borrow(&squad1_token_prices, i);
-            i = i + 1;
-        };
-
-        let mut player2_token_sum = 0;
-        i = 0;
-        while (i < vector::length(&squad2_token_prices)) {
-            player2_token_sum = player2_token_sum + *vector::borrow(&squad2_token_prices, i);
-            i = i + 1;
-        };
+        // Calculate individual player token sums using safe math
+        let player1_token_sum = calculate_initial_token_sum(&squad1_token_prices);
+        let player2_token_sum = calculate_initial_token_sum(&squad2_token_prices);
 
         // Create match
         let match_obj = Match {
@@ -514,27 +504,16 @@ module bullfy::match_escrow {
         let current_time = clock::timestamp_ms(clock);
         assert!(current_time >= match_obj.ends_at, EMatchNotEndedYet);
         
-        // Calculate final token sums for each player
-        let mut player1_final_sum = 0;
-        let mut i = 0;
-        while (i < vector::length(&squad1_final_token_prices)) {
-            player1_final_sum = player1_final_sum + *vector::borrow(&squad1_final_token_prices, i);
-            i = i + 1;
-        };
+        // Calculate final token sums for each player using safe math
+        let player1_final_sum = calculate_final_token_sum(&squad1_final_token_prices);
+        let player2_final_sum = calculate_final_token_sum(&squad2_final_token_prices);
 
-        let mut player2_final_sum = 0;
-        i = 0;
-        while (i < vector::length(&squad2_final_token_prices)) {
-            player2_final_sum = player2_final_sum + *vector::borrow(&squad2_final_token_prices, i);
-            i = i + 1;
-        };
-
-        // Calculate percentage increases (scaled by 10000 for precision: 100% = 10000)
+        // Calculate percentage increases using safe math helper
         let player1_percentage = if (match_obj.player1_initial_token_sum > 0) {
             if (player1_final_sum >= match_obj.player1_initial_token_sum) {
-                ((player1_final_sum - match_obj.player1_initial_token_sum) * 10000) / match_obj.player1_initial_token_sum
+                calculate_token_performance(match_obj.player1_initial_token_sum, player1_final_sum)
             } else {
-                // Negative percentage (loss) - we'll represent as 0 for now, could be enhanced
+                // Negative percentage (loss) - represent as 0 for now
                 0
             }
         } else {
@@ -543,9 +522,9 @@ module bullfy::match_escrow {
 
         let player2_percentage = if (match_obj.player2_initial_token_sum > 0) {
             if (player2_final_sum >= match_obj.player2_initial_token_sum) {
-                ((player2_final_sum - match_obj.player2_initial_token_sum) * 10000) / match_obj.player2_initial_token_sum
+                calculate_token_performance(match_obj.player2_initial_token_sum, player2_final_sum)
             } else {
-                // Negative percentage (loss) - we'll represent as 0 for now, could be enhanced
+                // Negative percentage (loss) - represent as 0 for now
                 0
             }
         } else {
@@ -1009,6 +988,7 @@ module bullfy::match_escrow {
         } else {
             0 // Player not in this match
         }
+
     }
 
     // Helper function to check if a player won based on percentage increase
@@ -1019,6 +999,26 @@ module bullfy::match_escrow {
         
         let winner = *option::borrow(&match_obj.winner);
         winner == player
+    }
+
+    // Calculate total prize pool for a match
+    public fun calculate_total_prize(bid_amount: u64): u64 {
+        math_utils::calculate_prize_pool(bid_amount)
+    }
+
+    // Calculate initial token sum for a match
+    fun calculate_initial_token_sum(token_prices: &vector<u64>): u64 {
+        math_utils::safe_sum_vector(token_prices)
+    }
+
+    // Calculate final token sum for completed match
+    fun calculate_final_token_sum(token_prices: &vector<u64>): u64 {
+        math_utils::safe_sum_vector(token_prices)
+    }
+
+    // Calculate percentage increase between initial and final sums
+    fun calculate_token_performance(initial_sum: u64, final_sum: u64): u64 {
+        math_utils::calculate_percentage_increase(initial_sum, final_sum)
     }
 
 }
