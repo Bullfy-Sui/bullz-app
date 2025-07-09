@@ -41,65 +41,37 @@ const COMMANDS = {
   'create-admin': {
     module: 'admin',
     function: 'create_admin_cap',
-    params: ['OWNER_CAP', 'ADMIN_REGISTRY', 'new_admin_address', 'CLOCK'],
+    params: ['OWNER_CAP', 'ADMIN_REGISTRY', 'admin_address', 'CLOCK'],
     description: 'Create a new admin capability',
-    requiredArgs: ['new_admin_address']
+    requiredArgs: ['admin_address']
   },
-
-  'revoke-admin': {
-    module: 'admin',
-    function: 'revoke_admin_cap',
-    params: ['OWNER_CAP', 'ADMIN_REGISTRY', 'admin_cap_to_revoke', 'CLOCK'],
-    description: 'Revoke an admin capability',
-    requiredArgs: ['admin_cap_to_revoke']
-  },
-
-  'deactivate-admin': {
-    module: 'admin',
-    function: 'deactivate_admin',
-    params: ['ADMIN_CAP', 'CLOCK'],
-    description: 'Deactivate admin (self)',
-    requiredArgs: []
-  },
-
-  'reactivate-admin': {
-    module: 'admin',
-    function: 'reactivate_admin',
-    params: ['ADMIN_CAP', 'CLOCK'],
-    description: 'Reactivate admin (self)',
-    requiredArgs: []
-  },
-
-  'transfer-owner': {
-    module: 'admin',
-    function: 'transfer_owner_cap',
-    params: ['OWNER_CAP', 'new_owner_address'],
-    description: 'Transfer owner capability',
-    requiredArgs: ['new_owner_address']
-  },
-  
-  'update-fee': {
+  'update-fee-percentage': {
     module: 'admin',
     function: 'update_fee_percentage',
-    params: ['ADMIN_CAP', 'FEE_CONFIG', 'fee_bps', 'CLOCK'],
-    description: 'Update fee percentage (0-1000 basis points)',
-    requiredArgs: ['fee_bps']
+    params: ['ADMIN_CAP', 'FEE_CONFIG', 'new_fee_bps'],
+    description: 'Update the upfront fee percentage (0-1000 basis points, 0-10%)',
+    requiredArgs: ['new_fee_bps']
   },
-
-  'update-squad-fee': {
+  'update-squad-creation-fee': {
     module: 'admin',
     function: 'update_squad_creation_fee',
-    params: ['ADMIN_CAP', 'FEE_CONFIG', 'squad_creation_fee', 'CLOCK'],
-    description: 'Update squad creation fee',
-    requiredArgs: ['squad_creation_fee']
+    params: ['ADMIN_CAP', 'FEE_CONFIG', 'new_fee'],
+    description: 'Update the squad creation fee (0-10000000000 MIST, 0-10 SUI)',
+    requiredArgs: ['new_fee']
   },
-
+  'update-squad-update-fee': {
+    module: 'admin',
+    function: 'update_squad_update_fee',
+    params: ['ADMIN_CAP', 'FEE_CONFIG', 'new_fee'],
+    description: 'Update the squad update fee (0-10000000000 MIST, 0-10 SUI)',
+    requiredArgs: ['new_fee']
+  },
   'update-revival-fees': {
     module: 'admin',
     function: 'update_revival_fees',
-    params: ['ADMIN_CAP', 'FEE_CONFIG', 'standard_fee', 'instant_fee', 'CLOCK'],
-    description: 'Update revival fees',
-    requiredArgs: ['standard_fee', 'instant_fee']
+    params: ['ADMIN_CAP', 'FEE_CONFIG', 'new_standard_fee', 'new_instant_fee'],
+    description: 'Update both revival fees (0-1000000000 MIST, 0-1 SUI)',
+    requiredArgs: ['new_standard_fee', 'new_instant_fee']
   },
 
   // Match signer commands
@@ -316,6 +288,29 @@ const COMMANDS = {
     params: ['ADMIN_CAP', 'FEES_OBJECT'],
     description: 'Withdraw all fees',
     requiredArgs: []
+  },
+
+  // Squad manager commands
+  'update-squad': {
+    module: 'squad_manager',
+    function: 'update_squad',
+    params: ['SQUAD_REGISTRY', 'FEE_CONFIG', 'FEES_OBJECT', 'squad_id', 'new_squad_name', 'new_player_names', 'payment_coin_object'],
+    description: 'Update squad name and/or players (use null for unchanged fields)',
+    requiredArgs: ['squad_id', 'payment_coin_object']
+  },
+  'update-squad-name': {
+    module: 'squad_manager',
+    function: 'update_squad_name',
+    params: ['SQUAD_REGISTRY', 'FEE_CONFIG', 'FEES_OBJECT', 'squad_id', 'new_squad_name', 'payment_coin_object'],
+    description: 'Update only squad name',
+    requiredArgs: ['squad_id', 'payment_coin_object']
+  },
+  'update-squad-players': {
+    module: 'squad_manager',
+    function: 'update_squad_players',
+    params: ['SQUAD_REGISTRY', 'FEE_CONFIG', 'FEES_OBJECT', 'squad_id', 'new_player_names', 'payment_coin_object'],
+    description: 'Update only squad players',
+    requiredArgs: ['squad_id', 'payment_coin_object']
   }
 };
 

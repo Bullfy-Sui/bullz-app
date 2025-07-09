@@ -94,7 +94,7 @@ module bullfy::squad_manager {
         total_players: u64,
     }
 
-    // Event emitted when squad is updated.
+    // Event emitted when squad is updated
     public struct SquadUpdated has copy, drop {
         squad_id: u64,
         updated_by: address,
@@ -103,6 +103,7 @@ module bullfy::squad_manager {
         new_name: String,
         new_players: vector<String>,
         total_players: u64,
+        fee_paid: u64,
     }
 
     // Event emitted when squad is deleted.
@@ -196,6 +197,11 @@ module bullfy::squad_manager {
     // Helper function to calculate required payment for squad creation
     public fun calculate_squad_creation_payment(fee_config: &FeeConfig): u64 {
         admin::get_squad_creation_fee(fee_config)
+    }
+
+    // Helper function to calculate required payment for squad update
+    public fun calculate_squad_update_payment(fee_config: &FeeConfig): u64 {
+        admin::get_squad_update_fee(fee_config)
     }
 
     // Checks if an owner has any squads.
@@ -369,10 +375,13 @@ module bullfy::squad_manager {
     // Updates squad name and/or players (only squad owner can update)
     entry fun update_squad(
         registry: &mut SquadRegistry,
+        fee_config: &FeeConfig,
+        fees: &mut fee_collector::Fees,
         squad_id: u64,
         mut new_squad_name: Option<String>,
         mut new_player_names: Option<vector<String>>,
-        ctx: &TxContext
+        mut payment: Coin<SUI>,
+        ctx: &mut TxContext
     ) {
         let sender = tx_context::sender(ctx);
         assert!(table::contains(&registry.squads, squad_id), EOwnerDoesNotHaveSquad);
@@ -380,6 +389,28 @@ module bullfy::squad_manager {
         
         // Only squad owner can update
         assert!(squad.owner == sender, common_errors::unauthorized());
+        
+        // Get update fee
+        let update_fee = admin::get_squad_update_fee(fee_config);
+        
+        // Handle fee payment if fee > 0
+        if (update_fee > 0) {
+            // Validate payment amount
+            payment_utils::validate_payment_amount(payment.value(), update_fee);
+            
+            // Handle exact payment (no change expected for update fee)
+            if (payment.value() > update_fee) {
+                let change_amount = payment.value() - update_fee;
+                let change = payment.split(change_amount, ctx);
+                sui::transfer::public_transfer(change, sender);
+            };
+
+            // Send fee to collector
+            fee_collector::collect(fees, payment, ctx);
+        } else {
+            // No fee required, return payment to sender
+            sui::transfer::public_transfer(payment, sender);
+        };
         
         let mut name_changed = false;
         let mut players_changed = false;
@@ -418,21 +449,28 @@ module bullfy::squad_manager {
             new_name: squad.name,
             new_players: squad.players,
             total_players: vector::length(&squad.players),
+            fee_paid: update_fee,
         });
     }
 
     // Helper function to update only squad name
     entry fun update_squad_name(
         registry: &mut SquadRegistry,
+        fee_config: &FeeConfig,
+        fees: &mut fee_collector::Fees,
         squad_id: u64,
         new_squad_name: String,
-        ctx: &TxContext
+        payment: Coin<SUI>,
+        ctx: &mut TxContext
     ) {
         update_squad(
             registry,
+            fee_config,
+            fees,
             squad_id,
             option::some(new_squad_name),
             option::none(),
+            payment,
             ctx
         );
     }
@@ -440,15 +478,21 @@ module bullfy::squad_manager {
     // Helper function to update only squad players
     entry fun update_squad_players(
         registry: &mut SquadRegistry,
+        fee_config: &FeeConfig,
+        fees: &mut fee_collector::Fees,
         squad_id: u64,
         new_player_names: vector<String>,
-        ctx: &TxContext
+        payment: Coin<SUI>,
+        ctx: &mut TxContext
     ) {
         update_squad(
             registry,
+            fee_config,
+            fees,
             squad_id,
             option::none(),
             option::some(new_player_names),
+            payment,
             ctx
         );
     }

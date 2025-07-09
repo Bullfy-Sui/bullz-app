@@ -9,9 +9,9 @@ module bullfy::admin {
     #[error]
     const EInvalidFeePercentage: vector<u8> = b"Fee percentage must be between 0 and 1000 (0-10%)";
     #[error]
-    const EInvalidSquadCreationFee: vector<u8> = b"Squad creation fee must be between 100000000 and 10000000000 MIST (0.1-10 SUI)";
+    const EInvalidSquadCreationFee: vector<u8> = b"Squad creation fee must be between 0 and 10000000000 MIST (0-10 SUI)";
     #[error]
-    const EInvalidRevivalFee: vector<u8> = b"Revival fee must be between 10000000 and 1000000000 MIST (0.01-1 SUI)";
+    const EInvalidRevivalFee: vector<u8> = b"Revival fee must be between 0 and 1000000000 MIST (0-1 SUI)";
     #[error]
     const EAdminNotFound: vector<u8> = b"Admin not found in registry";
     #[error]
@@ -19,9 +19,9 @@ module bullfy::admin {
 
     // Constants
     const MAX_FEE_BPS: u64 = 1000; // Maximum 10% fee
-    const MIN_SQUAD_CREATION_FEE: u64 = 100_000_000; // Minimum 0.1 SUI
+    const MIN_SQUAD_CREATION_FEE: u64 = 0; // Minimum 0 SUI (now allows 0)
     const MAX_SQUAD_CREATION_FEE: u64 = 10_000_000_000; // Maximum 10 SUI
-    const MIN_REVIVAL_FEE: u64 = 10_000_000; // Minimum 0.01 SUI
+    const MIN_REVIVAL_FEE: u64 = 0; // Minimum 0 SUI (now allows 0)
     const MAX_REVIVAL_FEE: u64 = 1_000_000_000; // Maximum 1 SUI
 
     // AdminCap to control admin-only functions
@@ -49,6 +49,7 @@ module bullfy::admin {
         id: UID,
         upfront_fee_bps: u64, // Fee in basis points (e.g., 500 = 5%)
         squad_creation_fee: u64, // Squad creation fee in MIST
+        squad_update_fee: u64, // Squad update fee in MIST
         standard_revival_fee: u64, // Standard revival fee after 24hr wait in MIST
         instant_revival_fee: u64, // Instant revival fee in MIST
     }
@@ -86,6 +87,12 @@ module bullfy::admin {
         updated_by: address,
     }
 
+    public struct SquadUpdateFeeUpdated has copy, drop {
+        old_fee: u64,
+        new_fee: u64,
+        updated_by: address,
+    }
+
     public struct RevivalFeesUpdated has copy, drop {
         old_standard_fee: u64,
         new_standard_fee: u64,
@@ -117,6 +124,7 @@ module bullfy::admin {
             id: object::new(ctx),
             upfront_fee_bps: 500, // 5% default fee
             squad_creation_fee: 1_000_000_000, // 1 SUI default fee
+            squad_update_fee: 1_000_000_000, // 1 SUI default fee
             standard_revival_fee: 50_000_000, // 0.05 SUI default fee
             instant_revival_fee: 100_000_000, // 0.1 SUI default fee
         };
@@ -257,7 +265,7 @@ module bullfy::admin {
         // Validate admin capability
         assert!(validate_admin_cap(admin_cap, ctx), ENotOwner);
         
-        // Validate fee percentage (0-10%)
+        // Validate fee percentage (0-10%) - now allows 0
         assert!(new_fee_bps <= MAX_FEE_BPS, EInvalidFeePercentage);
         
         let old_fee_bps = fee_config.upfront_fee_bps;
@@ -283,14 +291,40 @@ module bullfy::admin {
         // Validate admin capability
         assert!(validate_admin_cap(admin_cap, ctx), ENotOwner);
         
-        // Validate fee amount (0.1-10 SUI)
-        assert!(new_fee >= MIN_SQUAD_CREATION_FEE && new_fee <= MAX_SQUAD_CREATION_FEE, EInvalidSquadCreationFee);
+        // Validate fee amount (0-10 SUI) - now allows 0
+        assert!(new_fee <= MAX_SQUAD_CREATION_FEE, EInvalidSquadCreationFee);
         
         let old_fee = fee_config.squad_creation_fee;
         fee_config.squad_creation_fee = new_fee;
         
         // Emit event
         event::emit(SquadCreationFeeUpdated {
+            old_fee,
+            new_fee,
+            updated_by: sender,
+        });
+    }
+
+    // Update the squad update fee
+    entry fun update_squad_update_fee(
+        admin_cap: &AdminCap,
+        fee_config: &mut FeeConfig,
+        new_fee: u64,
+        ctx: &mut TxContext
+    ) {
+        let sender = tx_context::sender(ctx);
+        
+        // Validate admin capability
+        assert!(validate_admin_cap(admin_cap, ctx), ENotOwner);
+        
+        // Validate fee amount (0-10 SUI) - allows 0
+        assert!(new_fee <= MAX_SQUAD_CREATION_FEE, EInvalidSquadCreationFee);
+        
+        let old_fee = fee_config.squad_update_fee;
+        fee_config.squad_update_fee = new_fee;
+        
+        // Emit event
+        event::emit(SquadUpdateFeeUpdated {
             old_fee,
             new_fee,
             updated_by: sender,
@@ -310,10 +344,13 @@ module bullfy::admin {
         // Validate admin capability
         assert!(validate_admin_cap(admin_cap, ctx), ENotOwner);
         
-        // Validate fee amounts
-        assert!(new_standard_fee >= MIN_REVIVAL_FEE && new_standard_fee <= MAX_REVIVAL_FEE, EInvalidRevivalFee);
-        assert!(new_instant_fee >= MIN_REVIVAL_FEE && new_instant_fee <= MAX_REVIVAL_FEE, EInvalidRevivalFee);
-        assert!(new_instant_fee > new_standard_fee, EInvalidRevivalFee); // Instant should be more expensive
+        // Validate fee amounts (0-1 SUI) - now allows 0
+        assert!(new_standard_fee <= MAX_REVIVAL_FEE, EInvalidRevivalFee);
+        assert!(new_instant_fee <= MAX_REVIVAL_FEE, EInvalidRevivalFee);
+        // Only enforce instant > standard if both are > 0
+        if (new_standard_fee > 0 && new_instant_fee > 0) {
+            assert!(new_instant_fee > new_standard_fee, EInvalidRevivalFee);
+        };
         
         let old_standard_fee = fee_config.standard_revival_fee;
         let old_instant_fee = fee_config.instant_revival_fee;
@@ -356,6 +393,11 @@ module bullfy::admin {
     // Get current squad creation fee
     public fun get_squad_creation_fee(fee_config: &FeeConfig): u64 {
         fee_config.squad_creation_fee
+    }
+
+    // Get current squad update fee
+    public fun get_squad_update_fee(fee_config: &FeeConfig): u64 {
+        fee_config.squad_update_fee
     }
 
     // Get standard revival fee (after 24hr wait)
