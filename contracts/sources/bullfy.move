@@ -105,6 +105,13 @@ module bullfy::squad_manager {
         total_players: u64,
     }
 
+    // Event emitted when squad is deleted.
+    public struct SquadDeleted has copy, drop {
+        squad_id: u64,
+        owner: address,
+        deleted_at: u64,
+    }
+
     // Initializes the registries.
     fun init(ctx: &mut TxContext) {
         let squad_registry = SquadRegistry {
@@ -506,6 +513,64 @@ module bullfy::squad_manager {
             squad_id,
             players_added: player_names,
             total_players: vector::length(&squad.players),
+        });
+    }
+
+    // Delete a squad (only squad owner can delete)
+    // Note: Frontend should check if squad is active before calling this function
+    // Use squad_player_challenge::is_squad_active() to verify squad is not in active matches/challenges
+    entry fun delete_squad(
+        registry: &mut SquadRegistry,
+        squad_id: u64,
+        clock: &Clock,
+        ctx: &TxContext
+    ) {
+        let sender = tx_context::sender(ctx);
+        let current_time = clock::timestamp_ms(clock);
+
+        // Validate squad exists
+        assert!(table::contains(&registry.squads, squad_id), ESquadNotFound);
+        let squad = table::borrow(&registry.squads, squad_id);
+        
+        // Only squad owner can delete
+        assert!(squad.owner == sender, common_errors::unauthorized());
+        
+        // Remove squad from registry
+        let deleted_squad = table::remove(&mut registry.squads, squad_id);
+        let owner = deleted_squad.owner;
+        
+        // Remove squad from owner's list
+        if (table::contains(&registry.owner_squads, owner)) {
+            let owner_squads = table::borrow_mut(&mut registry.owner_squads, owner);
+            let (found, index) = vector::index_of(owner_squads, &squad_id);
+            if (found) {
+                vector::remove(owner_squads, index);
+                
+                // If owner has no more squads, remove the empty vector
+                if (vector::is_empty(owner_squads)) {
+                    table::remove(&mut registry.owner_squads, owner);
+                };
+            };
+        };
+        
+        // Destroy the squad object
+        let Squad { 
+            id, 
+            owner: _, 
+            squad_id: _, 
+            name: _, 
+            players: _, 
+            formation: _, 
+            life: _, 
+            death_time: _ 
+        } = deleted_squad;
+        object::delete(id);
+        
+        // Emit event
+        event::emit(SquadDeleted {
+            squad_id,
+            owner,
+            deleted_at: current_time,
         });
     }
 

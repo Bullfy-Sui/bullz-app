@@ -179,6 +179,24 @@ const COMMANDS = {
     requiredArgs: ['squad_id', 'coin_object']
   },
 
+  'delete-squad': {
+    module: 'squad_manager',
+    function: 'delete_squad',
+    params: ['SQUAD_REGISTRY', 'squad_id', 'CLOCK'],
+    description: 'Delete a squad (only squad owner can delete) - Check if squad is active first!',
+    requiredArgs: ['squad_id'],
+    note: 'WARNING: Ensure squad is not active in matches/challenges before deletion'
+  },
+
+  'check-squad-active': {
+    module: 'squad_player_challenge',
+    function: 'is_squad_active',
+    params: ['ACTIVE_SQUAD_REGISTRY', 'squad_id'],
+    description: 'Check if a squad is currently active in matches/challenges',
+    requiredArgs: ['squad_id'],
+    isView: true
+  },
+
   // Match escrow commands
   'create-bid': {
     module: 'match_escrow',
@@ -490,6 +508,9 @@ function listCommands() {
     console.log(`  Description: ${cmd.description}`);
     console.log(`  Module: ${cmd.module}.${cmd.function}`);
     console.log(`  Required args: ${cmd.requiredArgs.join(', ')}`);
+    if (cmd.note) {
+      console.log(`  Note: ${cmd.note}`);
+    }
     console.log('');
   });
 }

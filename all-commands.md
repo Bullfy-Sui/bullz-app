@@ -137,6 +137,45 @@ node command-generator.js add-players --squad-id 2 --squad-name "Team Beta" --fo
 node command-generator.js revive-squad --squad-id 1 --coin-object 0xYOUR_COIN_OBJECT_ID
 ```
 
+### Delete Squad
+```bash
+# Delete a squad (only squad owner can delete)
+# Note: Ensure squad is not active in matches/challenges before deletion
+node command-generator.js delete-squad --squad-id 1
+```
+
+**Important**: Before deleting a squad, you should verify it's not currently active in any matches or challenges. You can check this by:
+1. Querying the `ActiveSquadRegistry` object to see if the squad ID exists in active squads
+2. Using the `is_squad_active` function from the `squad_player_challenge` module
+
+Manual command:
+```bash
+# Delete a squad (only squad owner can delete)
+sui client call \
+  --package $BULLFY_PACKAGE \
+  --module squad_manager \
+  --function delete_squad \
+  --args $SQUAD_REGISTRY 1 $CLOCK \
+  --gas-budget 100000000
+```
+
+### Check Squad Active Status
+```bash
+# Check if a squad is currently active in matches/challenges
+node command-generator.js check-squad-active --squad-id 1
+```
+
+Manual command:
+```bash
+# Check if a squad is currently active in matches/challenges
+sui client call \
+  --package $BULLFY_PACKAGE \
+  --module squad_player_challenge \
+  --function is_squad_active \
+  --args $ACTIVE_SQUAD_REGISTRY 1 \
+  --gas-budget 100000000
+```
+
 ## 💰 Bidding & Matching Commands
 
 ### Create Bid
