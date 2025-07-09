@@ -44,6 +44,7 @@ module bullfy::match_escrow {
     public enum MatchStatus has copy, drop, store {
         Active,    // Match is ongoing
         Completed, // Match completed with winner
+        Tied,      // Match ended in a tie
         Disputed,  // Match result is disputed
     }
 
@@ -146,6 +147,23 @@ module bullfy::match_escrow {
         winner: address,
         loser: address,
         prize_amount: u64,
+        total_fees: u64,
+        // Token performance data
+        player1_initial_sum: u64,
+        player2_initial_sum: u64,
+        player1_final_sum: u64,
+        player2_final_sum: u64,
+        player1_percentage_increase: u64, // Scaled by 10000 (e.g., 1500 = 15.00%)
+        player2_percentage_increase: u64, // Scaled by 10000 (e.g., 1500 = 15.00%)
+        squad1_final_token_prices: vector<u64>, // Final token prices for squad1 at match completion
+        squad2_final_token_prices: vector<u64>, // Final token prices for squad2 at match completion
+    }
+
+    public struct MatchTied has copy, drop {
+        match_id: ID,
+        player1: address,
+        player2: address,
+        prize_amount_each: u64, // Amount each player receives
         total_fees: u64,
         // Token performance data
         player1_initial_sum: u64,
@@ -532,19 +550,13 @@ module bullfy::match_escrow {
         };
 
         // Determine winner based on highest percentage increase
-        let winner = if (player1_percentage > player2_percentage) {
-            match_obj.player1
+        let (is_tie, winner_opt, loser_opt) = if (player1_percentage > player2_percentage) {
+            (false, option::some(match_obj.player1), option::some(match_obj.player2))
         } else if (player2_percentage > player1_percentage) {
-            match_obj.player2
+            (false, option::some(match_obj.player2), option::some(match_obj.player1))
         } else {
-            // Tie - could implement tiebreaker logic, for now we will use player1
-            match_obj.player1
-        };
-        
-        let loser = if (winner == match_obj.player1) {
-            match_obj.player2
-        } else {
-            match_obj.player1
+            // Tie - both players performed equally
+            (true, option::none(), option::none())
         };
 
         // Store match data for stats update
@@ -552,81 +564,148 @@ module bullfy::match_escrow {
         let match_duration = match_obj.duration;
         let wager_amount = match_obj.total_prize / 2; // Each player wagered half of total prize
 
-        // Update match with calculated values
-        match_obj.status = MatchStatus::Completed;
-        match_obj.winner = option::some(winner);
-        match_obj.player1_final_token_sum = player1_final_sum;
-        match_obj.player2_final_token_sum = player2_final_sum;
-        match_obj.player1_percentage_increase = player1_percentage;
-        match_obj.player2_percentage_increase = player2_percentage;
-        
-        // Record final token prices
-        match_obj.squad1_final_token_prices = squad1_final_token_prices;
-        match_obj.squad2_final_token_prices = squad2_final_token_prices;
+        if (is_tie) {
+            // Handle tie case
+            match_obj.status = MatchStatus::Tied;
+            match_obj.winner = option::none(); // No winner in a tie
+            match_obj.player1_final_token_sum = player1_final_sum;
+            match_obj.player2_final_token_sum = player2_final_sum;
+            match_obj.player1_percentage_increase = player1_percentage;
+            match_obj.player2_percentage_increase = player2_percentage;
+            
+            // Record final token prices
+            match_obj.squad1_final_token_prices = squad1_final_token_prices;
+            match_obj.squad2_final_token_prices = squad2_final_token_prices;
 
-        // Update squad life points
-        let winner_squad_id = if (winner == match_obj.player1) {
-            match_obj.squad1_id
+            // In a tie, no squad gains or loses life points - they remain unchanged
+            // Remove both squads from active registry since match is completed
+            squad_player_challenge::unregister_squad_active(active_squad_registry, match_obj.squad1_id);
+            squad_player_challenge::unregister_squad_active(active_squad_registry, match_obj.squad2_id);
+
+            // Update user statistics for both players (both get tie stats)
+            let half_prize = prize_amount / 2;
+            user_stats::update_match_stats(
+                user_stats_registry,
+                match_obj.player1,
+                false, // not a winner, but not a loser either
+                half_prize, // each gets half the prize
+                wager_amount,
+                match_duration,
+                string::utf8(b"1v1_match_tie"),
+                clock,
+                ctx
+            );
+
+            user_stats::update_match_stats(
+                user_stats_registry,
+                match_obj.player2,
+                false, // not a winner, but not a loser either
+                half_prize, // each gets half the prize
+                wager_amount,
+                match_duration,
+                string::utf8(b"1v1_match_tie"),
+                clock,
+                ctx
+            );
+
+            // Emit tie event
+            event::emit(MatchTied {
+                match_id,
+                player1: match_obj.player1,
+                player2: match_obj.player2,
+                prize_amount_each: half_prize,
+                total_fees: match_obj.total_fees,
+                // Token performance data
+                player1_initial_sum: match_obj.player1_initial_token_sum,
+                player2_initial_sum: match_obj.player2_initial_token_sum,
+                player1_final_sum: player1_final_sum,
+                player2_final_sum: player2_final_sum,
+                player1_percentage_increase: player1_percentage,
+                player2_percentage_increase: player2_percentage,
+                squad1_final_token_prices: match_obj.squad1_final_token_prices,
+                squad2_final_token_prices: match_obj.squad2_final_token_prices,
+            });
         } else {
-            match_obj.squad2_id
-        };
-        
-        let loser_squad_id = if (loser == match_obj.player1) {
-            match_obj.squad1_id
-        } else {
-            match_obj.squad2_id
-        };
+            // Handle winner/loser case
+            let winner = *option::borrow(&winner_opt);
+            let loser = *option::borrow(&loser_opt);
 
-        // Winner gains life, loser loses life
-        squad_manager::increase_squad_life(squad_registry, winner_squad_id);
-        squad_manager::decrease_squad_life(squad_registry, loser_squad_id, clock);
+            // Update match with calculated values
+            match_obj.status = MatchStatus::Completed;
+            match_obj.winner = option::some(winner);
+            match_obj.player1_final_token_sum = player1_final_sum;
+            match_obj.player2_final_token_sum = player2_final_sum;
+            match_obj.player1_percentage_increase = player1_percentage;
+            match_obj.player2_percentage_increase = player2_percentage;
+            
+            // Record final token prices
+            match_obj.squad1_final_token_prices = squad1_final_token_prices;
+            match_obj.squad2_final_token_prices = squad2_final_token_prices;
 
-        // Remove both squads from active registry since match is completed
-        squad_player_challenge::unregister_squad_active(active_squad_registry, match_obj.squad1_id);
-        squad_player_challenge::unregister_squad_active(active_squad_registry, match_obj.squad2_id);
+            // Update squad life points
+            let winner_squad_id = if (winner == match_obj.player1) {
+                match_obj.squad1_id
+            } else {
+                match_obj.squad2_id
+            };
+            
+            let loser_squad_id = if (loser == match_obj.player1) {
+                match_obj.squad1_id
+            } else {
+                match_obj.squad2_id
+            };
 
-        // Update user statistics for both players
-        user_stats::update_match_stats(
-            user_stats_registry,
-            winner,
-            true, // is_winner
-            prize_amount,
-            wager_amount,
-            match_duration,
-            string::utf8(b"1v1_match"),
-            clock,
-            ctx
-        );
+            // Winner gains life, loser loses life
+            squad_manager::increase_squad_life(squad_registry, winner_squad_id);
+            squad_manager::decrease_squad_life(squad_registry, loser_squad_id, clock);
 
-        user_stats::update_match_stats(
-            user_stats_registry,
-            loser,
-            false, // is_winner
-            0, // prize_amount
-            wager_amount,
-            match_duration,
-            string::utf8(b"1v1_match"),
-            clock,
-            ctx
-        );
+            // Remove both squads from active registry since match is completed
+            squad_player_challenge::unregister_squad_active(active_squad_registry, match_obj.squad1_id);
+            squad_player_challenge::unregister_squad_active(active_squad_registry, match_obj.squad2_id);
 
-        // Emit event with correct fee information
-        event::emit(MatchCompleted {
-            match_id,
-            winner,
-            loser,
-            prize_amount: match_obj.total_prize,
-            total_fees: match_obj.total_fees, // Total fees from both bids
-            // Token performance data
-            player1_initial_sum: match_obj.player1_initial_token_sum,
-            player2_initial_sum: match_obj.player2_initial_token_sum,
-            player1_final_sum: player1_final_sum,
-            player2_final_sum: player2_final_sum,
-            player1_percentage_increase: player1_percentage,
-            player2_percentage_increase: player2_percentage,
-            squad1_final_token_prices: match_obj.squad1_final_token_prices,
-            squad2_final_token_prices: match_obj.squad2_final_token_prices,
-        });
+            // Update user statistics for both players
+            user_stats::update_match_stats(
+                user_stats_registry,
+                winner,
+                true, // is_winner
+                prize_amount,
+                wager_amount,
+                match_duration,
+                string::utf8(b"1v1_match"),
+                clock,
+                ctx
+            );
+
+            user_stats::update_match_stats(
+                user_stats_registry,
+                loser,
+                false, // is_winner
+                0, // prize_amount
+                wager_amount,
+                match_duration,
+                string::utf8(b"1v1_match"),
+                clock,
+                ctx
+            );
+
+            // Emit event with correct fee information
+            event::emit(MatchCompleted {
+                match_id,
+                winner,
+                loser,
+                prize_amount: match_obj.total_prize,
+                total_fees: match_obj.total_fees, // Total fees from both bids
+                // Token performance data
+                player1_initial_sum: match_obj.player1_initial_token_sum,
+                player2_initial_sum: match_obj.player2_initial_token_sum,
+                player1_final_sum: player1_final_sum,
+                player2_final_sum: player2_final_sum,
+                player1_percentage_increase: player1_percentage,
+                player2_percentage_increase: player2_percentage,
+                squad1_final_token_prices: match_obj.squad1_final_token_prices,
+                squad2_final_token_prices: match_obj.squad2_final_token_prices,
+            });
+        }
     }
 
     // Claim prize after winning a match
@@ -644,31 +723,74 @@ module bullfy::match_escrow {
         let match_index = *table::borrow(&registry.match_id_to_index, match_id);
         
         // Get all needed data before mutable borrow
-        let (bid1_id, bid2_id, total_prize, fees_collected, total_fees, winner_addr);
+        let (bid1_id, bid2_id, total_prize, fees_collected, total_fees, status, winner_addr_opt, player1, player2);
         {
             let match_obj = vector::borrow(&registry.active_matches, match_index);
             
             // Validate claiming of the prize
-            assert!(match_obj.status == MatchStatus::Completed, EMatchNotActive);
+            assert!(
+                match_obj.status == MatchStatus::Completed || match_obj.status == MatchStatus::Tied, 
+                EMatchNotActive
+            );
             assert!(!match_obj.prize_claimed, EMatchAlreadyCompleted);
-            assert!(option::is_some(&match_obj.winner), EMatchNotActive);
 
             bid1_id = match_obj.bid1_id;
             bid2_id = match_obj.bid2_id;
             total_prize = match_obj.total_prize;
             fees_collected = match_obj.fees_collected;
             total_fees = match_obj.total_fees;
-            winner_addr = *option::borrow(&match_obj.winner);
+            status = match_obj.status;
+            winner_addr_opt = match_obj.winner;
+            player1 = match_obj.player1;
+            player2 = match_obj.player2;
         };
 
         // Get the original bid to access escrow and fees
         let bid_index = *table::borrow(&registry.bid_id_to_index, bid1_id);
         let bid = vector::borrow_mut(&mut registry.active_bids, bid_index);
         
-        // Transfer prize to winner
-        let prize_balance = balance::withdraw_all(&mut bid.escrow);
-        let prize_coin = coin::from_balance(prize_balance, ctx);
-        transfer::public_transfer(prize_coin, winner_addr);
+        if (status == MatchStatus::Completed) {
+            // Regular win - transfer full prize to winner
+            assert!(option::is_some(&winner_addr_opt), EMatchNotActive);
+            let winner_addr = *option::borrow(&winner_addr_opt);
+            
+            let prize_balance = balance::withdraw_all(&mut bid.escrow);
+            let prize_coin = coin::from_balance(prize_balance, ctx);
+            transfer::public_transfer(prize_coin, winner_addr);
+            
+            // Emit prize claimed event
+            event::emit(PrizeClaimed {
+                match_id,
+                winner: winner_addr,
+                amount: total_prize,
+            });
+        } else if (status == MatchStatus::Tied) {
+            // Tie - split prize between both players
+            let half_prize = total_prize / 2;
+            let mut prize_balance = balance::withdraw_all(&mut bid.escrow);
+            
+            // Split the balance in half
+            let player1_balance = balance::split(&mut prize_balance, half_prize);
+            let player2_balance = prize_balance; // remaining balance
+            
+            // Transfer to both players
+            let player1_coin = coin::from_balance(player1_balance, ctx);
+            let player2_coin = coin::from_balance(player2_balance, ctx);
+            transfer::public_transfer(player1_coin, player1);
+            transfer::public_transfer(player2_coin, player2);
+            
+            // Emit tie prize claimed events for both players
+            event::emit(PrizeClaimed {
+                match_id,
+                winner: player1,
+                amount: half_prize,
+            });
+            event::emit(PrizeClaimed {
+                match_id,
+                winner: player2,
+                amount: half_prize,
+            });
+        };
         
         // Send fees to collector (if any)
         if (!fees_collected && total_fees > 0) {
@@ -695,11 +817,7 @@ module bullfy::match_escrow {
         move_bid_to_completed(registry, bid2_id);
 
         // Emit event
-        event::emit(PrizeClaimed {
-            match_id,
-            winner: winner_addr,
-            amount: total_prize,
-        });
+        // The event emission for prize claimed is now handled within the if/else blocks above.
     }
 
     

@@ -22,16 +22,18 @@
 
 # ACTIVE_SQUAD_REGISTRY=0x8033ec1e8e15e189bb10e55a3c29a3daf20c34b695c461666a409cb77e14ca5d
 
+# USER_STATS_REGISTRY=0x[UPDATE_WITH_DEPLOYED_USER_STATS_REGISTRY_ID]
+
 # =============================================================================
 # ADMIN MODULE COMMANDS
 # =============================================================================
 
 # Create a new admin capability (owner only)
 sui client call \
-  --package 0xd4ba3a0a1be88810af3678dfc49ac9b2e3cb9bb24d7a84fc2c44328c6bb87147\
+  --package $BULLFY_PACKAGE \
   --module admin \
   --function create_admin_cap \
-  --args 0xd71e252b0980301b9254ece1914c548de7535ffb9b380768979065df707aaac5 0x66b7a1ceff70c21bf25bae875475eb0d910ad3616132cc49f2e8cb936f9e6a62 0xd2b523dbf9612d35159d62a0a49a74f63b4e20b1a99fe8316838ac87289b8846 0x6 \
+  --args $OWNER_CAP $ADMIN_REGISTRY $NEW_ADMIN_ADDRESS 0x6 \
   --gas-budget 100000000
 
 # Revoke admin capability (owner only)
@@ -71,15 +73,15 @@ sui client call \
   --package $BULLFY_PACKAGE \
   --module admin \
   --function update_fee_percentage \
-  --args $ADMIN_CAP $FEE_CONFIG 1000 \
+  --args $ADMIN_CAP $FEE_CONFIG 300 \
   --gas-budget 100000000
 
 # Update squad creation fee (in MIST, 1 SUI = 1_000_000_000 MIST) - now requires active AdminCap
 sui client call \
-  --package 0xd4ba3a0a1be88810af3678dfc49ac9b2e3cb9bb24d7a84fc2c44328c6bb87147 \
+  --package $BULLFY_PACKAGE \
   --module admin \
   --function update_squad_creation_fee \
-  --args 0x4cc25eb85dbd48faff5ad1da892fe83872606e6ac136f3510f9c3f00f06b38e5 0xcedd742eb67d36960036c52e8f1f27287035cf0c3686487145d0edba2724802a 10000000000 \
+  --args $ADMIN_CAP $FEE_CONFIG 10000000000 \
   --gas-budget 100000000
 
 # Update revival fees (standard_fee, instant_fee in MIST) - now requires active AdminCap
@@ -96,10 +98,10 @@ sui client call \
 
 # Create a new match signer capability (admin only)
 sui client call \
-  --package 0xd4ba3a0a1be88810af3678dfc49ac9b2e3cb9bb24d7a84fc2c44328c6bb87147 \
+  --package $BULLFY_PACKAGE \
   --module match_signer \
   --function create_match_signer \
-  --args 0x4cc25eb85dbd48faff5ad1da892fe83872606e6ac136f3510f9c3f00f06b38e5 0xb8be133bad71ad1fe0965f30abcc7296dbd8e783f691ed2d95af6208c42e10c8 0xd2b523dbf9612d35159d62a0a49a74f63b4e20b1a99fe8316838ac87289b8846 0x6 \
+  --args $ADMIN_CAP $SIGNER_REGISTRY $BACKEND_SERVICE_ADDRESS 0x6 \
   --gas-budget 100000000
 
 # Create a new match signer capability using owner cap (for initial setup)
@@ -169,8 +171,8 @@ sui client call \
 # Create squad and add players in a single transaction using PTB
 # This is the recommended approach as it completes the entire squad setup atomically
 sui client ptb \
-  --move-call 0xd4ba3a0a1be88810af3678dfc49ac9b2e3cb9bb24d7a84fc2c44328c6bb87147::squad_manager::create_squad @0xeb1b306896b8c180f176a0ca968426ca5687da9895ee1e82bf7480d26cb0e846 @0xcedd742eb67d36960036c52e8f1f27287035cf0c3686487145d0edba2724802a @0x49f8950035c0b6e295312462cbb04866e0e27fbb25c9616e20c41333bf8d95ac @0x75d6939cc48400ddee2f475a1c76b8d23d64932aa822e54d9c54c167b446e9db \
-  --move-call 0xd4ba3a0a1be88810af3678dfc49ac9b2e3cb9bb24d7a84fc2c44328c6bb87147::squad_manager::add_players_to_squad @0xeb1b306896b8c180f176a0ca968426ca5687da9895ee1e82bf7480d26cb0e846 2 '"genote"' 'vector["wals","eth","sol","bnb","usdt","trump","egg"]'
+  --move-call $BULLFY_PACKAGE::squad_manager::create_squad $SQUAD_REGISTRY $FEE_CONFIG $FEES_OBJECT $COIN_OBJECT \
+  --move-call $BULLFY_PACKAGE::squad_manager::add_players_to_squad $SQUAD_REGISTRY $NEXT_SQUAD_ID "My Squad Name" 'vector["Player1", "Player2", "Player3", "Player4", "Player5", "Player6", "Player7"]'
 
 # Note: Replace $NEXT_SQUAD_ID with the expected next squad ID (check current next_squad_id in SquadRegistry)
 # You can query the next squad ID first:
@@ -201,23 +203,23 @@ sui client call \
   --gas-budget 100000000
 
 # =============================================================================
-# MATCH ESCROW MODULE COMMANDS
+# MATCH ESCROW MODULE COMMANDS (Updated with math_utils integration)
 # =============================================================================
 
 # Create a bid for 1v1 match
 sui client call \
-  --package 0xd4ba3a0a1be88810af3678dfc49ac9b2e3cb9bb24d7a84fc2c44328c6bb87147 \
+  --package $BULLFY_PACKAGE \
   --module match_escrow \
   --function create_bid \
-  --args 0x86a479a95536116f8d682f6e9de84578d26cfd3320c6bc4b39ce6abd7f534bb1 0xeb1b306896b8c180f176a0ca968426ca5687da9895ee1e82bf7480d26cb0e846 0xe2b70813b59e705d0764b86a21a026ec1c4899838badc7f219a980fd43b04d8d 0xcedd742eb67d36960036c52e8f1f27287035cf0c3686487145d0edba2724802a 1 100000000 300000 0x07552e945914a8f7e329ab5fc7261b395fbc85b65941a5fe648ee91431efdb4f 0x6 \
+  --args $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $FEE_CONFIG 1 100000000 300000 $COIN_OBJECT 0x6 \
   --gas-budget 100000000
 
-# Match two bids together (requires MatchSignerCap) - now includes token prices
+# Match two bids together (requires MatchSignerCap) - includes token prices for performance tracking
 sui client call \
-  --package 0xd4ba3a0a1be88810af3678dfc49ac9b2e3cb9bb24d7a84fc2c44328c6bb87147 \
+  --package $BULLFY_PACKAGE \
   --module match_escrow \
   --function match_bids \
-  --args 0x6dd7feb57d1c8f33249c349a4ea6c3bf889cdc0a40f3a414ea4cb4fd1dadfad2 0x86a479a95536116f8d682f6e9de84578d26cfd3320c6bc4b39ce6abd7f534bb1 0xeb1b306896b8c180f176a0ca968426ca5687da9895ee1e82bf7480d26cb0e846 0xe2b70813b59e705d0764b86a21a026ec1c4899838badc7f219a980fd43b04d8d 0xff0777845db5d7e96d7e21edfcfa106d4618c49e4334eb00edf19b4223bdb9d2 0x772ea1507095871915e09ddff7e924a72ba7938696d2659895faf8bb7fc1afa1 '[1000000, 2000000, 1500000, 3000000, 2500000, 1800000, 2200000]' '[1100000, 1900000, 1600000, 2900000, 2400000, 1700000, 2100000]' 0x6 \
+  --args $MATCH_SIGNER_CAP $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $BID1_ID $BID2_ID 'vector[1000000, 2000000, 1500000, 3000000, 2500000, 1800000, 2200000]' 'vector[1100000, 1900000, 1600000, 2900000, 2400000, 1700000, 2100000]' 0x6 \
   --gas-budget 100000000
 
 # Cancel a bid
@@ -228,12 +230,12 @@ sui client call \
   --args $ESCROW_REGISTRY $ACTIVE_SQUAD_REGISTRY $BID_ID \
   --gas-budget 100000000
 
-# Complete a match by declaring winner (requires MatchSignerCap) - now includes final token prices
+# Complete a match by declaring winner (requires MatchSignerCap) - includes final token prices for performance calculation
 sui client call \
   --package $BULLFY_PACKAGE \
   --module match_escrow \
   --function complete_match \
-  --args $MATCH_SIGNER_CAP $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $MATCH_ID $WINNER_ADDRESS '[1050000, 2100000, 1550000, 3100000, 2550000, 1850000, 2250000]' '[1150000, 1950000, 1650000, 2950000, 2450000, 1750000, 2150000]' 0x6 \
+  --args $MATCH_SIGNER_CAP $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $USER_STATS_REGISTRY $MATCH_ID 'vector[1050000, 2100000, 1550000, 3100000, 2550000, 1850000, 2250000]' 'vector[1150000, 1950000, 1650000, 2950000, 2450000, 1750000, 2150000]' 0x6 \
   --gas-budget 100000000
 
 # Claim prize from completed match (requires MatchSignerCap)
@@ -250,22 +252,21 @@ sui client call \
 
 # Complete match and claim prize in a single transaction using PTB
 # This is the recommended approach for backend services to complete and claim atomically
-# Note: Token prices should be provided as vectors representing the 7 squad players' token prices
 sui client ptb \
   --gas-budget 200000000 \
-  --move-call 0xd4ba3a0a1be88810af3678dfc49ac9b2e3cb9bb24d7a84fc2c44328c6bb87147::match_escrow::complete_match @0x6dd7feb57d1c8f33249c349a4ea6c3bf889cdc0a40f3a414ea4cb4fd1dadfad2 @0x86a479a95536116f8d682f6e9de84578d26cfd3320c6bc4b39ce6abd7f534bb1 @0xeb1b306896b8c180f176a0ca968426ca5687da9895ee1e82bf7480d26cb0e846 @0xe2b70813b59e705d0764b86a21a026ec1c4899838badc7f219a980fd43b04d8d @0xbaff6bf71e2d424029bfc73b8fa1d24ba0c6f897356edc509085dbc14653684b @0x64d74de054a8a20c75d4f08e6de619c5133b41da246e5a4e5183852eb46a6852 'vector[1050000, 2100000, 1550000, 3100000, 2550000, 1850000, 2250000]' 'vector[1150000, 1950000, 1650000, 2950000, 2450000, 1750000, 2150000]' @0x6 \
-  --move-call 0xd4ba3a0a1be88810af3678dfc49ac9b2e3cb9bb24d7a84fc2c44328c6bb87147::match_escrow::claim_prize @0x6dd7feb57d1c8f33249c349a4ea6c3bf889cdc0a40f3a414ea4cb4fd1dadfad2 @0x86a479a95536116f8d682f6e9de84578d26cfd3320c6bc4b39ce6abd7f534bb1 @0x49f8950035c0b6e295312462cbb04866e0e27fbb25c9616e20c41333bf8d95ac @0xbaff6bf71e2d424029bfc73b8fa1d24ba0c6f897356edc509085dbc14653684b
+  --move-call $BULLFY_PACKAGE::match_escrow::complete_match $MATCH_SIGNER_CAP $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $USER_STATS_REGISTRY $MATCH_ID 'vector[1050000, 2100000, 1550000, 3100000, 2550000, 1850000, 2250000]' 'vector[1150000, 1950000, 1650000, 2950000, 2450000, 1750000, 2150000]' 0x6 \
+  --move-call $BULLFY_PACKAGE::match_escrow::claim_prize $MATCH_SIGNER_CAP $ESCROW_REGISTRY $FEES_OBJECT $MATCH_ID
 
 # Backend automation flow: Match bids, complete match, and claim prize in sequence
 # This is useful for automated backend services handling the full match lifecycle
 sui client ptb \
   --gas-budget 300000000 \
-  --move-call $BULLFY_PACKAGE::match_escrow::match_bids $MATCH_SIGNER_CAP $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $BID1_ID $BID2_ID '[1000000, 2000000, 1500000, 3000000, 2500000, 1800000, 2200000]' '[1100000, 1900000, 1600000, 2900000, 2400000, 1700000, 2100000]' 0x6 \
-  --move-call $BULLFY_PACKAGE::match_escrow::complete_match $MATCH_SIGNER_CAP $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $MATCH_ID $WINNER_ADDRESS '[1050000, 2100000, 1550000, 3100000, 2550000, 1850000, 2250000]' '[1150000, 1950000, 1650000, 2950000, 2450000, 1750000, 2150000]' 0x6 \
+  --move-call $BULLFY_PACKAGE::match_escrow::match_bids $MATCH_SIGNER_CAP $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $BID1_ID $BID2_ID 'vector[1000000, 2000000, 1500000, 3000000, 2500000, 1800000, 2200000]' 'vector[1100000, 1900000, 1600000, 2900000, 2400000, 1700000, 2100000]' 0x6 \
+  --move-call $BULLFY_PACKAGE::match_escrow::complete_match $MATCH_SIGNER_CAP $ESCROW_REGISTRY $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $USER_STATS_REGISTRY $MATCH_ID 'vector[1050000, 2100000, 1550000, 3100000, 2550000, 1850000, 2250000]' 'vector[1150000, 1950000, 1650000, 2950000, 2450000, 1750000, 2150000]' 0x6 \
   --move-call $BULLFY_PACKAGE::match_escrow::claim_prize $MATCH_SIGNER_CAP $ESCROW_REGISTRY $FEES_OBJECT $MATCH_ID
 
 # =============================================================================
-# SQUAD PLAYER CHALLENGE MODULE COMMANDS
+# SQUAD PLAYER CHALLENGE MODULE COMMANDS (Updated with math_utils integration)
 # =============================================================================
 
 # Create a new challenge (multiplayer tournament)
@@ -284,20 +285,20 @@ sui client call \
   --args $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $FEE_CONFIG $CHALLENGE_OBJECT 2 $COIN_OBJECT 0x6 \
   --gas-budget 100000000
 
-# Start a challenge (when scheduled time arrives)
+# Start a challenge (when scheduled time arrives) - now includes token price recording
 sui client call \
   --package $BULLFY_PACKAGE \
   --module squad_player_challenge \
   --function start_challenge \
-  --args $CHALLENGE_OBJECT 0x6 \
+  --args $SIGNER_CAP $CHALLENGE_OBJECT 'vector[vector[1000000, 2000000, 1500000, 3000000, 2500000, 1800000, 2200000], vector[1100000, 1900000, 1600000, 2900000, 2400000, 1700000, 2100000]]' 0x6 \
   --gas-budget 100000000
 
-# Complete a challenge (declare winner)
+# Complete a challenge (declare winner) - now includes final token price recording
 sui client call \
   --package $BULLFY_PACKAGE \
   --module squad_player_challenge \
   --function complete_challenge \
-  --args $ADMIN_CAP $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $FEES_OBJECT $CHALLENGE_OBJECT $WINNER_ADDRESS 0x6 \
+  --args $SIGNER_CAP $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $USER_STATS_REGISTRY $FEES_OBJECT $CHALLENGE_OBJECT 'vector[vector[1050000, 2100000, 1550000, 3100000, 2550000, 1850000, 2250000], vector[1150000, 1950000, 1650000, 2950000, 2450000, 1750000, 2150000]]' 0x6 \
   --gas-budget 100000000
 
 # Cancel a challenge (before it starts)
@@ -324,7 +325,7 @@ sui client call \
 # This ensures atomic completion of tournament with proper fund distribution
 sui client ptb \
   --gas-budget 200000000 \
-  --move-call $BULLFY_PACKAGE::squad_player_challenge::complete_challenge $ADMIN_CAP $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $FEES_OBJECT $CHALLENGE_OBJECT $WINNER_ADDRESS 0x6
+  --move-call $BULLFY_PACKAGE::squad_player_challenge::complete_challenge $SIGNER_CAP $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $USER_STATS_REGISTRY $FEES_OBJECT $CHALLENGE_OBJECT 'vector[vector[1050000, 2100000, 1550000, 3100000, 2550000, 1850000, 2250000], vector[1150000, 1950000, 1650000, 2950000, 2450000, 1750000, 2150000]]' 0x6
 
 # Create and join challenge in a single transaction (for quick setup)
 # Useful when you want to immediately join your own created challenge
@@ -338,33 +339,54 @@ sui client ptb \
   --gas-budget 200000000 \
   --move-call $BULLFY_PACKAGE::squad_player_challenge::cancel_challenge $SQUAD_REGISTRY $ACTIVE_SQUAD_REGISTRY $FEES_OBJECT $CHALLENGE_OBJECT 0x6
 
-# Note: For create+join PTB, you need to know the challenge object ID that will be generated
-# Consider using separate transactions if you need to inspect the challenge object first
-
 # =============================================================================
 # FEE COLLECTOR MODULE COMMANDS
 # =============================================================================
 
 # Withdraw specific amount from fees (admin only - automatically sends to admin address)
 sui client call \
-  --package 0x7e075aab8c116002d9752533fb4b088d00fecd0d92af21c739bc130ec8c8b915 \
+  --package $BULLFY_PACKAGE \
   --module fee_collector \
   --function withdraw \
-  --args 0x0ea4dfedafa66e3c497ee3f59aeed0e394efe928c67cfae2a16021ca6bffcda4 0xc0bc733204e2780d52c95824317c39bd7c27b258a69ee4e790b28c8434af36e8 1000000000 \
+  --args $ADMIN_CAP $FEES_OBJECT 1000000000 \
   --gas-budget 100000000
 
 # Withdraw all fees (admin only - automatically sends to admin address)
 sui client call \
-  --package 0x7e075aab8c116002d9752533fb4b088d00fecd0d92af21c739bc130ec8c8b915 \
+  --package $BULLFY_PACKAGE \
   --module fee_collector \
   --function withdraw_all \
-  --args 0x0ea4dfedafa66e3c497ee3f59aeed0e394efe928c67cfae2a16021ca6bffcda4 0xc0bc733204e2780d52c95824317c39bd7c27b258a69ee4e790b28c8434af36e8 \
+  --args $ADMIN_CAP $FEES_OBJECT \
   --gas-budget 100000000
 
 # =============================================================================
-# NOTES AND PARAMETER EXPLANATIONS
+# MATH UTILS MODULE - HELPER FUNCTIONS (View Only)
+# =============================================================================
+
+# Note: math_utils functions are internal helpers used by other modules.
+# They are not directly callable via CLI as they are utility functions.
+# However, you can test them in Move unit tests:
+
+# Available math_utils functions:
+# - safe_add(a: u64, b: u64): u64                    // Safe addition with overflow protection
+# - safe_multiply(a: u64, b: u64): u64               // Safe multiplication with overflow protection  
+# - safe_sum_vector(values: &vector<u64>): u64       // Sum vector elements safely
+# - calculate_fee_amounts(base: u64, fee_bps: u64): (u64, u64)  // Calculate fee and total
+# - calculate_percentage_increase(initial: u64, final: u64): u64 // Calculate % increase * 10000
+# - calculate_prize_pool(bid_amount: u64): u64        // Calculate total prize (bid * 2)
+# - calculate_platform_fee(base: u64, config: &FeeConfig): (u64, u64) // Platform-specific fee calc
+
+# =============================================================================
+# NOTES AND PARAMETER EXPLANATIONS (Updated for u256 Integration)
 # =============================================================================
 # 
+# MATHEMATICAL OPERATIONS - NOW USING U256 INTERNALLY:
+# - All fee calculations use u256 internally for overflow protection
+# - Prize pool calculations (bid_amount * 2) are safe from overflow
+# - Token sum calculations handle large token price vectors safely
+# - Percentage calculations use 10000 multiplier for 0.01% precision
+# - Results are safely cast back to u64 with overflow checks
+#
 # COMMON PARAMETERS:
 # - squad_id: Numeric ID of the squad (e.g., 1, 2, 3...)
 # - bid_amount: Amount in MIST (1 SUI = 1_000_000_000 MIST)
@@ -373,11 +395,27 @@ sui client call \
 # - max_participants: Maximum number of participants in challenge
 # - coin_object_id: ID of SUI coin object for payment
 # - clock_object_id: Sui system clock object ID (always 0x6)
+# - token_prices: Vector of 7 u64 values representing squad token prices
+# - final_token_prices: Vector of 7 u64 values for final token prices
+#
+# TOKEN PRICE VECTORS:
+# - Must contain exactly 7 u64 values (one per squad player)
+# - Prices should be in a consistent format (e.g., fixed-point with decimals)
+# - Initial and final prices are used to calculate percentage performance
+# - Winner is determined by highest percentage increase
+# - Example: vector[1000000, 2000000, 1500000, 3000000, 2500000, 1800000, 2200000]
+#
+# PERFORMANCE CALCULATION:
+# - Percentage increase = ((final_sum - initial_sum) * 10000) / initial_sum
+# - Results in basis points (e.g., 1500 = 15.00% increase)
+# - All calculations use u256 internally to prevent overflow
+# - Safe handling of edge cases (division by zero, negative changes)
 #
 # OBJECT IDs TO UPDATE:
 # - Replace all $VARIABLE placeholders with actual deployed object IDs
 # - Get these IDs from deployment or network explorer
-# - Common objects: AdminCap, OwnerCap, AdminRegistry, MatchSignerCap, SignerRegistry, SquadRegistry, FeeConfig, etc.
+# - New objects: USER_STATS_REGISTRY for tracking player statistics
+# - Common objects: AdminCap, OwnerCap, AdminRegistry, MatchSignerCap, etc.
 #
 # PERMISSIONS:
 # - Owner functions require OwnerCap ownership (create/revoke admins, transfer ownership)
@@ -385,67 +423,37 @@ sui client call \
 # - Match operations require MatchSignerCap ownership (match_bids, complete_match, claim_prize)
 # - Regular functions require squad ownership or participation rights
 #
-# ADMIN REGISTRY SYSTEM:
-# - AdminRegistry tracks all active admins centrally
-# - AdminCap now includes admin_address, created_at, and is_active fields
-# - Admins can temporarily deactivate/reactivate themselves
-# - Only active admins can perform admin functions
-# - Query functions available to check admin status and list all admins
-# - Events emitted for all admin lifecycle operations
+# UPDATED FUNCTION SIGNATURES:
+# - complete_match: Now includes USER_STATS_REGISTRY parameter for stat tracking
+# - start_challenge: Now includes token price vectors parameter
+# - complete_challenge: Now includes final token price vectors parameter
+# - All math operations internally use u256 for safety
 #
-# MATCH SIGNER CAPABILITIES:
-# - MatchSignerCap provides limited permissions for backend automation
-# - Can match bids, complete matches, and claim prizes
-# - Cannot perform other admin functions (fee updates, squad management, etc.)
-# - Must be created by admin or owner, can be revoked at any time
-# - Signers can temporarily deactivate/reactivate themselves
+# ERROR HANDLING:
+# - E_CALCULATION_OVERFLOW: Thrown when u256 calculations would overflow
+# - E_RESULT_TOO_LARGE: Thrown when u256 result cannot fit in u64
+# - E_DIVISION_BY_ZERO: Thrown when attempting division by zero in percentage calc
+# - All existing error codes remain the same for backward compatibility
 #
 # MODULE NAMES (CORRECT):
-# - bullfy::squad_manager (NOT bullfy::bullfy)
-# - bullfy::match_escrow
+# - bullfy::squad_manager
+# - bullfy::match_escrow  
 # - bullfy::match_signer
-# - bullfy::admin (NOW WITH REGISTRY)
+# - bullfy::admin
 # - bullfy::fee_collector
 # - bullfy::squad_player_challenge
+# - bullfy::math_utils (NEW)
 #
-# TIME VALIDATION:
-# - complete_match function now requires match time to have ended
-# - Use clock object (0x6) for time-based validations
-# - Match durations are enforced between 1-30 minutes
-# - Admin operations now include timestamps for audit trails
+# BACKEND INTEGRATION:
+# - Use the same object IDs and function calls
+# - Token prices should be fetched from your price oracle
+# - Math calculations are now overflow-safe internally
+# - Performance tracking provides detailed analytics data
+# - Events include percentage increase data for analysis
 #
-# BID REQUIREMENTS:
-# - Minimum bid amount: 1_000_000 MIST (0.001 SUI)
-# - Duration limits: 60_000 to 1_800_000 milliseconds (1-30 minutes)
-# - Squad must be alive and not already active in another challenge
-#
-# SQUAD REQUIREMENTS:
-# - Must add exactly 7 players when calling add_players_to_squad
-# - Squad creation requires fee payment
-# - Revival has two options: standard (24h wait) or instant (higher fee)
-#
-# ADMIN MANAGEMENT SETUP:
-# 1. Deploy contracts - OwnerCap goes to deployer, AdminRegistry is created
-# 2. Create first admin using OwnerCap + AdminRegistry
-# 3. Additional admins can be created by owner
-# 4. Admins can manage fees, create match signers, etc.
-# 5. Admins can temporarily deactivate themselves if needed
-# 6. Owner can revoke any admin at any time
-#
-# BACKEND AUTOMATION SETUP:
-# 1. Deploy contracts and get object IDs
-# 2. Create AdminCap for admin operations
-# 3. Create MatchSignerCap for your backend service address
-# 4. Backend service can now automate: bid matching → match completion → prize claiming
-# 5. Monitor events and use query functions to track match states
-# 6. Implement error handling for unauthorized operations
-#
-# QUERY FUNCTIONS AVAILABLE:
-# - is_active_admin(registry, address): Check if address is an active admin
-# - get_active_admins(registry): Get list of all active admin addresses
-# - get_admin_count(registry): Get total number of admins
-# - get_admin_info(admin_cap): Get admin details (address, created_at, is_active)
-# - is_active_signer(registry, address): Check if address is an active signer
-# - get_active_signers(registry): Get list of all active signer addresses
-# - get_signer_count(registry): Get total number of signers
-# - get_signer_info(signer_cap): Get signer details (address, created_at, is_active)
+# TESTING RECOMMENDATIONS:
+# - Test with large bid amounts to verify overflow protection
+# - Test percentage calculations with edge cases (0 initial value, etc.)
+# - Verify token price vector lengths (must be exactly 7)
+# - Test concurrent matches to ensure proper isolation
+# - Monitor gas usage - u256 operations may use slightly more gas
