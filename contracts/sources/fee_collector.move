@@ -41,7 +41,7 @@ module bullfy::fee_collector {
     }
 
     // Collect fees from an incoming coin
-    public fun collect(fees: &mut Fees, incoming: Coin<SUI>, ctx: &mut TxContext) {
+    public fun collect(fees: &mut Fees, incoming: Coin<SUI>, _ctx: &mut TxContext) {
         let amount = incoming.value();
         let coin_balance = incoming.into_balance();
         

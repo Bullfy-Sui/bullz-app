@@ -1,5 +1,5 @@
 module bullfy::payment_utils {
-    use sui::coin::{Self, Coin};
+    use sui::coin::Coin;
     use sui::sui::SUI;
     use bullfy::common_errors;
     use bullfy::math_utils;

@@ -5,10 +5,8 @@ module bullfy::squad_player_challenge {
     use sui::balance::{Self, Balance};
     use sui::sui::SUI;
     use sui::table::{Self, Table};
-    use std::vector;
     use std::string::{Self, String};
-    use std::option::{Self, Option};
-    use bullfy::squad_manager::{Self, SquadRegistry, Squad};
+    use bullfy::squad_manager::SquadRegistry;
     use bullfy::fee_collector::{Self, Fees};
     use bullfy::fee_calculator;
     use bullfy::admin::{Self, FeeConfig};
@@ -30,7 +28,6 @@ module bullfy::squad_player_challenge {
     const EChallengeNotStarted: u64 = 2008;
     const EChallengeNotReady: u64 = 2009;
     const EChallengeExpired: u64 = 2010;
-    const EInvalidWinner: u64 = 2011;
     const ESquadAlreadyUsed: u64 = 2012;
     const ESquadActiveInChallenge: u64 = 2013;
     const EInsufficientBid: u64 = 2014;
