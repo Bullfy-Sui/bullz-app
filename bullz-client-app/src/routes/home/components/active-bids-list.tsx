@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { useCancelBid } from "@/lib/hooks/use-squad-contract";
+import { useCancelBid } from "@/lib/hooks/use-match-bidding";
 import { MIST_PER_SUI } from "@mysten/sui/utils";
 import { useState, useEffect } from "react";
 

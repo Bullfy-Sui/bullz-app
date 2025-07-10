@@ -45,20 +45,27 @@ export const TokenPriceDisplay = () => {
             
             return (
               <div key={token.coinAddress} className="flex items-center space-x-4 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                <img 
-                  src={token.imageUrl} 
-                  alt={token.name}
-                  className="w-10 h-10 rounded-full"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.src = `data:image/svg+xml;base64,${btoa(`
-                      <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="20" cy="20" r="20" fill="#F7F7F7"/>
-                        <text x="20" y="25" text-anchor="middle" font-family="Arial" font-size="12" fill="#999">${token.symbol}</text>
-                      </svg>
-                    `)}`;
-                  }}
-                />
+                {/* Only render img if imageUrl exists, otherwise show fallback */}
+                {token.imageUrl ? (
+                  <img 
+                    src={token.imageUrl} 
+                    alt={token.name}
+                    className="w-10 h-10 rounded-full"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = `data:image/svg+xml;base64,${btoa(`
+                        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <circle cx="20" cy="20" r="20" fill="#F7F7F7"/>
+                          <text x="20" y="25" text-anchor="middle" font-family="Arial" font-size="12" fill="#999">${token.symbol}</text>
+                        </svg>
+                      `)}`;
+                    }}
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                    <span className="text-xs font-semibold text-gray-600">{token.symbol}</span>
+                  </div>
+                )}
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <div>

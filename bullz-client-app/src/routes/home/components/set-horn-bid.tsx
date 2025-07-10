@@ -10,7 +10,7 @@ import BullHornBid from "./bull-horn-bid";
 import FreeHornBid from "./free-horn-bid";
 import LockedHorns from "./locked-horns";
 import BottomSheet from "@/components/general/bottom-sheet";
-import { useCreateBid, useGetUserBids } from "@/lib/hooks/use-squad-contract";
+import { useCreateBid, useGetUserBids } from "@/lib/hooks/use-match-bidding";
 import { HornForm } from "../index";
 
 interface SetHornBidProps {

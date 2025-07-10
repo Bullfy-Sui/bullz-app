@@ -1,27 +1,213 @@
-import { useSuiClient, useCurrentAccount, useSignAndExecuteTransaction } from "@mysten/dapp-kit";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSignAndExecuteTransaction, useSuiClient, useCurrentAccount } from "@mysten/dapp-kit";
 import { Transaction } from "@mysten/sui/transactions";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { useNetworkVariable } from "@/networkConfig";
+import { useNetworkVariable } from "../../networkConfig";
 import { MIST_PER_SUI } from "@mysten/sui/utils";
+import { extractSquadIdFromTransaction } from "../sui/transaction-utils";
 
+// Types for squad data based on contract structure
 export interface SquadData {
   squad_id: number;
-  name: string;
   owner: string;
+  name: string;
   players: string[];
+  formation: string;
   life: number;
   death_time?: number;
 }
 
-// Hook for creating a complete squad (create + add players) in a single PTB
+// Hook for creating a new squad (empty squad)
+export const useCreateSquad = () => {
+  const suiClient = useSuiClient();
+  const currentAccount = useCurrentAccount();
+  const { mutate: signAndExecute } = useSignAndExecuteTransaction();
+  const packageId = useNetworkVariable("packageId");
+  const squadRegistryId = useNetworkVariable("squadRegistryId");
+  const userStatsRegistryId = useNetworkVariable("userStatsRegistryId");
+  const feeConfigId = useNetworkVariable("feeConfigId");
+  const feesId = useNetworkVariable("feesId");
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ["create-squad"],
+    mutationFn: async () => {
+      if (!currentAccount?.address) {
+        throw new Error("Wallet not connected");
+      }
+
+      console.log("Creating new squad");
+
+      try {
+        // Get the actual creation fee from the contract
+        const feeResult = await suiClient.devInspectTransactionBlock({
+          transactionBlock: (() => {
+            const inspectTx = new Transaction();
+            inspectTx.moveCall({
+              package: packageId,
+              module: "squad_manager",
+              function: "calculate_squad_creation_payment",
+              arguments: [inspectTx.object(feeConfigId)],
+            });
+            return inspectTx;
+          })(),
+          sender: currentAccount.address,
+        });
+
+        let creationFeeInMist = 1000000000; // 1 SUI as fallback (default from contract)
+        
+        // Try to parse the actual fee from inspection result
+        if (feeResult.results && feeResult.results[0] && feeResult.results[0].returnValues) {
+          try {
+            const returnValue = feeResult.results[0].returnValues[0];
+            if (returnValue && returnValue[1]) {
+              const feeBytes = returnValue[1] as unknown as number[];
+              // Parse u64 from bytes (little endian)
+              if (Array.isArray(feeBytes) && feeBytes.length >= 8) {
+                let fee = 0;
+                for (let i = 0; i < 8; i++) {
+                  fee += (feeBytes[i] as number) * Math.pow(256, i);
+                }
+                creationFeeInMist = fee;
+                console.log("Parsed creation fee from contract:", creationFeeInMist);
+              }
+            }
+          } catch (parseError) {
+            console.warn("Could not parse fee from contract, using fallback:", parseError);
+          }
+        }
+
+        console.log("Using creation fee:", creationFeeInMist, "MIST");
+
+        const tx = new Transaction();
+
+        // Split coins for payment
+        const [payment] = tx.splitCoins(tx.gas, [creationFeeInMist]);
+
+        // Call create_squad function (creates empty squad)
+        tx.moveCall({
+          package: packageId,
+          module: "squad_manager",
+          function: "create_squad",
+          arguments: [
+            tx.object(squadRegistryId),
+            tx.object(userStatsRegistryId),
+            tx.object(feeConfigId),
+            tx.object(feesId),
+            payment,
+            tx.object("0x6"), // Clock object
+          ],
+        });
+
+        return new Promise((resolve, reject) => {
+          signAndExecute(
+            { transaction: tx },
+            {
+              onSuccess: (result) => {
+                console.log("Squad created successfully:", result);
+                queryClient.invalidateQueries({ queryKey: ["user-squads"] });
+                resolve({ result });
+              },
+              onError: (error) => {
+                console.error("Failed to create squad:", error);
+                reject(error);
+              },
+            }
+          );
+        });
+
+      } catch (error) {
+        console.error("Error setting up squad creation transaction:", error);
+        throw error;
+      }
+    },
+  });
+};
+
+// Hook for adding players to an existing squad
+export const useAddPlayersToSquad = () => {
+  const suiClient = useSuiClient();
+  const currentAccount = useCurrentAccount();
+  const { mutate: signAndExecute } = useSignAndExecuteTransaction();
+  const packageId = useNetworkVariable("packageId");
+  const squadRegistryId = useNetworkVariable("squadRegistryId");
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ["add-players-to-squad"],
+    mutationFn: async ({
+      squadId,
+      squadName,
+      formation,
+      players,
+    }: {
+      squadId: number;
+      squadName: string;
+      formation: string;
+      players: string[];
+    }) => {
+      if (!currentAccount?.address) {
+        throw new Error("Wallet not connected");
+      }
+
+      if (players.length !== 7) {
+        throw new Error("Squad must have exactly 7 players");
+      }
+
+      console.log(`Adding players to squad ${squadId}`);
+
+      const tx = new Transaction();
+
+      // Call add_players_to_squad function (no payment required)
+      tx.moveCall({
+        package: packageId,
+        module: "squad_manager",
+        function: "add_players_to_squad",
+        arguments: [
+          tx.object(squadRegistryId),
+          tx.pure.u64(squadId),
+          tx.pure.string(squadName),
+          tx.pure.string(formation),
+          tx.pure.vector("string", players),
+        ],
+      });
+
+      return new Promise((resolve, reject) => {
+        signAndExecute(
+          { transaction: tx },
+          {
+            onSuccess: (result) => {
+              console.log("Players added successfully:", result);
+              queryClient.invalidateQueries({ queryKey: ["user-squads"] });
+              resolve({
+                result,
+                squadId,
+                squadName,
+                formation,
+                players,
+              });
+            },
+            onError: (error) => {
+              console.error("Failed to add players:", error);
+              reject(error);
+            },
+          }
+        );
+      });
+    },
+  });
+};
+
+// Combined hook for creating complete squad (create + add players)
 export const useCreateCompleteSquad = () => {
   const suiClient = useSuiClient();
   const currentAccount = useCurrentAccount();
   const { mutate: signAndExecute } = useSignAndExecuteTransaction();
   const packageId = useNetworkVariable("packageId");
   const squadRegistryId = useNetworkVariable("squadRegistryId");
+  const userStatsRegistryId = useNetworkVariable("userStatsRegistryId");
   const feeConfigId = useNetworkVariable("feeConfigId");
   const feesId = useNetworkVariable("feesId");
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationKey: ["create-complete-squad"],
@@ -37,84 +223,407 @@ export const useCreateCompleteSquad = () => {
       }
 
       if (playerNames.length !== 7) {
-        throw new Error("Must provide exactly 7 players");
+        throw new Error("Squad must have exactly 7 players");
       }
 
-      // Get squad creation fee and current squad registry state
-      const [feeConfigObject, registryData] = await Promise.all([
-        suiClient.getObject({
-          id: feeConfigId,
-          options: { showContent: true },
-        }),
-        suiClient.getObject({
+      console.log("Creating complete squad:", { squadName, playerNames });
+
+      try {
+        // Get the actual creation fee from the contract
+        const feeResult = await suiClient.devInspectTransactionBlock({
+          transactionBlock: (() => {
+            const inspectTx = new Transaction();
+            inspectTx.moveCall({
+              package: packageId,
+              module: "squad_manager",
+              function: "calculate_squad_creation_payment",
+              arguments: [inspectTx.object(feeConfigId)],
+            });
+            return inspectTx;
+          })(),
+          sender: currentAccount.address,
+        });
+
+        let creationFeeInMist = 1000000000; // 1 SUI as fallback (default from contract)
+        
+        // Try to parse the actual fee from inspection result
+        if (feeResult.results && feeResult.results[0] && feeResult.results[0].returnValues) {
+          try {
+            const returnValue = feeResult.results[0].returnValues[0];
+            if (returnValue && returnValue[1]) {
+              const feeBytes = returnValue[1] as unknown as number[];
+              // Parse u64 from bytes (little endian)
+              if (Array.isArray(feeBytes) && feeBytes.length >= 8) {
+                let fee = 0;
+                for (let i = 0; i < 8; i++) {
+                  fee += (feeBytes[i] as number) * Math.pow(256, i);
+                }
+                creationFeeInMist = fee;
+                console.log("Parsed creation fee from contract:", creationFeeInMist);
+              }
+            }
+          } catch (parseError) {
+            console.warn("Could not parse fee from contract, using fallback:", parseError);
+          }
+        }
+
+        console.log("Using creation fee:", creationFeeInMist, "MIST");
+
+        // Create a single transaction that creates squad and adds players
+        const tx = new Transaction();
+
+        // Split coins for payment
+        const [payment] = tx.splitCoins(tx.gas, [creationFeeInMist]);
+
+        // Step 1: Create empty squad and get the squad ID
+        const squadResult = tx.moveCall({
+          package: packageId,
+          module: "squad_manager",
+          function: "create_squad",
+          arguments: [
+            tx.object(squadRegistryId),
+            tx.object(userStatsRegistryId),
+            tx.object(feeConfigId),
+            tx.object(feesId),
+            payment,
+            tx.object("0x6"), // Clock object
+          ],
+        });
+
+        // The create_squad function should return the squad ID
+        // For now, we'll need to use the next_squad_id from the registry
+        // Let's get the current squad ID first
+        const registryObject = await suiClient.getObject({
           id: squadRegistryId,
           options: { showContent: true },
-        })
-      ]);
+        });
 
-      if (!feeConfigObject.data?.content || feeConfigObject.data.content.dataType !== "moveObject") {
-        throw new Error("Failed to fetch fee configuration");
+        let nextSquadId = 1;
+        if (registryObject.data?.content && 'fields' in registryObject.data.content) {
+          const fields = registryObject.data.content.fields as any;
+          nextSquadId = parseInt(fields.next_squad_id || "1");
+        }
+
+        console.log("Next squad ID will be:", nextSquadId);
+
+        // Step 2: Add players to the squad using the expected squad ID
+        tx.moveCall({
+          package: packageId,
+          module: "squad_manager",
+          function: "add_players_to_squad",
+          arguments: [
+            tx.object(squadRegistryId),
+            tx.pure.u64(nextSquadId),
+            tx.pure.string(squadName),
+            tx.pure.string("OneThreeTwoOne"), // Default formation
+            tx.pure.vector("string", playerNames),
+          ],
+        });
+
+        return new Promise((resolve, reject) => {
+          signAndExecute(
+            { transaction: tx },
+            {
+              onSuccess: (result) => {
+                console.log("Complete squad creation successful:", result);
+                queryClient.invalidateQueries({ queryKey: ["user-squads"] });
+                resolve({
+                  result,
+                  squadId: nextSquadId,
+                  squadName,
+                  playerNames,
+                });
+              },
+              onError: (error) => {
+                console.error("Failed to create complete squad:", error);
+                reject(error);
+              },
+            }
+          );
+        });
+
+      } catch (error) {
+        console.error("Error setting up squad creation transaction:", error);
+        throw error;
+      }
+    },
+  });
+};
+
+// Hook for updating squad name only
+export const useUpdateSquadName = () => {
+  const suiClient = useSuiClient();
+  const currentAccount = useCurrentAccount();
+  const { mutate: signAndExecute } = useSignAndExecuteTransaction();
+  const packageId = useNetworkVariable("packageId");
+  const squadRegistryId = useNetworkVariable("squadRegistryId");
+  const feeConfigId = useNetworkVariable("feeConfigId");
+  const feesId = useNetworkVariable("feesId");
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ["update-squad-name"],
+    mutationFn: async ({
+      squadId,
+      newName,
+    }: {
+      squadId: number;
+      newName: string;
+    }) => {
+      if (!currentAccount?.address) {
+        throw new Error("Wallet not connected");
       }
 
-      if (!registryData.data?.content || registryData.data.content.dataType !== "moveObject") {
-        throw new Error("Failed to fetch squad registry");
+      console.log(`Updating squad ${squadId} name to: ${newName}`);
+
+      try {
+        // Get the actual update fee from the contract
+        const feeResult = await suiClient.devInspectTransactionBlock({
+          transactionBlock: (() => {
+            const inspectTx = new Transaction();
+            inspectTx.moveCall({
+              package: packageId,
+              module: "squad_manager",
+              function: "calculate_squad_update_payment",
+              arguments: [inspectTx.object(feeConfigId)],
+            });
+            return inspectTx;
+          })(),
+          sender: currentAccount.address,
+        });
+
+        let updateFeeInMist = 1000000000; // 1 SUI as fallback (default from contract)
+        
+        // Try to parse the actual fee from inspection result
+        if (feeResult.results && feeResult.results[0] && feeResult.results[0].returnValues) {
+          try {
+            const returnValue = feeResult.results[0].returnValues[0];
+            if (returnValue && returnValue[1]) {
+              const feeBytes = returnValue[1] as unknown as number[];
+              // Parse u64 from bytes (little endian)
+              if (Array.isArray(feeBytes) && feeBytes.length >= 8) {
+                let fee = 0;
+                for (let i = 0; i < 8; i++) {
+                  fee += (feeBytes[i] as number) * Math.pow(256, i);
+                }
+                updateFeeInMist = fee;
+                console.log("Parsed update fee from contract:", updateFeeInMist);
+              }
+            }
+          } catch (parseError) {
+            console.warn("Could not parse fee from contract, using fallback:", parseError);
+          }
+        }
+
+        const tx = new Transaction();
+        const [payment] = tx.splitCoins(tx.gas, [updateFeeInMist]);
+
+        // Call update_squad_name function
+        tx.moveCall({
+          package: packageId,
+          module: "squad_manager",
+          function: "update_squad_name",
+          arguments: [
+            tx.object(squadRegistryId),
+            tx.object(feeConfigId),
+            tx.object(feesId),
+            tx.pure.u64(squadId),
+            tx.pure.string(newName),
+            payment,
+          ],
+        });
+
+        return new Promise((resolve, reject) => {
+          signAndExecute(
+            { transaction: tx },
+            {
+              onSuccess: (result) => {
+                console.log("Squad name updated successfully:", result);
+                queryClient.invalidateQueries({ queryKey: ["user-squads"] });
+                resolve({
+                  result,
+                  squadId,
+                  newName,
+                });
+              },
+              onError: (error) => {
+                console.error("Failed to update squad name:", error);
+                reject(error);
+              },
+            }
+          );
+        });
+
+      } catch (error) {
+        console.error("Error setting up squad name update transaction:", error);
+        throw error;
+      }
+    },
+  });
+};
+
+// Hook for updating squad players only
+export const useUpdateSquadPlayers = () => {
+  const suiClient = useSuiClient();
+  const currentAccount = useCurrentAccount();
+  const { mutate: signAndExecute } = useSignAndExecuteTransaction();
+  const packageId = useNetworkVariable("packageId");
+  const squadRegistryId = useNetworkVariable("squadRegistryId");
+  const feeConfigId = useNetworkVariable("feeConfigId");
+  const feesId = useNetworkVariable("feesId");
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ["update-squad-players"],
+    mutationFn: async ({
+      squadId,
+      newPlayers,
+    }: {
+      squadId: number;
+      newPlayers: string[];
+    }) => {
+      if (!currentAccount?.address) {
+        throw new Error("Wallet not connected");
       }
 
-      const feeConfig = feeConfigObject.data.content.fields as any;
-      const creationFee = feeConfig.squad_creation_fee;
+      if (newPlayers.length !== 7) {
+        throw new Error("Squad must have exactly 7 players");
+      }
 
-      const registryFields = registryData.data.content.fields as any;
-      const nextSquadId = Number(registryFields.next_squad_id);
+      console.log(`Updating squad ${squadId} players`);
 
-      console.log(`Creating squad with ID: ${nextSquadId}`);
+      try {
+        // Get the actual update fee from the contract
+        const feeResult = await suiClient.devInspectTransactionBlock({
+          transactionBlock: (() => {
+            const inspectTx = new Transaction();
+            inspectTx.moveCall({
+              package: packageId,
+              module: "squad_manager",
+              function: "calculate_squad_update_payment",
+              arguments: [inspectTx.object(feeConfigId)],
+            });
+            return inspectTx;
+          })(),
+          sender: currentAccount.address,
+        });
 
-      // Create single PTB with both operations
+        let updateFeeInMist = 1000000000; // 1 SUI as fallback (default from contract)
+        
+        // Try to parse the actual fee from inspection result
+        if (feeResult.results && feeResult.results[0] && feeResult.results[0].returnValues) {
+          try {
+            const returnValue = feeResult.results[0].returnValues[0];
+            if (returnValue && returnValue[1]) {
+              const feeBytes = returnValue[1] as unknown as number[];
+              // Parse u64 from bytes (little endian)
+              if (Array.isArray(feeBytes) && feeBytes.length >= 8) {
+                let fee = 0;
+                for (let i = 0; i < 8; i++) {
+                  fee += (feeBytes[i] as number) * Math.pow(256, i);
+                }
+                updateFeeInMist = fee;
+                console.log("Parsed update fee from contract:", updateFeeInMist);
+              }
+            }
+          } catch (parseError) {
+            console.warn("Could not parse fee from contract, using fallback:", parseError);
+          }
+        }
+
+        const tx = new Transaction();
+        const [payment] = tx.splitCoins(tx.gas, [updateFeeInMist]);
+
+        // Call update_squad_players function
+        tx.moveCall({
+          package: packageId,
+          module: "squad_manager",
+          function: "update_squad_players",
+          arguments: [
+            tx.object(squadRegistryId),
+            tx.object(feeConfigId),
+            tx.object(feesId),
+            tx.pure.u64(squadId),
+            tx.pure.vector("string", newPlayers),
+            payment,
+          ],
+        });
+
+        return new Promise((resolve, reject) => {
+          signAndExecute(
+            { transaction: tx },
+            {
+              onSuccess: (result) => {
+                console.log("Squad players updated successfully:", result);
+                queryClient.invalidateQueries({ queryKey: ["user-squads"] });
+                resolve({
+                  result,
+                  squadId,
+                  newPlayers,
+                });
+              },
+              onError: (error) => {
+                console.error("Failed to update squad players:", error);
+                reject(error);
+              },
+            }
+          );
+        });
+
+      } catch (error) {
+        console.error("Error setting up squad players update transaction:", error);
+        throw error;
+      }
+    },
+  });
+};
+
+// Hook for deleting squad
+export const useDeleteSquad = () => {
+  const suiClient = useSuiClient();
+  const currentAccount = useCurrentAccount();
+  const { mutate: signAndExecute } = useSignAndExecuteTransaction();
+  const packageId = useNetworkVariable("packageId");
+  const squadRegistryId = useNetworkVariable("squadRegistryId");
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ["delete-squad"],
+    mutationFn: async ({ squadId }: { squadId: number }) => {
+      if (!currentAccount?.address) {
+        throw new Error("Wallet not connected");
+      }
+
+      console.log(`Deleting squad ${squadId}`);
+
       const tx = new Transaction();
 
-      // Split coins for payment
-      const [payment] = tx.splitCoins(tx.gas, [creationFee]);
-
-      // Step 1: Call create_squad function
+      // Call delete_squad function (no payment required)
       tx.moveCall({
         package: packageId,
         module: "squad_manager",
-        function: "create_squad",
+        function: "delete_squad",
         arguments: [
           tx.object(squadRegistryId),
-          tx.object(feeConfigId),
-          tx.object(feesId),
-          payment,
+          tx.pure.u64(squadId),
+          tx.object("0x6"), // Clock object
         ],
       });
 
-      // Step 2: Call add_players_to_squad function in the same PTB
-      // We use the squad ID that we know will be assigned (nextSquadId)
-      tx.moveCall({
-        package: packageId,
-        module: "squad_manager",
-        function: "add_players_to_squad",
-        arguments: [
-          tx.object(squadRegistryId),
-          tx.pure.u64(nextSquadId),
-          tx.pure.string(squadName),
-          tx.pure.vector("string", playerNames),
-        ],
-      });
-
-      // Execute the combined transaction
       return new Promise((resolve, reject) => {
         signAndExecute(
           { transaction: tx },
           {
             onSuccess: (result) => {
-              console.log("Complete squad created successfully:", result);
+              console.log("Squad deleted successfully:", result);
+              queryClient.invalidateQueries({ queryKey: ["user-squads"] });
               resolve({
                 result,
-                squadId: nextSquadId,
+                squadId,
               });
             },
             onError: (error) => {
-              console.error("Failed to create complete squad:", error);
+              console.error("Failed to delete squad:", error);
               reject(error);
             },
           }
@@ -124,556 +633,241 @@ export const useCreateCompleteSquad = () => {
   });
 };
 
-// Hook for getting squad creation fee
-export const useGetSquadCreationFee = () => {
-  const suiClient = useSuiClient();
-  const feeConfigId = useNetworkVariable("feeConfigId");
-
-  return useQuery({
-    queryKey: ["squad-creation-fee", feeConfigId],
-    queryFn: async () => {
-      const feeConfigObject = await suiClient.getObject({
-        id: feeConfigId,
-        options: { showContent: true },
-      });
-
-      if (!feeConfigObject.data?.content || feeConfigObject.data.content.dataType !== "moveObject") {
-        throw new Error("Failed to fetch fee configuration");
-      }
-
-      const feeConfig = feeConfigObject.data.content.fields as any;
-      const creationFeeInMist = feeConfig.squad_creation_fee;
-      
-      // Convert MIST to SUI
-      const creationFeeInSui = Number(creationFeeInMist) / Number(MIST_PER_SUI);
-      
-      return {
-        feeInMist: creationFeeInMist,
-        feeInSui: creationFeeInSui,
-      };
-    },
-    enabled: !!feeConfigId,
-  });
-};
-
-// Hook for getting user's squads
-export const useGetUserSquads = () => {
-  const suiClient = useSuiClient();
-  const currentAccount = useCurrentAccount();
-  const squadRegistryId = useNetworkVariable("squadRegistryId");
-
-  return useQuery({
-    queryKey: ["user-squads", currentAccount?.address, squadRegistryId],
-    queryFn: async (): Promise<SquadData[]> => {
-      console.log("🔍 Fetching user squads...");
-      
-      if (!currentAccount?.address || !squadRegistryId) {
-        console.log("❌ Missing account or registry ID");
-        return [];
-      }
-
-      try {
-        // Get squad registry object to get table IDs
-        const squadRegistryObject = await suiClient.getObject({
-          id: squadRegistryId,
-          options: { showContent: true },
-        });
-
-        if (!squadRegistryObject.data?.content || squadRegistryObject.data.content.dataType !== "moveObject") {
-          console.log("❌ Failed to fetch squad registry");
-          return [];
-        }
-
-        const registryFields = squadRegistryObject.data.content.fields as any;
-        const ownerSquadsTableId = registryFields.owner_squads.fields.id.id;
-        const squadsTableId = registryFields.squads.fields.id.id;
-
-        console.log("📋 Owner squads table ID:", ownerSquadsTableId);
-        console.log("📋 Squads table ID:", squadsTableId);
-
-        // Check if user has squads by querying the owner_squads table
-        try {
-          const ownerSquadsFields = await suiClient.getDynamicFields({
-            parentId: ownerSquadsTableId,
-          });
-
-          console.log("🔍 Owner squads fields:", ownerSquadsFields);
-
-          // Find the user's entry in the owner_squads table
-          const userSquadEntry = ownerSquadsFields.data.find(field => {
-            if (field.name.type === "address" && field.name.value === currentAccount.address) {
-              return true;
-            }
-            return false;
-          });
-
-          if (!userSquadEntry) {
-            console.log("📝 User has no squads");
-            return [];
-          }
-
-          console.log("🎯 Found user squad entry:", userSquadEntry);
-
-          // Get the squad IDs for this user
-          const userSquadIdsObject = await suiClient.getObject({
-            id: userSquadEntry.objectId,
-            options: { showContent: true },
-          });
-
-          if (!userSquadIdsObject.data?.content || userSquadIdsObject.data.content.dataType !== "moveObject") {
-            console.log("❌ Failed to fetch user squad IDs");
-            return [];
-          }
-
-          const squadIds = (userSquadIdsObject.data.content.fields as any).value;
-          console.log("🎯 User squad IDs:", squadIds);
-
-          if (!squadIds || squadIds.length === 0) {
-            console.log("📝 User has no squads");
-            return [];
-          }
-
-          // Fetch each squad's details
-          const squadsData: SquadData[] = [];
-
-          for (const squadId of squadIds) {
-            try {
-              // Get the squad from the squads table using dynamic field query
-              const squadFields = await suiClient.getDynamicFields({
-                parentId: squadsTableId,
-              });
-
-              const squadEntry = squadFields.data.find(field => {
-                if (field.name.type === "u64" && field.name.value === squadId.toString()) {
-                  return true;
-                }
-                return false;
-              });
-
-              if (!squadEntry) {
-                console.log(`❌ Squad ${squadId} not found in squads table`);
-                continue;
-              }
-
-              // Get the squad object details
-              const squadObject = await suiClient.getObject({
-                id: squadEntry.objectId,
-                options: { showContent: true },
-              });
-
-              if (!squadObject.data?.content || squadObject.data.content.dataType !== "moveObject") {
-                console.log(`❌ Failed to fetch squad ${squadId} details`);
-                continue;
-              }
-
-              const squadData = (squadObject.data.content.fields as any).value.fields;
-              console.log(`📊 Squad ${squadId} data:`, squadData);
-
-              const squad: SquadData = {
-                squad_id: Number(squadData.squad_id),
-                name: squadData.name,
-                owner: squadData.owner,
-                players: squadData.players || [],
-                life: Number(squadData.life),
-                death_time: squadData.death_time ? Number(squadData.death_time) : undefined,
-              };
-
-              squadsData.push(squad);
-
-            } catch (error) {
-              console.error(`❌ Error fetching squad ${squadId}:`, error);
-            }
-          }
-
-          console.log("✅ Final squads data:", squadsData);
-          return squadsData;
-
-        } catch (error) {
-          console.log("❌ Error checking owner squads table:", error);
-          return [];
-        }
-
-      } catch (error) {
-        console.error("❌ Error fetching user squads:", error);
-        return [];
-      }
-    },
-    enabled: !!currentAccount?.address && !!squadRegistryId,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    retry: 1,
-  });
-};
-
-// Hook to check if user has enough balance for squad creation
-export const useCanCreateSquad = () => {
-  const suiClient = useSuiClient();
-  const currentAccount = useCurrentAccount();
-  const feeConfigId = useNetworkVariable("feeConfigId");
-  const { data: squadCreationFee } = useGetSquadCreationFee();
-
-  return useQuery({
-    queryKey: ["can-create-squad", currentAccount?.address, feeConfigId],
-    queryFn: async () => {
-      if (!currentAccount?.address || !squadCreationFee) {
-        return false;
-      }
-
-      try {
-        // Get user's SUI balance
-        const balance = await suiClient.getBalance({
-          owner: currentAccount.address,
-          coinType: "0x2::sui::SUI",
-        });
-
-        const userBalanceInMist = BigInt(balance.totalBalance);
-        const requiredFeeInMist = BigInt(squadCreationFee.feeInMist);
-
-        // Check if user has enough balance for squad creation fee
-        return userBalanceInMist >= requiredFeeInMist;
-      } catch (error) {
-        console.error("Error checking squad creation balance:", error);
-        return false;
-      }
-    },
-    enabled: !!currentAccount?.address && !!squadCreationFee,
-  });
-};
-
-// Hook for creating a bid for horn locking
-export const useCreateBid = () => {
+// Hook for reviving squad
+export const useReviveSquad = () => {
   const suiClient = useSuiClient();
   const currentAccount = useCurrentAccount();
   const { mutate: signAndExecute } = useSignAndExecuteTransaction();
   const packageId = useNetworkVariable("packageId");
-  const escrowRegistryId = useNetworkVariable("escrowRegistryId");
   const squadRegistryId = useNetworkVariable("squadRegistryId");
-  const activeSquadRegistryId = useNetworkVariable("activeSquadRegistryId");
+  const userStatsRegistryId = useNetworkVariable("userStatsRegistryId");
   const feeConfigId = useNetworkVariable("feeConfigId");
+  const feesId = useNetworkVariable("feesId");
+  const queryClient = useQueryClient();
 
   return useMutation({
-    mutationKey: ["create-bid"],
-    mutationFn: async ({
-      squadId,
-      bidAmountInSui,
-      durationInMinutes,
-    }: {
-      squadId: number;
-      bidAmountInSui: number;
-      durationInMinutes: number;
-    }) => {
+    mutationKey: ["revive-squad"],
+    mutationFn: async ({ squadId }: { squadId: number }) => {
+      if (!currentAccount?.address) {
+        throw new Error("Wallet not connected");
+      }
+
+      console.log(`Reviving squad ${squadId}`);
+
       try {
-        if (!currentAccount?.address) {
-          throw new Error("Wallet not connected");
-        }
+        // The contract automatically determines instant vs standard revival based on time
+        // We need to provide payment that covers the maximum possible fee
+        // Default instant revival fee is 0.1 SUI (100,000,000 MIST)
+        const maxRevivalFeeInMist = 100000000; // 0.1 SUI as max estimate from contract default
 
-        // Validate network variables
-        if (!packageId || !escrowRegistryId || !squadRegistryId || !activeSquadRegistryId || !feeConfigId) {
-          console.error("Missing network variables:", {
-            packageId,
-            escrowRegistryId,
-            squadRegistryId,
-            activeSquadRegistryId,
-            feeConfigId,
-          });
-          throw new Error("Missing required network configuration");
-        }
-
-        // Convert SUI to MIST and minutes to milliseconds
-        const bidAmountInMist = Math.floor(bidAmountInSui * Number(MIST_PER_SUI));
-        const durationInMs = durationInMinutes * 60 * 1000;
-
-        console.log(`Creating bid: Squad ${squadId}, Amount ${bidAmountInSui} SUI (${bidAmountInMist} MIST), Duration ${durationInMinutes}min (${durationInMs}ms)`);
-
-        // Validate bid amount meets minimum
-        const MIN_BID_AMOUNT = 1_000_000; // 0.001 SUI in MIST
-        if (bidAmountInMist < MIN_BID_AMOUNT) {
-          throw new Error(`Bid amount must be at least ${MIN_BID_AMOUNT / Number(MIST_PER_SUI)} SUI`);
-        }
-
-        // Validate duration
-        const MIN_DURATION = 60_000; // 1 minute in milliseconds
-        const MAX_DURATION = 1_800_000; // 30 minutes in milliseconds
-        if (durationInMs < MIN_DURATION || durationInMs > MAX_DURATION) {
-          throw new Error(`Duration must be between 1-30 minutes`);
-        }
-
-        // Get fee configuration to calculate total required payment
-        console.log("Fetching fee configuration...");
-        const feeConfigObject = await suiClient.getObject({
-          id: feeConfigId,
-          options: { showContent: true },
-        });
-
-        if (!feeConfigObject.data?.content || feeConfigObject.data.content.dataType !== "moveObject") {
-          throw new Error("Failed to fetch fee configuration");
-        }
-
-        const feeConfig = feeConfigObject.data.content.fields as any;
-        console.log("Fee config:", feeConfig);
-        
-        if (!feeConfig.upfront_fee_bps) {
-          throw new Error("Fee configuration missing upfront_fee_bps field");
-        }
-
-        const bidFeeRate = Number(feeConfig.upfront_fee_bps) / 10000; // Convert basis points to decimal
-        const feeAmountInMist = Math.floor(bidAmountInMist * bidFeeRate);
-        const totalRequiredInMist = bidAmountInMist + feeAmountInMist;
-
-        console.log(`Fee calculation: ${bidFeeRate * 100}% = ${feeAmountInMist} MIST, Total required: ${totalRequiredInMist} MIST`);
-
-        // Check user's balance
-        const balance = await suiClient.getBalance({
-          owner: currentAccount.address,
-          coinType: "0x2::sui::SUI",
-        });
-
-        const userBalanceInMist = BigInt(balance.totalBalance);
-        if (userBalanceInMist < BigInt(totalRequiredInMist)) {
-          throw new Error(`Insufficient balance. Need ${totalRequiredInMist / Number(MIST_PER_SUI)} SUI, have ${Number(userBalanceInMist) / Number(MIST_PER_SUI)} SUI`);
-        }
-
-        // Create transaction
-        console.log("Creating transaction...");
         const tx = new Transaction();
+        const [payment] = tx.splitCoins(tx.gas, [maxRevivalFeeInMist]);
 
-        // Split coins for payment (bid amount + fee)
-        const [payment] = tx.splitCoins(tx.gas, [totalRequiredInMist]);
-
-        // Call create_bid function
+        // Call revive_squad function
         tx.moveCall({
           package: packageId,
-          module: "match_escrow",
-          function: "create_bid",
+          module: "squad_manager",
+          function: "revive_squad",
           arguments: [
-            tx.object(escrowRegistryId),
             tx.object(squadRegistryId),
-            tx.object(activeSquadRegistryId),
+            tx.object(userStatsRegistryId),
             tx.object(feeConfigId),
+            tx.object(feesId),
             tx.pure.u64(squadId),
-            tx.pure.u64(bidAmountInMist),
-            tx.pure.u64(durationInMs),
             payment,
             tx.object("0x6"), // Clock object
           ],
         });
 
-        console.log("Executing transaction...");
-
-        // Execute transaction
         return new Promise((resolve, reject) => {
           signAndExecute(
             { transaction: tx },
             {
               onSuccess: (result) => {
-                console.log("Bid created successfully:", result);
+                console.log("Squad revived successfully:", result);
+                queryClient.invalidateQueries({ queryKey: ["user-squads"] });
                 resolve({
                   result,
                   squadId,
-                  bidAmountInSui,
-                  durationInMinutes,
                 });
               },
               onError: (error) => {
-                console.error("Failed to create bid:", error);
-                reject(new Error(`Transaction failed: ${error.message || error}`));
+                console.error("Failed to revive squad:", error);
+                reject(error);
               },
             }
           );
         });
+
       } catch (error) {
-        console.error("Error in create bid:", error);
+        console.error("Error setting up squad revival transaction:", error);
         throw error;
       }
     },
   });
 };
 
-// Hook for getting user's active bids
-export const useGetUserBids = () => {
+// Hook for fetching user's squads
+export const useGetUserSquads = () => {
   const suiClient = useSuiClient();
   const currentAccount = useCurrentAccount();
-  const escrowRegistryId = useNetworkVariable("escrowRegistryId");
+  const packageId = useNetworkVariable("packageId");
+  const squadRegistryId = useNetworkVariable("squadRegistryId");
 
   return useQuery({
-    queryKey: ["user-bids", currentAccount?.address, escrowRegistryId],
-    queryFn: async () => {
-      if (!currentAccount?.address || !escrowRegistryId) {
+    queryKey: ["user-squads", currentAccount?.address],
+    queryFn: async (): Promise<SquadData[]> => {
+      if (!currentAccount?.address) {
         return [];
       }
 
       try {
-        console.log("🔍 Fetching user bids...");
-        
-        // Get escrow registry to check for user's bids
-        const escrowRegistry = await suiClient.getObject({
-          id: escrowRegistryId,
-          options: { showContent: true },
+        console.log("Fetching user squads for:", currentAccount.address);
+
+        // Query the SquadCreated events for this user
+        const events = await suiClient.queryEvents({
+          query: {
+            MoveEventType: `${packageId}::squad_manager::SquadCreated`,
+          },
+          limit: 50,
+          order: "descending",
         });
 
-        if (!escrowRegistry.data?.content || escrowRegistry.data.content.dataType !== "moveObject") {
-          console.log("❌ Failed to fetch escrow registry");
-          return [];
+        const userSquads: SquadData[] = [];
+
+        for (const event of events.data) {
+          if (event.parsedJson) {
+            const squadData = event.parsedJson as any;
+            
+            // Filter squads created by current user
+            if (squadData.owner === currentAccount.address) {
+              // Get current squad details by querying the registry
+              try {
+                const squadObject = await suiClient.getObject({
+                  id: squadRegistryId,
+                  options: {
+                    showContent: true,
+                  },
+                });
+
+                // In a real implementation, you would need to call the contract's get_squad function
+                // For now, we'll use the event data
+                userSquads.push({
+                  squad_id: parseInt(squadData.squad_id || "0"),
+                  owner: squadData.owner,
+                  name: squadData.name || "",
+                  players: [], // Would need to get from contract
+                  formation: "", // Would need to get from contract
+                  life: parseInt(squadData.life || "5"),
+                  death_time: undefined,
+                });
+              } catch (error) {
+                console.error("Error fetching squad details:", error);
+              }
+            }
+          }
         }
 
-        const registryFields = escrowRegistry.data.content.fields as any;
-        console.log("📋 Escrow registry fields:", registryFields);
+        console.log("Found user squads:", userSquads);
+        return userSquads;
 
-        // Check if user has active bids using the user_active_bids table
-        const userActiveBidsTableId = registryFields.user_active_bids.fields.id.id;
-        console.log("📋 User active bids table ID:", userActiveBidsTableId);
-
-        try {
-          // Get dynamic fields for user active bids table
-          const userBidsFields = await suiClient.getDynamicFields({
-            parentId: userActiveBidsTableId,
-          });
-
-          console.log("🔍 User bids fields:", userBidsFields);
-
-          // Find the user's entry in the user_active_bids table
-          const userBidEntry = userBidsFields.data.find(field => {
-            if (field.name.type === "address" && field.name.value === currentAccount.address) {
-              return true;
-            }
-            return false;
-          });
-
-          if (!userBidEntry) {
-            console.log("📝 User has no active bids");
-            return [];
-          }
-
-          console.log("🎯 Found user bid entry:", userBidEntry);
-
-          // Get the bid indices for this user
-          const userBidIndicesObject = await suiClient.getObject({
-            id: userBidEntry.objectId,
-            options: { showContent: true },
-          });
-
-          if (!userBidIndicesObject.data?.content || userBidIndicesObject.data.content.dataType !== "moveObject") {
-            console.log("❌ Failed to fetch user bid indices");
-            return [];
-          }
-
-          const bidIndices = (userBidIndicesObject.data.content.fields as any).value;
-          console.log("🎯 User bid indices:", bidIndices);
-
-          if (!bidIndices || bidIndices.length === 0) {
-            console.log("📝 User has no active bids");
-            return [];
-          }
-
-          // Get active bids from the registry
-          const activeBids = registryFields.active_bids || [];
-          console.log("📊 Total active bids:", activeBids.length);
-
-          // Get user's bids by indices
-          const userBids = bidIndices.map((index: number) => {
-            if (index < activeBids.length) {
-              const bid = activeBids[index];
-              console.log(`📊 Bid at index ${index}:`, bid);
-              
-              return {
-                id: bid.fields.id.id,
-                squadId: Number(bid.fields.squad_id),
-                bidAmount: Number(bid.fields.bid_amount),
-                duration: Number(bid.fields.duration),
-                createdAt: Number(bid.fields.created_at),
-                status: bid.fields.status,
-                creator: bid.fields.creator,
-              };
-            }
-            return null;
-          }).filter(Boolean);
-
-          console.log("✅ Final user bids:", userBids);
-          return userBids;
-
-        } catch (error) {
-          console.log("❌ Error checking user active bids table:", error);
-          return [];
-        }
       } catch (error) {
-        console.error("❌ Error fetching user bids:", error);
+        console.error("Error fetching user squads:", error);
         return [];
       }
     },
-    enabled: !!currentAccount?.address && !!escrowRegistryId,
-    staleTime: 1000 * 60 * 2, // 2 minutes
-    retry: 1,
+    enabled: !!currentAccount?.address,
+    refetchInterval: 30000, // Refetch every 30 seconds
   });
 };
 
-// Hook for cancelling a bid
-export const useCancelBid = () => {
+// Hook for getting squad creation fee
+export const useGetSquadCreationFee = () => {
   const suiClient = useSuiClient();
-  const currentAccount = useCurrentAccount();
-  const { mutate: signAndExecute } = useSignAndExecuteTransaction();
   const packageId = useNetworkVariable("packageId");
-  const escrowRegistryId = useNetworkVariable("escrowRegistryId");
-  const activeSquadRegistryId = useNetworkVariable("activeSquadRegistryId");
+  const feeConfigId = useNetworkVariable("feeConfigId");
 
-  return useMutation({
-    mutationKey: ["cancel-bid"],
-    mutationFn: async ({ bidId }: { bidId: string }) => {
+  return useQuery({
+    queryKey: ["squad-creation-fee"],
+    queryFn: async (): Promise<{ feeInMist: number; feeInSui: number }> => {
       try {
-        if (!currentAccount?.address) {
-          throw new Error("Wallet not connected");
-        }
-
-        // Validate network variables
-        if (!packageId || !escrowRegistryId || !activeSquadRegistryId) {
-          console.error("Missing network variables:", {
-            packageId,
-            escrowRegistryId,
-            activeSquadRegistryId,
-          });
-          throw new Error("Missing required network configuration");
-        }
-
-        console.log(`Cancelling bid: ${bidId}`);
-
-        // Create transaction
-        const tx = new Transaction();
-
-        // Call cancel_bid function
-        tx.moveCall({
-          package: packageId,
-          module: "match_escrow",
-          function: "cancel_bid",
-          arguments: [
-            tx.object(escrowRegistryId),
-            tx.object(activeSquadRegistryId),
-            tx.pure.id(bidId),
-          ],
+        const result = await suiClient.devInspectTransactionBlock({
+          transactionBlock: (() => {
+            const tx = new Transaction();
+            tx.moveCall({
+              package: packageId,
+              module: "squad_manager",
+              function: "calculate_squad_creation_payment",
+              arguments: [tx.object(feeConfigId)],
+            });
+            return tx;
+          })(),
+          sender: "0x0000000000000000000000000000000000000000000000000000000000000001", // Dummy sender for inspection
         });
 
-        console.log("Executing cancel bid transaction...");
+        if (result.error) {
+          console.error("Error fetching creation fee:", result.error);
+          return { feeInMist: 1000000000, feeInSui: 1.0 }; // 1 SUI fallback
+        }
 
-        // Execute transaction
-        return new Promise((resolve, reject) => {
-          signAndExecute(
-            { transaction: tx },
-            {
-              onSuccess: (result) => {
-                console.log("Bid cancelled successfully:", result);
-                resolve({
-                  result,
-                  bidId,
-                });
-              },
-              onError: (error) => {
-                console.error("Failed to cancel bid:", error);
-                reject(new Error(`Transaction failed: ${error.message || error}`));
-              },
+        // Try to parse the actual fee from inspection result
+        if (result.results && result.results[0] && result.results[0].returnValues) {
+          try {
+            const returnValue = result.results[0].returnValues[0];
+            if (returnValue && returnValue[1]) {
+              const feeBytes = returnValue[1] as unknown as number[];
+              // Parse u64 from bytes (little endian)
+              if (Array.isArray(feeBytes) && feeBytes.length >= 8) {
+                let fee = 0;
+                for (let i = 0; i < 8; i++) {
+                  fee += (feeBytes[i] as number) * Math.pow(256, i);
+                }
+                return { feeInMist: fee, feeInSui: fee / Number(MIST_PER_SUI) };
+              }
             }
-          );
-        });
+          } catch (parseError) {
+            console.warn("Could not parse fee from contract:", parseError);
+          }
+        }
+
+        return { feeInMist: 1000000000, feeInSui: 1.0 }; // 1 SUI fallback
       } catch (error) {
-        console.error("Error in cancel bid:", error);
-        throw error;
+        console.error("Error fetching creation fee:", error);
+        return { feeInMist: 1000000000, feeInSui: 1.0 }; // 1 SUI fallback
       }
     },
+    refetchInterval: 300000, // Refetch every 5 minutes
+  });
+};
+
+// Hook for checking if user can create squad
+export const useCanCreateSquad = () => {
+  const suiClient = useSuiClient();
+  const currentAccount = useCurrentAccount();
+
+  return useQuery({
+    queryKey: ["can-create-squad", currentAccount?.address],
+    queryFn: async (): Promise<boolean> => {
+      if (!currentAccount?.address) {
+        return false;
+      }
+
+      try {
+        // Check if user has enough balance for minimum fee (1 SUI + gas)
+        const balance = await suiClient.getBalance({
+          owner: currentAccount.address,
+        });
+
+        const balanceValue = parseInt(balance.totalBalance);
+        const minRequired = 1100000000; // 1.1 SUI minimum for 1 SUI fee + gas
+
+        return balanceValue >= minRequired;
+      } catch (error) {
+        console.error("Error checking if can create squad:", error);
+        return false;
+      }
+    },
+    enabled: !!currentAccount?.address,
+    refetchInterval: 60000, // Refetch every minute
   });
 }; 

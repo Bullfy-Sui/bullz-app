@@ -4,7 +4,7 @@ import TokenCard from "@/components/general/token/card";
 import PlusIcon from "@/components/icons/plus.icon";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
 import { SquadForm } from "../types";
 import Player from "./player";
@@ -17,8 +17,8 @@ interface Props {
 }
 
 const SelectSquadPlayers = (props: Props) => {
-  console.log(props);
-  const { data: priceList } = useGetPriceList();
+  console.log("SelectSquadPlayers props:", props);
+  const { data: priceList, isLoading, error, isError } = useGetPriceList();
   const [focusedPosition, setFocusedPosition] = useState<
     [Postition, Multiplier]
   >(props.initialFocusedPosition ?? [1, 2.0]);
@@ -26,11 +26,24 @@ const SelectSquadPlayers = (props: Props) => {
   const playerArray = useFieldArray({ control: control, name: "players" });
   const playerArrayWatch = useWatch({ control: control, name: "players" });
 
+  // Add debugging effect
+  useEffect(() => {
+    console.log("🔍 Token API Status:", {
+      isLoading,
+      isError,
+      error: error?.message || error,
+      hasPriceList: !!priceList,
+      priceListLength: priceList?.length || 0,
+      priceListSample: priceList?.slice(0, 2) // Show first 2 tokens for debugging
+    });
+  }, [priceList, isLoading, isError, error]);
+
   const handlePlayerSelect = (token: TokenResponse) => {
     const foundPlayer = playerArrayWatch?.find(
       (player) => player.position === focusedPosition[0]
     );
     console.log(
+      "🎯 Player select:",
       foundPlayer,
       focusedPosition,
       token,
@@ -54,7 +67,7 @@ const SelectSquadPlayers = (props: Props) => {
         imageUrl: token.imageUrl,
         multiplier: focusedPosition[1],
       });
-      console.log(playerArray.fields);
+      console.log("✅ Player added:", playerArray.fields);
     }
   };
 
@@ -122,13 +135,45 @@ const SelectSquadPlayers = (props: Props) => {
           })}
         </div>
         <div className=" h-[50rem] overflow-y-scroll">
-          {priceList?.map((token) => (
-            <TokenCard
-              {...token}
-              key={token.coinAddress}
-              onClick={() => handlePlayerSelect(token)}
-            />
-          ))}
+          {/* Show loading state */}
+          {isLoading && (
+            <div className="flex items-center justify-center h-[10rem]">
+              <div className="text-gray-400">Loading tokens...</div>
+            </div>
+          )}
+          
+          {/* Show error state */}
+          {isError && (
+            <div className="flex flex-col items-center justify-center h-[10rem] gap-2">
+              <div className="text-red-400">Failed to load tokens</div>
+              <div className="text-gray-500 text-sm">
+                {error?.message || "Unknown error"}
+              </div>
+            </div>
+          )}
+          
+          {/* Show empty state */}
+          {!isLoading && !isError && (!priceList || priceList.length === 0) && (
+            <div className="flex items-center justify-center h-[10rem]">
+              <div className="text-gray-400">No tokens available</div>
+            </div>
+          )}
+          
+          {/* Show tokens */}
+          {!isLoading && !isError && priceList && priceList.length > 0 && (
+            <>
+              <div className="mb-2 text-xs text-gray-500">
+                {priceList.length} tokens available
+              </div>
+              {priceList.map((token) => (
+                <TokenCard
+                  {...token}
+                  key={token.coinAddress}
+                  onClick={() => handlePlayerSelect(token)}
+                />
+              ))}
+            </>
+          )}
         </div>
       </div>
     </>

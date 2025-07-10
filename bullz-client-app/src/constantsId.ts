@@ -1,55 +1,41 @@
-export const DEVNET_PACKAGE_ID = "0xc158d1220b07bdc275eddc89a9e42da3e0f220d447721f5830e02988e93a40eb";
-export const TESTNET_PACKAGE_ID = "0xTODO";
-export const MAINNET_PACKAGE_ID = "0xTODO";
-
-
-export const DEVNET_FEE_CONFIG_ID = "0x484a38c4acf10fda157a165d80826e8401b965aca70e68e39e101177cfe7f867";
-export const TESTNET_FEE_CONFIG_ID = "0xTODO";
-export const MAINNET_FEE_CONFIG_ID = "0xTODO";
-
-
-export const DEVNET_FEES_ID = "0xa5d201637fe376e57df2b85452036cf2620a055ec37e43b0933d2549892623e6";
-export const TESTNET_FEES_ID = "0xTODO";
-export const MAINNET_FEES_ID = "0xTODO";
-
-
-export const DEVNET_OWNER_CAP_ID = "0x3cab18b977cc49c800a1609ccd290861c779418a607d1f5bf8422d5f32aacec0";
-export const TESTNET_OWNER_CAP_ID = "0xTODO";
-export const MAINNET_OWNER_CAP_ID = "0xTODO";
-
-
-export const DEVNET_ACTIVE_SQUAD_REGISTRY_ID = "0x0afe723ac560dfd24509d2fcb22280f833d0e6dee696638d6b3e1348d6a61705";
-export const TESTNET_ACTIVE_SQUAD_REGISTRY_ID = "0xTODO";
-export const MAINNET_ACTIVE_SQUAD_REGISTRY_ID = "0xTODO";
-
-export const DEVNET_ESCROW_REGISTRY_ID = "0xc82f01eae1dc3e730cb3fee20386d4d4780d774584c35f8fd0f6b8e2eb212dd4";
-export const TESTNET_ESCROW_REGISTRY_ID = "0xTODO";
-export const MAINNET_ESCROW_REGISTRY_ID = "0xTODO";
-
-
-export const DEVNET_ADMIN_REGISTRY_ID = "0xcfed54a5dcde15a964dbb56628f7786f65035a6017c50c70576ccaf92b01f5a7";
-export const TESTNET_ADMIN_REGISTRY_ID = "0xTODO";
-export const MAINNET_ADMIN_REGISTRY_ID = "0xTODO";
-
-
-export const DEVNET_SQUAD_REGISTRY_ID = "0xc4776ce45c4dc5f6e31da53a8bc696d6a9103c647498acc1ef42482d2cd3bd01";
-export const TESTNET_SQUAD_REGISTRY_ID = "0xTODO";
-export const MAINNET_SQUAD_REGISTRY_ID = "0xTODO";
-
-
-export const DEVNET_SIGNER_REGISTRY_ID = "0x58b951ccf43484b6ade69c3494ac2cc6c3f43171c7489df8a349fc4ccbaceca6";
-export const TESTNET_SIGNER_REGISTRY_ID = "0xTODO";
-export const MAINNET_SIGNER_REGISTRY_ID = "0xTODO";
-
-
-// export const DEVNET_COUNTER_PACKAGE_ID = "0xTODO";
-// export const TESTNET_COUNTER_PACKAGE_ID = "0xTODO";
-// export const MAINNET_COUNTER_PACKAGE_ID = "0xTODO";
-
-
-// export const DEVNET_COUNTER_PACKAGE_ID = "0xTODO";
-// export const TESTNET_COUNTER_PACKAGE_ID = "0xTODO";
-// export const MAINNET_COUNTER_PACKAGE_ID = "0xTODO";
+export const CONSTANTS_ID = {
+  testnet: {
+    packageId: "0xTODO",
+    ownerCapId: "0xTODO",
+    adminRegistryId: "0xTODO",
+    feeConfigId: "0xTODO",
+    feesId: "0xTODO",
+    squadRegistryId: "0xTODO",
+    activeSquadRegistryId: "0xTODO",
+    escrowRegistryId: "0xTODO",
+    signerRegistryId: "0xTODO",
+    userStatsRegistryId: "0xTODO",
+  },
+  devnet: {
+    packageId: "0x37735884337b4f043e94c021b922d6741fd7b6b00e1c69ee699ebf771f82f713",
+    ownerCapId: "0x913b72787e3a52305ef9553f255dbf0e9326717a00c68c8b35e5709d39ca527d",
+    adminRegistryId: "0xe97d30269f6aea10b47eb6c9f7973ad667fda02c0364f671f4247fd104b4c622",
+    feeConfigId: "0x03b91116611fa4c1358cddcf9364bc859e1809d4c06cac805adb17daf075a404",
+    feesId: "0x511afd7393286243c563ecc2ad20a5e4ca9706f6ce2ba9346f999b82f885a7de",
+    squadRegistryId: "0x6ee59efb0152723b650895d905ac053e91975c2c8fb272f0318e08844fe5953f",
+    activeSquadRegistryId: "0x5295057ccff6abbf1f54ff3809f78b8be2b3611bd4f935c8acb52eafd5f511ec",
+    escrowRegistryId: "0x44837a3052e5e31d84eddbc45ea88a5b33bad83c61dbb5fbd8ced0c886b0f2d4",
+    signerRegistryId: "0x62c5482ccb14f9fd70969dd1d2e093ffafb26f357679af7be733ed4af89be41c",
+    userStatsRegistryId: "0x9505a8d596b87ba07fb0a9a095244103e52fd66f02d992e18ac7b3f59ef43da9",
+  },
+  mainnet: {
+    packageId: "0xTODO",
+    ownerCapId: "0xTODO",
+    adminRegistryId: "0xTODO",
+    feeConfigId: "0xTODO",
+    feesId: "0xTODO",
+    squadRegistryId: "0xTODO",
+    activeSquadRegistryId: "0xTODO",
+    escrowRegistryId: "0xTODO",
+    signerRegistryId: "0xTODO",
+    userStatsRegistryId: "0xTODO",
+  },
+};
 
 
 

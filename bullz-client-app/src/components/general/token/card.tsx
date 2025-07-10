@@ -46,11 +46,18 @@ const TokenCard = (props: TokenCardProps) => {
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 target.style.display = 'none';
-                target.nextElementSibling?.classList.remove('hidden');
+                const fallback = target.nextElementSibling as HTMLElement;
+                if (fallback) {
+                  fallback.classList.remove('hidden');
+                }
               }}
             />
           ) : null}
-          <SuiLogo className="size-[2.75rem] rounded-full hidden" />
+          {/* Show SuiLogo if no imageUrl or if image fails to load */}
+          <SuiLogo className={cn("size-[2.75rem] rounded-full", {
+            "hidden": !!props.imageUrl, // Hide if we have an imageUrl (will show if image fails to load)
+            "block": !props.imageUrl   // Show immediately if no imageUrl
+          })} />
           <div>
             <p className="text-[1rem] leading-[1.375rem] font-[600] flex items-center gap-[0.25rem] capitalize">
               {props?.name.split(" ")[0].toLowerCase()}

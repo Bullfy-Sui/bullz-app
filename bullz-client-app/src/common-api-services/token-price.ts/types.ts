@@ -1,4 +1,4 @@
-// Updated types to match the actual API response structure
+// 
 export type PriceListResponse = TokenResponse[];
 
 export interface TokenResponse {

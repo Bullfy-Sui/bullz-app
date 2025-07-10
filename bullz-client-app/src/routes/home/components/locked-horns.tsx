@@ -1,7 +1,7 @@
 import EmptyPlayerDp from "@/components/svg/empty-player-dp";
 import UserPlayer from "@/components/svg/user-player";
 import { Button } from "@/components/ui/button";
-import { useGetUserBids, useCancelBid } from "@/lib/hooks/use-squad-contract";
+import { useGetUserBids, useCancelBid } from "@/lib/hooks/use-match-bidding";
 import { useState, useEffect } from "react";
 import { MIST_PER_SUI } from "@mysten/sui/utils";
 
