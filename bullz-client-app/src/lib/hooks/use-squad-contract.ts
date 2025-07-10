@@ -78,25 +78,25 @@ export const useCreateSquad = () => {
 
         console.log("Using creation fee:", creationFeeInMist, "MIST");
 
-        const tx = new Transaction();
+      const tx = new Transaction();
 
-        // Split coins for payment
+      // Split coins for payment
         const [payment] = tx.splitCoins(tx.gas, [creationFeeInMist]);
 
         // Call create_squad function (creates empty squad)
-        tx.moveCall({
-          package: packageId,
-          module: "squad_manager",
-          function: "create_squad",
-          arguments: [
-            tx.object(squadRegistryId),
+      tx.moveCall({
+        package: packageId,
+        module: "squad_manager",
+        function: "create_squad",
+        arguments: [
+          tx.object(squadRegistryId),
             tx.object(userStatsRegistryId),
-            tx.object(feeConfigId),
-            tx.object(feesId),
-            payment,
+          tx.object(feeConfigId),
+          tx.object(feesId),
+          payment,
             tx.object("0x6"), // Clock object
-          ],
-        });
+        ],
+      });
 
         return new Promise((resolve, reject) => {
           signAndExecute(
@@ -214,9 +214,11 @@ export const useCreateCompleteSquad = () => {
     mutationFn: async ({
       squadName,
       playerNames,
+      formation,
     }: {
       squadName: string;
       playerNames: string[];
+      formation: string;
     }) => {
       if (!currentAccount?.address) {
         throw new Error("Wallet not connected");
@@ -226,7 +228,7 @@ export const useCreateCompleteSquad = () => {
         throw new Error("Squad must have exactly 7 players");
       }
 
-      console.log("Creating complete squad:", { squadName, playerNames });
+      console.log("Creating complete squad:", { squadName, playerNames, formation });
 
       try {
         // Get the actual creation fee from the contract
@@ -295,8 +297,8 @@ export const useCreateCompleteSquad = () => {
         // Let's get the current squad ID first
         const registryObject = await suiClient.getObject({
           id: squadRegistryId,
-          options: { showContent: true },
-        });
+                options: { showContent: true },
+              });
 
         let nextSquadId = 1;
         if (registryObject.data?.content && 'fields' in registryObject.data.content) {
@@ -315,7 +317,7 @@ export const useCreateCompleteSquad = () => {
             tx.object(squadRegistryId),
             tx.pure.u64(nextSquadId),
             tx.pure.string(squadName),
-            tx.pure.string("OneThreeTwoOne"), // Default formation
+            tx.pure.string(formation), // Use the passed formation instead of hardcoding
             tx.pure.vector("string", playerNames),
           ],
         });
@@ -342,7 +344,7 @@ export const useCreateCompleteSquad = () => {
           );
         });
 
-      } catch (error) {
+        } catch (error) {
         console.error("Error setting up squad creation transaction:", error);
         throw error;
       }
@@ -482,9 +484,9 @@ export const useUpdateSquadPlayers = () => {
       squadId: number;
       newPlayers: string[];
     }) => {
-      if (!currentAccount?.address) {
-        throw new Error("Wallet not connected");
-      }
+        if (!currentAccount?.address) {
+          throw new Error("Wallet not connected");
+        }
 
       if (newPlayers.length !== 7) {
         throw new Error("Squad must have exactly 7 players");
@@ -722,57 +724,108 @@ export const useGetUserSquads = () => {
       }
 
       try {
-        console.log("Fetching user squads for:", currentAccount.address);
+        console.log("🔍 Fetching user squads for:", currentAccount.address);
 
-        // Query the SquadCreated events for this user
-        const events = await suiClient.queryEvents({
-          query: {
-            MoveEventType: `${packageId}::squad_manager::SquadCreated`,
-          },
-          limit: 50,
-          order: "descending",
+        // Step 1: Get the squad registry to access the owner_squads table
+        const registryObject = await suiClient.getObject({
+          id: squadRegistryId,
+          options: { showContent: true },
         });
+
+        if (!registryObject.data?.content || !('fields' in registryObject.data.content)) {
+          console.log("❌ Could not access squad registry");
+          return [];
+        }
+
+        const registryFields = registryObject.data.content.fields as any;
+        const ownerSquadsTableId = registryFields.owner_squads?.fields?.id?.id;
+
+        if (!ownerSquadsTableId) {
+          console.log("❌ Could not find owner_squads table");
+          return [];
+        }
+
+        console.log("✅ Found owner_squads table:", ownerSquadsTableId);
+
+        // Step 2: Try to get the dynamic field for this user's address
+        let squadIds: number[] = [];
+        try {
+          const userSquadIds = await suiClient.getDynamicFieldObject({
+            parentId: ownerSquadsTableId,
+            name: {
+              type: "address",
+              value: currentAccount.address,
+            },
+          });
+
+          if (userSquadIds.data?.content && 'fields' in userSquadIds.data.content) {
+            const squadIdsArray = (userSquadIds.data.content.fields as any).value;
+            if (Array.isArray(squadIdsArray)) {
+              squadIds = squadIdsArray.map(id => parseInt(id.toString()));
+              console.log("✅ Found squad IDs:", squadIds);
+            }
+          }
+        } catch (error) {
+          console.log("User has no squads (expected if first time):", error);
+          return [];
+        }
+
+        if (squadIds.length === 0) {
+          console.log("✅ User has no squads");
+          return [];
+        }
+
+        // Step 3: For each squad ID, get the squad details from the squads table
+        const squadsTableId = registryFields.squads?.fields?.id?.id;
+        if (!squadsTableId) {
+          console.log("❌ Could not find squads table");
+          return [];
+        }
+
+        console.log("✅ Found squads table:", squadsTableId);
 
         const userSquads: SquadData[] = [];
 
-        for (const event of events.data) {
-          if (event.parsedJson) {
-            const squadData = event.parsedJson as any;
+        for (const squadId of squadIds) {
+          try {
+            console.log(`🔍 Fetching squad ${squadId} details`);
             
-            // Filter squads created by current user
-            if (squadData.owner === currentAccount.address) {
-              // Get current squad details by querying the registry
-              try {
-                const squadObject = await suiClient.getObject({
-                  id: squadRegistryId,
-                  options: {
-                    showContent: true,
-                  },
-                });
+            const squadObject = await suiClient.getDynamicFieldObject({
+              parentId: squadsTableId,
+              name: {
+                type: "u64",
+                value: squadId.toString(),
+              },
+            });
 
-                // In a real implementation, you would need to call the contract's get_squad function
-                // For now, we'll use the event data
-                userSquads.push({
-                  squad_id: parseInt(squadData.squad_id || "0"),
-                  owner: squadData.owner,
-                  name: squadData.name || "",
-                  players: [], // Would need to get from contract
-                  formation: "", // Would need to get from contract
-                  life: parseInt(squadData.life || "5"),
-                  death_time: undefined,
-                });
-              } catch (error) {
-                console.error("Error fetching squad details:", error);
+            if (squadObject.data?.content && 'fields' in squadObject.data.content) {
+              const squadFields = (squadObject.data.content.fields as any).value?.fields;
+              
+              if (squadFields) {
+                const squadData: SquadData = {
+                  squad_id: squadId,
+                  owner: squadFields.owner || currentAccount.address,
+                  name: squadFields.name || `Squad ${squadId}`,
+                  players: squadFields.players || [],
+                  formation: squadFields.formation || "OneThreeTwoOne",
+                  life: parseInt(squadFields.life?.toString() || "5"),
+                  death_time: squadFields.death_time ? parseInt(squadFields.death_time.toString()) : undefined,
+                };
+
+                console.log(`✅ Squad ${squadId} data:`, squadData);
+                userSquads.push(squadData);
               }
             }
+          } catch (error) {
+            console.error(`❌ Error fetching squad ${squadId}:`, error);
           }
         }
 
-        console.log("Found user squads:", userSquads);
+        console.log("✅ Final user squads:", userSquads);
         return userSquads;
 
       } catch (error) {
-        console.error("Error fetching user squads:", error);
+        console.error("❌ Error fetching user squads:", error);
         return [];
       }
     },
@@ -793,9 +846,9 @@ export const useGetSquadCreationFee = () => {
       try {
         const result = await suiClient.devInspectTransactionBlock({
           transactionBlock: (() => {
-            const tx = new Transaction();
-            tx.moveCall({
-              package: packageId,
+        const tx = new Transaction();
+        tx.moveCall({
+          package: packageId,
               module: "squad_manager",
               function: "calculate_squad_creation_payment",
               arguments: [tx.object(feeConfigId)],

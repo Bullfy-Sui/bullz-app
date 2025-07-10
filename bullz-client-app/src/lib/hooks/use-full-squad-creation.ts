@@ -24,6 +24,7 @@ export const useFullSquadCreation = () => {
         const result = await createCompleteSquadMutation.mutateAsync({
           squadName: squadForm.name,
           playerNames,
+          formation: squadForm.formation, // Pass the formation from the form
         });
 
         console.log("Squad creation completed successfully");

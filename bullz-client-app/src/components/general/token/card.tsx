@@ -2,6 +2,7 @@ import { TokenResponse } from "@/common-api-services/token-price.ts/types";
 import SuiLogo from "@/components/svg/sui.logo";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useState, useEffect } from "react";
 
 export const TokenCardSkeleton = () => {
   return (
@@ -20,6 +21,8 @@ interface TokenCardProps extends TokenResponse {
 }
 
 const TokenCard = (props: TokenCardProps) => {
+  const [imageError, setImageError] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
   const percentageChange = parseFloat(props.percentagePriceChange5m);
   const currentPrice = parseFloat(props.currentPrice);
   
@@ -31,35 +34,67 @@ const TokenCard = (props: TokenCardProps) => {
     return price.toFixed(6);
   };
   
+  const handleImageError = () => {
+    console.log(`❌ Image failed to load for ${props.symbol}:`, {
+      imageUrl: props.imageUrl,
+      symbol: props.symbol,
+      name: props.name,
+      coinAddress: props.coinAddress
+    });
+    setImageError(true);
+    setImageLoading(false);
+  };
+  
+  const handleImageLoad = () => {
+    console.log(`✅ Image loaded successfully for ${props.symbol}:`, props.imageUrl);
+    setImageError(false);
+    setImageLoading(false);
+  };
+  
+  // Reset states when imageUrl changes
+  useEffect(() => {
+    if (props.imageUrl) {
+      setImageError(false);
+      setImageLoading(true);
+    }
+  }, [props.imageUrl]);
+  
+  const showFallback = !props.imageUrl || imageError;
+  
   return (
     <>
       <div
         onClick={props.onClick}
         className="bg-gray-900 border border-white/10 flex items-center justify-between px-[1rem] py-[0.5rem] cursor-pointer hover:bg-gray-800/50 transition-all duration-200 hover:border-white/20"
       >
-        <div className="flex gap-[0.75rem]">
-          {props.imageUrl ? (
-            <img 
-              src={props.imageUrl} 
-              alt={props.name}
-              className="size-[2.75rem] rounded-full"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-                const fallback = target.nextElementSibling as HTMLElement;
-                if (fallback) {
-                  fallback.classList.remove('hidden');
-                }
-              }}
-            />
-          ) : null}
-          {/* Show SuiLogo if no imageUrl or if image fails to load */}
-          <SuiLogo className={cn("size-[2.75rem] rounded-full", {
-            "hidden": !!props.imageUrl, // Hide if we have an imageUrl (will show if image fails to load)
-            "block": !props.imageUrl   // Show immediately if no imageUrl
-          })} />
-          <div>
-            <p className="text-[1rem] leading-[1.375rem] font-[600] flex items-center gap-[0.25rem] capitalize">
+        <div className="flex gap-[0.75rem] items-center">
+          <div className="relative size-[2.75rem] rounded-full overflow-hidden">
+            {!showFallback && (
+              <>
+                <img 
+                  src={props.imageUrl} 
+                  alt={props.name}
+                  className="size-[2.75rem] rounded-full object-cover"
+                  onError={handleImageError}
+                  onLoad={handleImageLoad}
+                  style={{ display: imageLoading ? 'none' : 'block' }}
+                />
+                {imageLoading && (
+                  <div className="size-[2.75rem] rounded-full bg-gray-700 flex items-center justify-center">
+                    <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                )}
+              </>
+            )}
+            {showFallback && (
+              <div className="size-[2.75rem] rounded-full bg-gray-700 flex items-center justify-center">
+                <SuiLogo className="size-[2rem]" />
+              </div>
+            )}
+          </div>
+          
+          <div className="flex flex-col">
+            <p className="text-[1rem] leading-[1.375rem] font-[600] flex items-center gap-[0.25rem] capitalize text-white">
               {props?.name.split(" ")[0].toLowerCase()}
             </p>
             <div className="flex items-center gap-[0.25rem]">

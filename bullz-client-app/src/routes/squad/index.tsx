@@ -6,6 +6,7 @@ import { useDisclosure } from "@/lib/hooks/use-diclosure";
 import { NotificationStatus } from "@/lib/hooks/use-notifications-modal";
 import { useGetSquadCreationFee, useCanCreateSquad, useGetUserSquads } from "@/lib/hooks/use-squad-contract";
 import { useCurrentAccount } from "@mysten/dapp-kit";
+import { useGetPriceList } from "@/common-api-services/token-price.ts";
 
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router";
@@ -40,28 +41,52 @@ const SquadPage = () => {
   const { data: feeData, isLoading: isLoadingFee } = useGetSquadCreationFee();
   const { data: canCreate, isLoading: isCheckingBalance } = useCanCreateSquad();
   const { data: userSquads, isLoading: isLoadingSquads, error: squadsError } = useGetUserSquads();
+  
+  // Token price data for mapping symbols to images
+  const { data: priceList } = useGetPriceList();
+
+  // DEBUG: Log connection info
+  useEffect(() => {
+    console.log("🔍 DEBUG - Current Account:", currentAccount?.address);
+    console.log("🔍 DEBUG - User Squads:", userSquads);
+    console.log("🔍 DEBUG - Squads Error:", squadsError);
+    console.log("🔍 DEBUG - Price List:", priceList?.length, "tokens");
+    console.log("🔍 DEBUG - Squad owner from blockchain: 0xc82e2f9096042cc5bc8335b52fbae2b7633452c4bcf00d43bcafe54eafacdb16");
+  }, [currentAccount, userSquads, squadsError, priceList]);
 
   // Convert SquadData to SquadResponseItem format for UI compatibility
   const convertedSquads: SquadResponseItem[] = useMemo(() => {
     if (!userSquads) return [];
     
     return userSquads.map(squad => {
-      const formation = "OneThreeTwoOne" as FormationLayoutKey;
-      const layout = formationLayouts[formation];
+      // Use the actual formation from the squad data instead of hardcoding
+      const formation = squad.formation as FormationLayoutKey;
+      const layout = formationLayouts[formation] || formationLayouts.OneThreeTwoOne; // fallback
+      
+      console.log(`🏟️ Squad "${squad.name}" formation: ${formation}`);
       
       // Flatten the layout to get all positions with their multipliers
       const allPositions: [number, number][] = layout.flat().map(posArray => [posArray[0], posArray[1]] as [number, number]);
       
-      // Map players to positions with correct multipliers
+      // Map players to positions with correct multipliers AND images
       const players = squad.players.slice(0, 7).map((playerName, index) => {
         const [position, multiplier] = allPositions[index] || [index + 1, 1.0];
+        
+        // Find the token data by symbol to get imageUrl
+        const tokenData = priceList?.find(token => 
+          token.symbol.toUpperCase() === playerName.toUpperCase()
+        );
+        
+        console.log(`🔍 Mapping player "${playerName}" to token:`, tokenData ? `Found ${tokenData.symbol}` : "Not found");
+        
         return {
           id: `${squad.squad_id}-${position}`,
           name: playerName,
           position: position,
           squad_id: squad.squad_id.toString(),
-          token_price_id: playerName,
+          token_price_id: tokenData?.coinAddress || playerName,
           multiplier: multiplier,
+          imageUrl: tokenData?.imageUrl, // Add the token image URL
         };
       });
 
@@ -71,7 +96,7 @@ const SquadPage = () => {
           name: squad.name,
           owner_id: squad.owner,
           wallet_address: squad.owner,
-          formation: formation,
+          formation: formation, // Use the actual formation
           total_value: 0,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -79,7 +104,7 @@ const SquadPage = () => {
         players: players
       };
     });
-  }, [userSquads]);
+  }, [userSquads, priceList]); // Add priceList as dependency
 
   // Find the selected squad
   const selectedSquad = convertedSquads.find(squad => Number(squad.squad.id) === selectedSquadId);
@@ -106,6 +131,18 @@ const SquadPage = () => {
   return (
     <NavWrapper>
       <>
+        {/* DEBUG INFO */}
+        <div className="bg-gray-900 border border-gray-700 rounded-lg p-4 mx-4 mt-4 mb-2">
+          <p className="text-xs text-gray-300 font-mono">
+            <strong>DEBUG INFO:</strong><br/>
+            Connected: {currentAccount?.address || "No wallet connected"}<br/>
+            Squad Owner: 0xc82e...db16<br/>
+            Squads Found: {userSquads?.length || 0}<br/>
+            Loading: {isLoadingSquads ? "Yes" : "No"}<br/>
+            Error: {squadsError ? "Yes - Check console" : "No"}
+          </p>
+        </div>
+
         <div className="flex flex-col h-full justify-between relative">
           {selectedSquad ? (
             // Show the selected squad's pitch
@@ -184,7 +221,7 @@ const SquadPage = () => {
                   console.log("Player clicked:", player);
                 }}
                 ctaLabel="Edit Squad"
-                ctaOnClick={() => navigate("/squad/new")}
+                ctaOnClick={() => navigate(`/squad/edit/${selectedSquad.squad.id}`)}
               />
               
               <div className="mt-4">

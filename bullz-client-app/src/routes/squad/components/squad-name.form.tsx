@@ -16,6 +16,8 @@ interface SquadNameFormProps {
   onClose: () => void;
   isOpen: boolean;
   isLoading: boolean;
+  formId?: string;
+  submitButtonText?: string;
 }
 
 const SquadNameForm = (props: SquadNameFormProps) => {
@@ -57,10 +59,10 @@ const SquadNameForm = (props: SquadNameFormProps) => {
           />
           <Button
             type="submit"
-            form="create-squad-form"
+            form={props.formId || "create-squad-form"}
             className="h-[3rem] w-full px-[1.5rem] mb-0"
           >
-            {props.isLoading ? "Loading..." : "Create team"}
+            {props.isLoading ? "Loading..." : (props.submitButtonText || "Create team")}
           </Button>
           <Button
             variant={"secondary"}

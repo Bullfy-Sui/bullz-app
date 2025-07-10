@@ -66,6 +66,7 @@ const NewSquadPage = () => {
 
   const onSubmit = form.handleSubmit((values) => {
     console.log("Creating squad with values:", values);
+    console.log("🏟️ Formation being sent:", values.formation);
     
     // Open the notification modal immediately in loading state
     openNotification({ data: "loading" });

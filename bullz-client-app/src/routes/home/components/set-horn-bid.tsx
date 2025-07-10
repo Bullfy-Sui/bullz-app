@@ -78,14 +78,14 @@ const SetHornBid = (props: SetHornBidProps) => {
         
         console.log("✅ Creating bid:", {
           squadId: Number(squadWatch.squad.id),
-          bidAmountInSui: Number(wagerAmountWatch),
-          durationInMinutes: timeInMinutes,
+          bidAmount: Number(wagerAmountWatch),
+          duration: timeInMinutes,
         });
 
         await createBid.mutateAsync({
           squadId: Number(squadWatch.squad.id),
-          bidAmountInSui: Number(wagerAmountWatch),
-          durationInMinutes: timeInMinutes,
+          bidAmount: Number(wagerAmountWatch),
+          duration: timeInMinutes,
         });
 
         console.log("✅ Bid created successfully!");

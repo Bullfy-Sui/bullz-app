@@ -14,6 +14,7 @@ import { FormationLayoutKey } from "../squad/types";
 import { useNavigate } from "react-router";
 import { useMemo, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useGetPriceList } from "@/common-api-services/token-price.ts";
 
 export interface HornForm {
   wager_amount: number;
@@ -24,6 +25,7 @@ export interface HornForm {
 export default function Home() {
   const { data: userSquads, isLoading } = useGetUserSquads();
   const { data: userBids, isLoading: isLoadingBids } = useGetUserBids();
+  const { data: priceList } = useGetPriceList();
   const navigate = useNavigate();
 
   // Convert SquadData[] to SquadResponse format for compatibility
@@ -36,22 +38,32 @@ export default function Home() {
     }
 
     const convertedSquads: SquadResponseItem[] = userSquads.map(squad => {
-      const formation = "OneThreeTwoOne" as FormationLayoutKey;
-      const layout = formationLayouts[formation];
+      // Use the actual formation from the squad data instead of hardcoding
+      const formation = squad.formation as FormationLayoutKey;
+      const layout = formationLayouts[formation] || formationLayouts.OneThreeTwoOne; // fallback
+      
+      console.log(`🏟️ Squad "${squad.name}" formation: ${formation}`);
       
       // Flatten the layout to get all positions with their multipliers
       const allPositions: [number, number][] = layout.flat().map(posArray => [posArray[0], posArray[1]] as [number, number]);
       
-      // Map players to positions with correct multipliers
+      // Map players to positions with correct multipliers AND images
       const players = squad.players.slice(0, 7).map((playerName, index) => {
         const [position, multiplier] = allPositions[index] || [index + 1, 1.0];
+        
+        // Find the token data by symbol to get imageUrl
+        const tokenData = priceList?.find(token => 
+          token.symbol.toUpperCase() === playerName.toUpperCase()
+        );
+        
         return {
           id: `${squad.squad_id}-${position}`,
           name: playerName,
           position: position,
           squad_id: squad.squad_id.toString(),
-          token_price_id: playerName,
+          token_price_id: tokenData?.coinAddress || playerName,
           multiplier: multiplier,
+          imageUrl: tokenData?.imageUrl, // Add the token image URL
         };
       });
 
@@ -63,7 +75,7 @@ export default function Home() {
           name: squad.name,
           owner_id: squad.owner,
           wallet_address: squad.owner,
-          formation: formation,
+          formation: formation, // Use the actual formation
           total_value: 0,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -74,7 +86,7 @@ export default function Home() {
 
     console.log("✅ Converted squads:", convertedSquads);
     return { data: convertedSquads };
-  }, [userSquads]);
+  }, [userSquads, priceList]); // Add priceList as dependency
 
   const form = useForm<HornForm>({
     defaultValues: {
@@ -129,7 +141,7 @@ export default function Home() {
           name: firstSquad.name,
           owner_id: firstSquad.owner,
           wallet_address: firstSquad.owner,
-          formation: "OneThreeTwoOne",
+          formation: firstSquad.formation as FormationLayoutKey, // Use actual formation
           total_value: 0,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),

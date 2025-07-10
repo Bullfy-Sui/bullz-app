@@ -27,4 +27,5 @@ export interface PlayerResponse {
   position: number;
   squad_id: string;
   token_price_id: string;
+  imageUrl?: string; // Token image URL for display
 }

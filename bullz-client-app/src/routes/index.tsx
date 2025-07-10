@@ -7,6 +7,7 @@ import LiveSessions from "./live";
 import LiveSessionPage from "./live/[session_id]/page";
 import SquadPage from "./squad";
 import NewSquadPage from "./squad/new/page";
+import EditSquadPage from "./squad/edit/[squad_id]/page";
 import ProtectedRoute from "@/components/ui/hoc/protected-route";
 import TeamInfoPage from "./teams/[team_id]/page";
 import RankingPage from "./ranking/page";
@@ -80,6 +81,14 @@ export const router = createBrowserRouter([
             Component: () => (
               <ProtectedRoute>
                 <NewSquadPage />
+              </ProtectedRoute>
+            ),
+          },
+          {
+            path: "edit/:squad_id",
+            Component: () => (
+              <ProtectedRoute>
+                <EditSquadPage />
               </ProtectedRoute>
             ),
           },
