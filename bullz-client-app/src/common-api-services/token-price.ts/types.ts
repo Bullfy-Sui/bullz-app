@@ -1,15 +1,15 @@
-export interface PriceListResponse {
-  data: TokenResponse[];
-  message: string;
-  status: number;
-}
+// Updated types to match the actual API response structure
+export type PriceListResponse = TokenResponse[];
 
 export interface TokenResponse {
-  fluctuation_pct: number;
+  coinAddress: string;
+  imageUrl: string;
   name: string;
-  price_1m: number;
-  price_30s: number;
-  timestamp: number;
-  token_id: string;
-  token_symbol: string;
+  symbol: string;
+  decimals: string;
+  currentPrice: string;
+  price5mAgo: string;
+  price1hAgo: string;
+  percentagePriceChange5m: string;
+  percentagePriceChange1h: string;
 }

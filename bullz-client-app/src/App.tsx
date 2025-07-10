@@ -3,6 +3,7 @@ import { isValidSuiObjectId } from "@mysten/sui/utils";
 import { useState } from "react";
 import { Counter } from "./Counter";
 import { CreateCounter } from "./CreateCounter";
+import { TokenPriceDisplay } from "./components/general/TokenPriceDisplay";
 
 function App() {
   const currentAccount = useCurrentAccount();
@@ -23,21 +24,29 @@ function App() {
         </div>
       </div>
       <div className="container mx-auto">
-        <div className="mt-5 pt-2 px-4 min-h-[500px] bg-gray-600">
-          {currentAccount ? (
-            counterId ? (
-              <Counter id={counterId} />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-5 pt-2 px-4">
+          {/* Token Prices Section */}
+          <div>
+            <TokenPriceDisplay />
+          </div>
+          
+          {/* Counter Section */}
+          <div className="min-h-[500px] bg-gray-600 p-4 rounded-lg">
+            {currentAccount ? (
+              counterId ? (
+                <Counter id={counterId} />
+              ) : (
+                <CreateCounter
+                  onCreated={(id) => {
+                    window.location.hash = id;
+                    setCounter(id);
+                  }}
+                />
+              )
             ) : (
-              <CreateCounter
-                onCreated={(id) => {
-                  window.location.hash = id;
-                  setCounter(id);
-                }}
-              />
-            )
-          ) : (
-            <h1 className="text-2xl font-bold">Please connect your wallet</h1>
-          )}
+              <h1 className="text-2xl font-bold text-white">Please connect your wallet</h1>
+            )}
+          </div>
         </div>
       </div>
     </>

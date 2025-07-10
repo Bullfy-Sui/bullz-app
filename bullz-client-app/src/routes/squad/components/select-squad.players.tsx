@@ -18,7 +18,7 @@ interface Props {
 
 const SelectSquadPlayers = (props: Props) => {
   console.log(props);
-  const { data: priceListResponse } = useGetPriceList();
+  const { data: priceList } = useGetPriceList();
   const [focusedPosition, setFocusedPosition] = useState<
     [Postition, Multiplier]
   >(props.initialFocusedPosition ?? [1, 2.0]);
@@ -41,15 +41,17 @@ const SelectSquadPlayers = (props: Props) => {
     if (foundPlayer)
       playerArray.update(playerArrayWatch.indexOf(foundPlayer), {
         ...foundPlayer,
-        name: token.token_symbol,
-        token_price_id: token.token_id,
+        name: token.symbol,
+        token_price_id: token.coinAddress,
+        imageUrl: token.imageUrl,
       });
 
     if (playerArray.fields.length < 7 && !foundPlayer) {
       playerArray.append({
         position: focusedPosition[0],
-        name: token.token_symbol,
-        token_price_id: token.token_id,
+        name: token.symbol,
+        token_price_id: token.coinAddress,
+        imageUrl: token.imageUrl,
         multiplier: focusedPosition[1],
       });
       console.log(playerArray.fields);
@@ -120,10 +122,10 @@ const SelectSquadPlayers = (props: Props) => {
           })}
         </div>
         <div className=" h-[50rem] overflow-y-scroll">
-          {priceListResponse?.data.map((token) => (
+          {priceList?.map((token) => (
             <TokenCard
               {...token}
-              key={token.token_id}
+              key={token.coinAddress}
               onClick={() => handlePlayerSelect(token)}
             />
           ))}

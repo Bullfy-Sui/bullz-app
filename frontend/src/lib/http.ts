@@ -1,7 +1,7 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
 
 export const BASE_AXIOS = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_BASE_URL,
+  baseURL: process.env.NEXT_PUBLIC_BASE_URL || "https://bullz-api.onrender.com/api/v1",
   timeout: 50000,
   headers: {
     Accept: "application/json",

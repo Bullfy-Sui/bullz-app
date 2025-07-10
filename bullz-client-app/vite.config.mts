@@ -14,7 +14,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://bullfy-api.onrender.com',
+        target: 'https://bullz-api.onrender.com',
         changeOrigin: true,
         secure: true,
       }

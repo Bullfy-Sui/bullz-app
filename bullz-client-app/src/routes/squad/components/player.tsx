@@ -16,10 +16,26 @@ const Player = ({
         {multiplier}x
       </div>
       <div
-        className="w-[5.5rem] h-[5.5rem] rounded-full border-[4.4px] flex items-center justify-center"
+        className="w-[5.5rem] h-[5.5rem] rounded-full border-[4.4px] flex items-center justify-center overflow-hidden"
         onClick={onClick}
       >
-        <SuiLogo width={88} height={88} className=" rounded-full" />
+        {player.imageUrl ? (
+          <img 
+            src={player.imageUrl} 
+            alt={player.name}
+            className="w-[88px] h-[88px] rounded-full object-cover"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+              target.nextElementSibling?.classList.remove('hidden');
+            }}
+          />
+        ) : null}
+        <SuiLogo 
+          width={88} 
+          height={88} 
+          className={`rounded-full ${player.imageUrl ? 'hidden' : ''}`} 
+        />
       </div>
 
       <div className="w-full h-[1.9375rem] bg-white rounded-full flex items-center justify-center -mt-[1.5rem]">
