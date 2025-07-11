@@ -131,18 +131,6 @@ const SquadPage = () => {
   return (
     <NavWrapper>
       <>
-        {/* DEBUG INFO */}
-        <div className="bg-gray-900 border border-gray-700 rounded-lg p-4 mx-4 mt-4 mb-2">
-          <p className="text-xs text-gray-300 font-mono">
-            <strong>DEBUG INFO:</strong><br/>
-            Connected: {currentAccount?.address || "No wallet connected"}<br/>
-            Squad Owner: 0xc82e...db16<br/>
-            Squads Found: {userSquads?.length || 0}<br/>
-            Loading: {isLoadingSquads ? "Yes" : "No"}<br/>
-            Error: {squadsError ? "Yes - Check console" : "No"}
-          </p>
-        </div>
-
         <div className="flex flex-col h-full justify-between relative">
           {selectedSquad ? (
             // Show the selected squad's pitch

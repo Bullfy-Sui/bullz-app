@@ -4,9 +4,8 @@ import TokenCard from "@/components/general/token/card";
 import PlusIcon from "@/components/icons/plus.icon";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
-import { AxiosError } from "axios";
 import { SquadForm } from "../types";
 import Player from "./player";
 import { Multiplier, Postition } from "./pitch";
@@ -18,7 +17,6 @@ interface Props {
 }
 
 const SelectSquadPlayers = (props: Props) => {
-  console.log("SelectSquadPlayers props:", props);
   const { data: priceList, isLoading, error, isError } = useGetPriceList();
   const [focusedPosition, setFocusedPosition] = useState<
     [Postition, Multiplier]
@@ -27,54 +25,9 @@ const SelectSquadPlayers = (props: Props) => {
   const playerArray = useFieldArray({ control: control, name: "players" });
   const playerArrayWatch = useWatch({ control: control, name: "players" });
 
-  // Debug environment and API setup
-  useEffect(() => {
-    console.log("🌍 Environment Info:", {
-      isDev: import.meta.env.DEV,
-      baseURL: import.meta.env.VITE_BASE_URL,
-      mode: import.meta.env.MODE,
-    });
-  }, []);
-
-  // Add debugging effect
-  useEffect(() => {
-    console.log("🔍 Token API Status:", {
-      isLoading,
-      isError,
-      error: error?.message || error,
-      hasPriceList: !!priceList,
-      priceListLength: priceList?.length || 0,
-      priceListSample: priceList?.slice(0, 2) // Show first 2 tokens for debugging
-    });
-    
-    if (priceList && priceList.length > 0) {
-      console.log("📊 Sample token data:", priceList[0]);
-    }
-    
-    if (isError && error) {
-      console.error("❌ Full API Error:", error);
-      const axiosError = error as AxiosError;
-      if (axiosError.response) {
-        console.error("❌ Response Error:", axiosError.response.status, axiosError.response.data);
-      } else if (axiosError.request) {
-        console.error("❌ Request Error:", axiosError.request);
-      } else {
-        console.error("❌ Error Message:", error.message);
-      }
-    }
-  }, [priceList, isLoading, isError, error]);
-
   const handlePlayerSelect = (token: TokenResponse) => {
     const foundPlayer = playerArrayWatch?.find(
       (player) => player.position === focusedPosition[0]
-    );
-    console.log(
-      "🎯 Player select:",
-      foundPlayer,
-      focusedPosition,
-      token,
-      playerArray.fields,
-      playerArray.fields.length
     );
 
     if (foundPlayer)
@@ -93,7 +46,6 @@ const SelectSquadPlayers = (props: Props) => {
         imageUrl: token.imageUrl,
         multiplier: focusedPosition[1],
       });
-      console.log("✅ Player added:", playerArray.fields);
     }
   };
 
